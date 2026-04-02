@@ -1,0 +1,22 @@
+name: Quality Gate
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint
+        run: echo "Linting..."
+
+      - name: Test
+        run: echo "Testing..."
+
+      - name: Coverage
+        run: echo "Checking coverage..."

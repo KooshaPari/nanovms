@@ -1,0 +1,11 @@
+#!/bin/bash
+# Pre-commit hook
+
+echo "Running pre-commit checks..."
+
+# Check for TODO/FIXME in staged files
+if git diff --cached --name-only | xargs grep -l "TODO\|FIXME" 2>/dev/null; then
+    echo "Warning: Found TODO/FIXME in staged files"
+fi
+
+echo "Pre-commit checks complete"
