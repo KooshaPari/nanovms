@@ -22,12 +22,31 @@ export default defineConfig({
         ]
       },
       {
+        text: 'Journeys',
+        items: [
+          { text: 'Overview', link: '/journeys/' },
+          { text: 'Quick Start', link: '/journeys/quick-start' },
+          { text: 'Game Automation', link: '/journeys/game-automation' },
+          { text: 'Agent Desktop', link: '/journeys/agent-desktop' },
+          { text: 'GPU Passthrough', link: '/journeys/gpu-passthrough' },
+        ]
+      },
+      {
+        text: 'Stories',
+        items: [
+          { text: 'Overview', link: '/stories/' },
+          { text: 'Create First VM', link: '/stories/create-first-vm' },
+          { text: 'Run Game Tests', link: '/stories/run-game-tests' },
+        ]
+      },
+      {
         text: 'Reference',
         items: [
           { text: 'CLI Reference', link: '/reference/cli' },
           { text: 'Configuration', link: '/reference/configuration' },
           { text: 'API Reference', link: '/reference/api' },
-          { text: 'Environment Variables', link: '/reference/environment' },
+          { text: 'Architecture', link: '/reference/architecture' },
+          { text: 'Benchmarks', link: '/reference/benchmarks' },
         ]
       },
       {
@@ -38,29 +57,10 @@ export default defineConfig({
           { text: 'io_uring Performance', link: '/research/iouring' },
           { text: 'eBPF Networking', link: '/research/ebpf' },
           { text: 'SOTA Comparison', link: '/research/comparison' },
-        ]
-      },
-      {
-        text: 'Architecture Decisions',
-        items: [
-          { text: 'ADR Index', link: '/adr/' },
-          { text: 'Language Selection', link: '/adr/ADR-001-language-selection' },
-          { text: 'Three-Tier Isolation', link: '/adr/ADR-002-three-tier-isolation' },
-          { text: 'Storage Backend', link: '/adr/ADR-003-storage-backend' },
-          { text: 'Networking Model', link: '/adr/ADR-004-networking-model' },
-        ]
-      },
-      {
-        text: 'Specifications',
-        items: [
-          { text: 'VM Lifecycle', link: '/specs/vm-lifecycle' },
-          { text: 'Sandbox Protocol', link: '/specs/sandbox-protocol' },
-          { text: 'Resource Limits', link: '/specs/resource-limits' },
-          { text: 'Snapshot Format', link: '/specs/snapshot-format' },
+          { text: 'Hardware Profiles', link: '/research/hardware-profiles' },
         ]
       },
       { text: 'Changelog', link: '/changelog' },
-      { text: 'Contributing', link: '/contributing' },
     ],
 
     sidebar: {
@@ -100,6 +100,28 @@ export default defineConfig({
           ]
         },
       ],
+      '/journeys/': [
+        {
+          text: 'User Journeys',
+          items: [
+            { text: 'Overview', link: '/journeys/' },
+            { text: 'Quick Start Journey', link: '/journeys/quick-start' },
+            { text: 'Game Automation Journey', link: '/journeys/game-automation' },
+            { text: 'Agent Desktop Journey', link: '/journeys/agent-desktop' },
+            { text: 'GPU Passthrough Journey', link: '/journeys/gpu-passthrough' },
+          ]
+        },
+      ],
+      '/stories/': [
+        {
+          text: 'User Stories',
+          items: [
+            { text: 'Overview', link: '/stories/' },
+            { text: 'Create Your First VM', link: '/stories/create-first-vm' },
+            { text: 'Run Game Tests', link: '/stories/run-game-tests' },
+          ]
+        },
+      ],
       '/reference/': [
         {
           text: 'CLI Reference',
@@ -129,19 +151,6 @@ export default defineConfig({
           ]
         },
       ],
-      '/research/': [
-        {
-          text: 'Research',
-          items: [
-            { text: 'VFIO GPU Passthrough', link: '/research/vfio' },
-            { text: 'Firecracker Deep Dive', link: '/research/firecracker' },
-            { text: 'io_uring Performance', link: '/research/iouring' },
-            { text: 'eBPF Networking', link: '/research/ebpf' },
-            { text: 'SOTA Comparison', link: '/research/comparison' },
-            { text: 'Consumer Hardware Profiles', link: '/research/hardware-profiles' },
-          ]
-        },
-      ],
       '/adr/': [
         {
           text: 'Architecture Decisions',
@@ -153,18 +162,6 @@ export default defineConfig({
             { text: 'ADR-004: Networking Model', link: '/adr/ADR-004-networking-model' },
             { text: 'ADR-005: Snapshot Strategy', link: '/adr/ADR-005-snapshot-strategy' },
             { text: 'ADR-006: Metrics & Observability', link: '/adr/ADR-006-observability' },
-          ]
-        },
-      ],
-      '/specs/': [
-        {
-          text: 'Specifications',
-          items: [
-            { text: 'VM Lifecycle', link: '/specs/vm-lifecycle' },
-            { text: 'Sandbox Protocol', link: '/specs/sandbox-protocol' },
-            { text: 'Resource Limits', link: '/specs/resource-limits' },
-            { text: 'Snapshot Format', link: '/specs/snapshot-format' },
-            { text: 'Agent Protocol', link: '/specs/agent-protocol' },
           ]
         },
       ],
