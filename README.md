@@ -1,21 +1,57 @@
 # NanoVMS - Nano Virtual Machine Services
 
-> Lightweight, headless VM abstraction for agents — supports desktop, mobile, embedded, gaming, and emerging form factors
+> Lightweight, headless VM abstraction for AI agents — Three-tier isolation architecture
 
-NanoVMS provides a unified interface for managing development environments and simulators across **desktop**, **mobile**, **embedded**, **gaming**, and **emerging platforms**.
+NanoVMS provides a unified interface for managing development environments and isolated execution across desktop, mobile, embedded, gaming, and emerging platforms.
+
+## Three-Tier Isolation Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Agent Controller                               │
+├─────────────────────────────────────────────────────────────────────┤
+│  Tier 1: WASM Sandboxes (~1ms startup, ~1MB memory)              │
+│  └── Fast tool execution, WASI sandbox, no syscalls                │
+├─────────────────────────────────────────────────────────────────────┤
+│  Tier 2: gVisor Containers (~90ms startup, ~20MB memory)           │
+│  └── Syscall filtering, network isolation                           │
+├─────────────────────────────────────────────────────────────────────┤
+│  Tier 3: MicroVMs (~125ms startup, <5MB memory)                    │
+│  └── Firecracker, OCI compatible, full hardware isolation           │
+└─────────────────────────────────────────────────────────────────────┘
+```
 
 ## Features
 
-- **Two-Level Abstraction**: Infrastructure layer (Native, Lima, WSL, MicroVM, WASM) + Platform target layer
-- **Apple Ecosystem**: iOS, iPadOS, tvOS, watchOS, visionOS, macOS
-- **Android Ecosystem**: Phone, Tablet, Wear OS, Android TV, Automotive
-- **Smart TVs**: tvOS, Android TV, Samsung Tizen, LG webOS, Roku, Fire TV
-- **Gaming**: PlayStation, Nintendo Switch, Xbox development
-- **IoT/Embedded**: Raspberry Pi, Pine64, ESP32, FreeRTOS
-- **AR/VR**: Meta Quest, Apple Vision Pro, Microsoft HoloLens, SteamVR, SteamOS
-- **Multi-Tier VM**: Native → Lima/WSL → MicroVM (Firecracker) → WASM
-- **Sandbox Isolation**: gVisor, landlock, seccomp, bwrap, WASM
-- **Hexagonal Architecture**: Clean separation, extensible adapters
+### Isolation Tiers
+
+| Tier | Technology | Startup | Memory | Use Case |
+|------|------------|---------|--------|----------|
+| **1** | Wasmtime | ~1ms | ~1MB | Agent tools, plugins |
+| **2** | gVisor (runsc) | ~90ms | ~20MB | Semi-trusted code |
+| **3** | Firecracker | ~125ms | <5MB | Untrusted code |
+
+### Infrastructure Adapters
+
+| Adapter | Platform | Technology | Status |
+|---------|----------|------------|--------|
+| `mac/` | macOS | Lima/VZ + virtiofs | ✅ Implemented |
+| `windows/` | Windows | WSL2 + gVisor | ⚠️ Partial |
+| `linux/` | Linux | Native/KVM | ⚠️ Partial |
+| `microvm/` | All | Firecracker | 📋 Planned |
+| `wasm/` | All | Wasmtime | ⚠️ Partial |
+| `sandbox/` | Linux | bwrap, firejail | ✅ Implemented |
+
+### Platform Targets (ROADMAP)
+
+| Category | Targets | Infrastructure |
+|----------|---------|----------------|
+| Apple | iOS, iPadOS, tvOS, watchOS, visionOS | Lima/VZ |
+| Android | Phone, Tablet, Wear, TV, Auto | WSL2/Lima |
+| Smart TV | Tizen, webOS, Roku, Fire TV | QEMU |
+| Gaming | PlayStation, Switch, Xbox | Various |
+| AR/VR | Quest, HoloLens, SteamVR, SteamOS | Remote/QEMU |
+| IoT | Raspberry Pi, Pine64, ESP32 | QEMU |
 
 ## Architecture
 
@@ -28,28 +64,12 @@ nanovms/
 │   │   ├── windows/         # WSL adapter (Windows)
 │   │   ├── linux/           # Native/KVM adapter (Linux)
 │   │   ├── microvm/         # Firecracker adapter (all platforms)
-│   │   ├── wasm/            # WASM runtime adapter
-│   │   └── sandbox/         # Isolation adapters (bwrap, gVisor, etc.)
-│   ├── domain/               # Core models (Sandbox, VMFlavor, VMConfig)
+│   │   ├── wasm/            # Wasmtime adapter
+│   │   └── sandbox/         # bwrap, firejail, gVisor
+│   ├── domain/               # Core models (Sandbox, VMFlavor)
 │   └── ports/                # Interface definitions (VMAdapter)
 └── pkg/                      # Public API library
 ```
-
-### Two-Level Abstraction
-
-1. **Infrastructure Layer** (CURRENT): VM runtimes
-   - `native` - HyperKit, Hyper-V, KVM
-   - `lima` - Lima with vz driver (macOS)
-   - `wsl` - Windows Subsystem for Linux
-   - `microvm` - Firecracker microVM
-   - `wasm` - WebAssembly runtime
-
-2. **Platform Target Layer** (PLANNED): Target platforms
-   - Apple: iOS, tvOS, watchOS, visionOS, macOS
-   - Android: Phone, Tablet, Wear, TV, Automotive
-   - Smart TV: Tizen, webOS, Roku, Fire TV
-   - Gaming: PlayStation, Switch, Xbox
-   - AR/VR: Quest, HoloLens, SteamVR, SteamOS
 
 ## Quick Start
 
@@ -62,43 +82,80 @@ go build ./cmd/nanovms
 # Probe system capabilities
 ./nanovms probe
 
-# Create a sandbox with specified VM flavor
-./nanovms create dev --vm-flavor lima --image ubuntu:22.04
-./nanovms create secure --vm-flavor microvm --image ubuntu:22.04
+# Create a sandbox with specified isolation tier
+./nanovms sandbox create dev --tier wasm      # Tier 1: Fast (~1ms)
+./nanovms sandbox create dev --tier gvisor    # Tier 2: Secure (~90ms)
+./nanovms sandbox create dev --tier microvm   # Tier 3: Full isolation (~125ms)
+
+# Execute in sandbox
+./nanovms exec dev -- node -e "console.log('hello')"
 ```
 
-## Supported Platforms
+## CLI Commands
 
-### Infrastructure Adapters
+### Sandbox Commands
 
-| Adapter | Platform | Status |
-|---------|----------|--------|
-| `mac/` | macOS | ✅ Implemented (Lima/VZ) |
-| `windows/` | Windows | ⚠️ Partial (WSL2 stub) |
-| `linux/` | Linux | ⚠️ Partial (Native/KVM stub) |
-| `microvm/` | All | 📋 Planned (Firecracker) |
-| `wasm/` | All | ⚠️ Partial (WASM stub) |
-| `sandbox/` | Linux | ✅ Implemented (bwrap, firejail) |
+```bash
+# Create sandboxes at different tiers
+nanovms sandbox create <name> --tier wasm      # Tier 1: Wasmtime
+nanovms sandbox create <name> --tier gvisor    # Tier 2: gVisor
+nanovms sandbox create <name> --tier native    # Tier 3: bwrap/firejail
 
-### Planned: Platform Targets
+# List sandboxes
+nanovms sandbox list
 
-| Category | Targets | Infrastructure |
-|----------|---------|----------------|
-| Apple | iOS, iPadOS, tvOS, watchOS, visionOS | Lima/VZ |
-| Android | Phone, Tablet, Wear, TV, Auto | WSL2/Lima |
-| Smart TV | Tizen, webOS, Roku, Fire TV | QEMU/Lima |
-| Gaming | PlayStation, Switch, Xbox | Various |
-| AR/VR | Quest, HoloLens, SteamVR, SteamOS | Remote/QEMU |
-| IoT | Raspberry Pi, Pine64, ESP32, FreeRTOS | QEMU |
+# Execute in sandbox
+nanovms sandbox exec <name> -- <command>
 
-## VM Tiers
+# Delete sandbox
+nanovms sandbox delete <name>
+```
 
-| Tier | Technology | Use Case | Overhead |
-|------|------------|----------|----------|
-| 1 - Native | HyperKit, Hyper-V, KVM | Production parity | Highest |
-| 2 - Lima/WSL | Lima/VZ, WSL2 | Daily development | Medium |
-| 3 - MicroVM | Firecracker, Cloud Hypervisor | CI/CD, isolation | Lowest |
-| 4 - WASM | Wasmtime, Wasmer | Lightweight execution | Minimal |
+### VM Commands
+
+```bash
+# Create VM with specified flavor
+nanovms vm create dev --flavor lima        # macOS: Lima/VZ
+nanovms vm create dev --flavor wsl         # Windows: WSL2
+nanovms vm create dev --flavor native      # Linux: KVM
+nanovms vm create dev --flavor microvm     # All: Firecracker
+
+# List VMs
+nanovms vm list
+
+# Start/stop/delete
+nanovms vm start <name>
+nanovms vm stop <name>
+nanovms vm delete <name>
+```
+
+### IDE Commands
+
+```bash
+# Headless IDE for agents
+nanovms ide start --type vscode-server --workspace /project
+nanovms ide start --type jetbrains --project /project
+
+# Dev containers
+nanovms devcontainer create --image ubuntu:22.04-dev
+```
+
+## Performance
+
+| Component | Startup | Memory | Cold Start |
+|-----------|---------|--------|------------|
+| WASM (Wasmtime) | ~1ms | ~1MB | ~1ms |
+| gVisor Container | ~90ms | ~20MB | ~90ms |
+| Firecracker MicroVM | ~125ms | <5MB | ~125ms |
+| runc Container | ~1s | ~50MB | ~500ms |
+
+## Security
+
+| Tier | Isolation | Attack Surface |
+|------|-----------|----------------|
+| 1 - WASM | Language sandbox | Minimal (WASI only) |
+| 2 - gVisor | Userspace kernel | Low (syscall filter) |
+| 3 - MicroVM | Hardware VT-x/AMD-V | Minimal (5 devices) |
 
 ## Development
 
@@ -118,6 +175,11 @@ go test ./...
 # Lint
 golangci-lint run
 ```
+
+## Documentation
+
+- [SPEC.md](./SPEC.md) — Full specification
+- [docs/adr/](./docs/adr/) — Architecture decision records
 
 ## License
 
