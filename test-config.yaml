@@ -1,0 +1,52 @@
+# Test Configuration for NanoVMS
+# Modern testing stack: Vitest + Playwright + Cargo
+
+project:
+  name: nanovms
+  language: rust
+  framework: cargo-test
+
+# Test Configuration
+test:
+  # Vitest for JavaScript/TypeScript tests
+  vitest:
+    enabled: true
+    config: vitest.config.ts
+    coverage:
+      provider: v8
+      thresholds:
+        lines: 80
+        functions: 80
+        branches: 70
+
+  # Playwright for E2E tests
+  playwright:
+    enabled: true
+    config: playwright.config.ts
+    browsers: [chromium, firefox, webkit]
+
+  # Cargo for Rust tests
+  cargo:
+    enabled: true
+    features: [test-utils]
+
+# Test patterns
+patterns:
+  unit: "tests/unit/**/*.rs"
+  integration: "tests/integration/**/*.rs"
+  e2e: "tests/e2e/**/*.ts"
+  bdd: "tests/bdd/**/*.feature"
+
+# Coverage targets
+coverage:
+  unit: 80
+  integration: 70
+  e2e: 60
+  overall: 75
+
+# Test rules
+rules:
+  - pattern: "internal/adapters/**"
+    required: [create, start, stop, delete]
+  - pattern: "internal/sandbox/**"
+    required: [isolation, resource_limits]

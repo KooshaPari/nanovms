@@ -5,12 +5,14 @@ on:
     branches: [main, docs]
     paths:
       - 'tests/**'
-      - '.test-config.yaml'
+      - 'vitest.config.ts'
+      - 'playwright.config.ts'
       - '**.rs'
   pull_request:
     paths:
       - 'tests/**'
-      - '.test-config.yaml'
+      - 'vitest.config.ts'
+      - 'playwright.config.ts'
   schedule:
     - cron: '0 2 * * *'  # Weekly test run
 
@@ -23,12 +25,34 @@ jobs:
 
       - name: Run BDD Tests
         run: |
-          # Gherkin BDD tests for three-tier isolation
-          if command -v cucumber &> /dev/null; then
-            cucumber tests/bdd/tier-isolation.feature
+          if command -v npx &> /dev/null; then
+            npx @cucumber/cucumber run tests/bdd/tier-isolation.feature
           else
             echo "Cucumber not installed - skipping BDD tests"
           fi
+
+  vitest-tests:
+    name: Vitest Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install vitest @vitest/coverage-v8
+
+      - name: Run Vitest
+        run: npx vitest run --reporter=json
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitest-coverage
+          path: coverage/
 
   playwright-tests:
     name: Playwright Integration Tests
@@ -41,13 +65,11 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install dependencies
-        working-directory: tests/playwright
-        run: npm install
+      - name: Install Playwright
+        run: npm install @playwright/test && npx playwright install --with-deps
 
       - name: Run Playwright Tests
-        working-directory: tests/playwright
-        run: npx playwright test || echo "Playwright tests pending"
+        run: npx playwright test
 
   cargo-tests:
     name: Rust Unit Tests
