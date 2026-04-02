@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"devenv/abstraction/internal/domain"
-	"devenv/abstraction/internal/ports"
+	"github.com/kooshapari/nanovms/internal/domain"
+	"github.com/kooshapari/nanovms/internal/ports"
 )
 
 // Adapter implements the SandboxPort interface for sandbox isolation technologies.

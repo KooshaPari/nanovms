@@ -1,4 +1,4 @@
-// Package wasm implements WASM runtime adapter for devenv-abstraction
+// Package wasm implements WASM runtime adapter for NanoVMS
 // WASM runtime provides an additional sandbox layer that can run alongside VMs
 // or standalone for lightweight workload isolation
 package wasm
@@ -9,8 +9,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"devenv-abstraction/internal/domain"
-	"devenv-abstraction/internal/ports"
+	"github.com/kooshapari/nanovms/internal/domain"
+	"github.com/kooshapari/nanovms/internal/ports"
 )
 
 // WASMAdapter implements ports.WASMModulePort for WASM runtime environments

@@ -15,8 +15,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/kooshapari/devenv-abstraction/internal/domain"
-	"github.com/kooshapari/devenv-abstraction/internal/ports"
+	"github.com/kooshapari/nanovms/internal/domain"
+	"github.com/kooshapari/nanovms/internal/ports"
 )
 
 // Adapter implements RuntimePort for macOS with 3-tier VM support.

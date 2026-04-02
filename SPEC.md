@@ -1,271 +1,206 @@
-# devenv-abstraction Specification
+# NanoVMS Specification
 
-> Docker-alternative VM stack with OCI/sandbox support - 3-tier architecture
+> Nano Virtual Machine Services — Headless VM abstraction for agents
 
 ## Overview
 
-`devenv-abstraction` is a Go-based container runtime abstraction layer that provides a unified interface for managing development environments across Mac, Windows, and Linux platforms with three isolation tiers plus sandboxing.
+NanoVMS provides lightweight, headless virtual machine services for agent-driven development workflows. It implements a **two-level abstraction**:
+
+1. **Infrastructure Layer** (CURRENT): VM runtimes (Native, Lima, WSL, MicroVM, WASM)
+2. **Platform Layer** (PLANNED): Target platforms (iOS, Android, tvOS, etc.)
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                          CLI / API                                      │
-├─────────────────────────────────────────────────────────────────────────┤
-│                       Ports (Interfaces)                                │
-│  ┌──────────────┐ ┌──────────────┐ ┌────────────┐ ┌────────────┐  │
-│  │ RuntimePort   │ │ SandboxPort  │ │VMAdapterPort│ │WASMAdapter  │  │
-│  │              │ │              │ │            │ │ Port       │  │
-│  └──────────────┘ └──────────────┘ └────────────┘ └────────────┘  │
-├─────────────────────────────────────────────────────────────────────────┤
-│                       Core (Business Logic)                            │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────────┐     │
-│  │ Sandbox      │ │ Lifecycle    │ │ Resource Manager         │     │
-│  │ Orchestrator │ │ Manager      │ │                         │     │
-│  └──────────────┘ └──────────────┘ └──────────────────────────┘     │
-├─────────────────────────────────────────────────────────────────────────┤
-│                    Sandbox Isolation Layer                             │
-│  ┌──────────────┐ ┌──────────────┐ ┌────────────┐ ┌────────────┐    │
-│  │ gVisor       │ │ landlock     │ │ seccomp    │ │ wasmtime   │    │
-│  │ (runsc)      │ │ (Linux)      │ │ (all)      │ │ (WASM)     │    │
-│  └──────────────┘ └──────────────┘ └────────────┘ └────────────┘    │
-├─────────────────────────────────────────────────────────────────────────┤
-│                    VM Adapter Layer (3 Tiers)                          │
-│                                                                         │
-│  ┌─────────────────────────────────────────────────────────────────┐  │
-│  │ TIER 1: Native VM (Full isolation, highest overhead)             │  │
-│  │  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────────┐│  │
-│  │  │ Mac:         │ │ Windows:    │ │ Linux:                  ││  │
-│  │  │ HyperKit /   │ │ Hyper-V /   │ │ KVM / QEMU             ││  │
-│  │  │ Virt Framework│ │ VMware      │ │                         ││  │
-│  │  └──────────────┘ └──────────────┘ └──────────────────────────┘│  │
-│  ├─────────────────────────────────────────────────────────────────┤  │
-│  │ TIER 2: Container/WSL (OS-level, medium overhead)               │  │
-│  │  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────────┐│  │
-│  │  │ Mac:         │ │ Windows:    │ │ Linux:                  ││  │
-│  │  │ Lima + VZ    │ │ WSL2        │ │ Native namespaces       ││  │
-│  │  │ driver       │ │             │ │ + cgroups v2           ││  │
-│  │  └──────────────┘ └──────────────┘ └──────────────────────────┘│  │
-│  ├─────────────────────────────────────────────────────────────────┤  │
-│  │ TIER 3: MicroVM (Lightweight VM, low overhead)                  │  │
-│  │  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────────┐│  │
-│  │  │ Firecracker  │ │ Firecracker  │ │ Firecracker /           ││  │
-│  │  │ (AWS)        │ │ (Cross-OS)   │ │ Cloud Hypervisor        ││  │
-│  │  └──────────────┘ └──────────────┘ └──────────────────────────┘│  │
-│  └─────────────────────────────────────────────────────────────────┘  │
-├─────────────────────────────────────────────────────────────────────────┤
-│                       OCI Runtime Layer                                │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────────────┐   │
-│  │ runc         │ │ gVisor      │ │ youki / crun               │   │
-│  │ (default)    │ │ (sandboxed) │ │ (OCI compliant)            │   │
-│  └──────────────┘ └──────────────┘ └──────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────┘
+nanovms/
+├── internal/
+│   ├── domain/           # Core models (Sandbox, VMConfig, VMFlavor)
+│   ├── ports/           # Port interfaces (VMAdapter, SandboxManager)
+│   ├── adapters/         # VM runtime adapters
+│   │   ├── mac/         # Lima/VZ adapter
+│   │   ├── windows/     # WSL adapter
+│   │   ├── linux/       # Native/KVM adapter
+│   │   ├── microvm/     # Firecracker adapter
+│   │   ├── wasm/        # WASM runtime adapter
+│   │   └── sandbox/     # Sandbox layer adapters (bwrap, gVisor, etc.)
+│   └── core/            # Orchestration logic
+├── cmd/nanovms/         # CLI entry point
+├── pkg/                 # Public API library
+└── SPEC.md
 ```
 
-## Platform Support
+## Core Types (IMPLEMENTED)
 
-| Platform | Tier 1 (Native VM) | Tier 2 (Container/WSL) | Tier 3 (MicroVM) |
-|----------|-------------------|----------------------|------------------|
-| **macOS** | ✅ Virt.framework (Apple Silicon) / HyperKit (Intel) | ✅ Lima + vz driver | ✅ Firecracker |
-| **Windows** | ✅ Hyper-V / VMware Workstation | ✅ WSL2 | ✅ Firecracker (via WSL2) |
-| **Linux** | ✅ KVM / QEMU | ✅ Native namespaces + cgroups v2 | ✅ Firecracker / Cloud Hypervisor |
-
-## Sandbox Isolation Support
-
-| Sandbox Type | Description | Platforms | Use Case |
-|-------------|-------------|----------|----------|
-| **Native Sandboxes** | Lightweight process isolation | | |
-| `bwrap` (bubblewrap) | Linux namespace sandbox, no VM | Linux | Fast dev envs, CI |
-| `firejail` | AppArmor/sandbox profiles | Linux | GUI apps, network isolation |
-| `unshare` | Manual namespace creation | Linux | Minimal containers |
-| **Native macOS** | macOS-specific sandboxing | | |
-| `sandbox-exec` | Apple sandbox profiles | macOS | App Store compliance |
-| **Native Windows** | Windows-specific sandboxing | | |
-| `Windows Sandbox` | Hyper-V lightweight VM | Windows | Quick testing |
-| **Kernel Sandboxes** | Syscall interception | | |
-| **gVisor** | User-space kernel, syscall interception | All (via runc) | High-security isolation |
-| **landlock** | Filesystem sandboxing | Linux 5.13+ | Filesystem restrictions |
-| **seccomp** | Syscall filtering | All | System call filtering |
-| **WASM** | WebAssembly runtime | All | Language-level isolation |
-
-### Native Sandbox Performance
-
-| Sandbox | Spin-up Time | Memory Overhead | Isolation Level |
-|---------|-------------|----------------|-----------------|
-| `bwrap` | < 10ms | ~0 | Process namespace |
-| `firejail` | < 50ms | ~1MB | AppArmor + namespaces |
-| `unshare` | < 5ms | ~0 | Namespaces only |
-| `sandbox-exec` | < 20ms | ~0 | Seatbelt profiles |
-| gVisor | ~100ms | ~50MB | User-space kernel |
-| MicroVM (Firecracker) | ~100ms | ~5MB | Full VM |
-
-## Core Types
-
-### Sandbox
+### VMFlavor - Infrastructure Layer
 
 ```go
-type Sandbox struct {
-    ID        string
-    Name      string
-    Status    SandboxStatus
-    Platform  Platform
-    VMTier    VMTier
-    Sandbox   SandboxType
-    Config    SandboxConfig
-}
-```
+// internal/domain/sandbox.go
 
-### VMTier
-
-```go
-// VMTier represents the VM isolation tier
-type VMTier int
+type VMFlavor string
 
 const (
-    Tier1NativeVM VMTier = iota + 1 // HyperKit, Hyper-V, KVM
-    Tier2Container                   // Lima, WSL2, namespaces
-    Tier3MicroVM                     // Firecracker, Cloud Hypervisor
+    VMFlavorNative  VMFlavor = "native"   // HyperKit, Hyper-V, KVM
+    VMFlavorLima    VMFlavor = "lima"     // Lima with vz driver (macOS)
+    VMFlavorWSL     VMFlavor = "wsl"      // Windows Subsystem for Linux
+    VMFlavorMicroVM VMFlavor = "microvm"  // Firecracker microVM
+    VMFlavorWasm    VMFlavor = "wasm"     // WebAssembly runtime
 )
 ```
 
-### SandboxType
+### SandboxType - Isolation Levels
 
 ```go
-// SandboxType represents the sandbox isolation type
-type SandboxType int
+type SandboxType string
 
 const (
-    SandboxNone SandboxType = iota
-    SandboxGVisor    // gVisor user-space kernel
-    SandboxLandlock  // Linux landlock filesystem sandbox
-    SandboxSeccomp  // seccomp syscall filtering
-    SandboxWASM     // WASM runtime isolation
+    SandboxTypeVM        SandboxType = "vm"        // Full virtual machine
+    SandboxTypeContainer SandboxType = "container" // Container isolation
+    SandboxTypeWasm      SandboxType = "wasm"      // WebAssembly isolation
+    SandboxTypeProcess   SandboxType = "process"   // gVisor, landlock
+    SandboxTypeNative    SandboxType = "native"     // bwrap, firejail, namespaces
 )
 ```
 
-### Platform
+### NativeSandboxType - Linux Sandbox Implementations
 
 ```go
-type Platform string
+type NativeSandboxType string
 
 const (
-    PlatformMac     Platform = "mac"
-    PlatformWindows Platform = "windows"
-    PlatformLinux   Platform = "linux"
+    NativeSandboxBwrap           NativeSandboxType = "bwrap"
+    NativeSandboxFirejail        NativeSandboxType = "firejail"
+    NativeSandboxUnshare         NativeSandboxType = "unshare"
+    NativeSandboxChroot          NativeSandboxType = "chroot"
+    NativeSandboxWindowsContainer NativeSandboxType = "windows-container"
+    NativeSandboxMacOSContain     NativeSandboxType = "sandbox-exec"
 )
 ```
 
-## Ports (Interfaces)
-## Adapter Interfaces
+## VM Tiers
 
-### VMAdapter (Port)
-
-```go
-// VMAdapter is implemented by platform-specific VM adapters
-type VMAdapter interface {
-    // Platform returns the platform this adapter supports
-    Platform() Platform
-
-    // VMTier returns the tier this adapter implements
-    VMTier() VMTier
-
-    // Start starts the VM
-    Start(ctx context.Context, config VMConfig) error
-
-    // Stop stops the VM
-    Stop(ctx context.Context) error
-
-    // Status returns the current VM status
-    Status(ctx context.Context) (VMStatus, error)
-
-    // Exec executes a command inside the VM
-    Exec(ctx context.Context, cmd []string, opts ExecOptions) error
-
-    // Mount mounts a directory into the VM
-    Mount(ctx context.Context, source, target string, readonly bool) error
-}
-```
-
-### SandboxPort
-
-```go
-// SandboxPort is implemented by sandbox adapters
-type SandboxPort interface {
-    // SandboxType returns the type of sandbox this adapter implements
-    SandboxType() SandboxType
-
-    // Apply applies the sandbox profile to a process
-    Apply(ctx context.Context, pid int, profile SandboxProfile) error
-
-    // Validate validates a sandbox profile
-    Validate(profile SandboxProfile) error
-}
-```
-
-### WASMAdapterPort
-
-```go
-// WASMAdapterPort is implemented by WASM runtime adapters
-type WASMAdapterPort interface {
-    // Runtime returns the WASM runtime name
-    Runtime() string
-
-    // Compile compiles WASM module
-    Compile(ctx context.Context, wasm []byte) (CompiledModule, error)
-
-    // Instantiate creates a new WASM instance
-    Instantiate(ctx context.Context, module CompiledModule, imports WASMImports) error
-}
-```
-## Sandbox Lifecycle
-
-```
-create ──► pending ──► running ──► stopped
-              │           │
-              │           ▼
-              └─────────► error
-              │
-              ▼
-           deleted
-```
-
-## OCI Compliance
-
-The runtime adapter outputs OCI-compatible bundles when possible, ensuring compatibility with existing container tooling.
-
-## Resource Limits
-
-| Resource | Default | Max |
-|----------|---------|-----|
-| CPU | 2 cores | 8 cores |
-| Memory | 4GB | 32GB |
-| Disk | 20GB | 100GB |
-| Networks | 1 | 4 |
-
-## Error Handling
-
-All errors wrap the underlying system error with context:
-
-```go
-var ErrSandboxNotFound = errors.New("sandbox not found")
-var ErrRuntimeUnavailable = errors.New("runtime unavailable")
-var ErrInvalidConfig = errors.New("invalid sandbox configuration")
-```
+| Tier | Technology | Use Case | Overhead |
+|------|------------|----------|----------|
+| **1 - Native** | HyperKit, Hyper-V, KVM | Production parity | Highest |
+| **2 - Lima/WSL** | Lima/VZ, WSL2 | Daily development | Medium |
+| **3 - MicroVM** | Firecracker, Cloud Hypervisor | CI/CD, isolation | Lowest |
+| **4 - WASM** | Wasmtime, Wasmer | Lightweight execution | Minimal |
 
 ## Security Model
 
-- **Mac**: Lima VMs are isolated via hypervisor.framework (Apple Silicon) or HVF (Intel)
-- **Windows**: WSL2 provides kernel isolation; gVisor adds syscall filtering
-- **Linux**: Native namespace isolation with gVisor syscall interception
+| Tier | Isolation | Performance | Use Case |
+|------|-----------|-------------|----------|
+| Native VM | VT-x/AMD-V | ★★★★☆ | Production testing |
+| MicroVM | Firecracker | ★★★★★ | Agent sandboxing |
+| Container | namespaces/cgroups | ★★★★★ | Local dev |
+| WASM | Bytecode isolation | ★★★★★ | Lightweight workloads |
 
-## File Format
+Sandbox layers (gVisor, landlock, seccomp, WASM) can be stacked for additional security.
 
-Sandbox configurations are stored in TOML:
+## Platform Support Matrix (CURRENT)
 
-```toml
-name = "my-dev-env"
-platform = "mac"
-resources.cpu = 4
-resources.memory = "8GB"
-resources.disk = "50GB"
+### Infrastructure Adapters
+
+| Adapter | Platform | Status | Notes |
+|---------|----------|--------|-------|
+| `mac/` | macOS | ✅ Implemented | Lima with vz driver |
+| `windows/` | Windows | ⚠️ Partial | WSL2 adapter (stub) |
+| `linux/` | Linux | ⚠️ Partial | Native/KVM (stub) |
+| `microvm/` | All | 📋 Planned | Firecracker adapter |
+| `wasm/` | All | ⚠️ Partial | WASM adapter (stub) |
+| `sandbox/` | Linux | ✅ Implemented | bwrap, firejail |
+
+### Host Requirements
+
+| VMFlavor | macOS | Windows | Linux |
+|----------|-------|---------|-------|
+| Native | HyperKit | Hyper-V | KVM |
+| Lima/WSL | ✅ Lima + VZ | ✅ WSL2 | N/A |
+| MicroVM | ✅ Firecracker | ✅ Firecracker | ✅ Firecracker |
+| WASM | ✅ Wasmtime | ✅ Wasmtime | ✅ Wasmtime |
+
+## Planned: Platform Target Layer (ROADMAP)
+
+The second abstraction layer maps infrastructure flavors to platform targets:
+
+### Apple Platforms
+
+| Target | Simulator | Infrastructure | Status |
+|--------|-----------|----------------|--------|
+| iOS | iPhone, iPad | Lima/VZ | 📋 Planned |
+| iPadOS | iPad | Lima/VZ | 📋 Planned |
+| tvOS | Apple TV | Lima/VZ | 📋 Planned |
+| watchOS | Apple Watch | Lima/VZ | 📋 Planned |
+| visionOS | Vision Pro | Lima/VZ | 📋 Planned |
+| macOS | N/A | Native/Lima | ⚠️ Partial |
+
+### Android Ecosystem
+
+| Target | Emulator | Infrastructure | Status |
+|--------|----------|----------------|--------|
+| Phone | Android Emulator | WSL2/Lima | 📋 Planned |
+| Tablet | Various | WSL2/Lima | 📋 Planned |
+| Wear OS | Wear device | Remote stream | 📋 Planned |
+| Android TV | TV emulator | WSL2/Lima | 📋 Planned |
+| Automotive | Auto emulator | WSL2/Lima | 📋 Planned |
+
+### Smart TV Platforms
+
+| Target | SDK/Emulator | Infrastructure | Status |
+|--------|--------------|----------------|--------|
+| tvOS | Xcode | Lima/VZ | 📋 Planned |
+| Android TV | Android Emulator | WSL2/Lima | 📋 Planned |
+| Samsung Tizen | Tizen Studio | QEMU | 📋 Planned |
+| LG webOS | webOS SDK | QEMU | 📋 Planned |
+| Roku | Roku OS SDK | QEMU | 📋 Planned |
+| Fire TV | Fire OS Emulator | WSL2 | 📋 Planned |
+
+### Gaming Consoles
+
+| Target | Simulator | Infrastructure | Status |
+|--------|-----------|----------------|--------|
+| PlayStation | PS DevKit | Remote only | 📋 Planned |
+| Nintendo Switch | Yuzu/Ryujinx | Lima + Wine | 📋 Planned |
+| Xbox | Dev Mode | Hyper-V | 📋 Planned |
+
+### AR/VR Platforms
+
+| Target | Runtime | Infrastructure | Status |
+|--------|---------|----------------|--------|
+| visionOS | Xcode | Lima/VZ | 📋 Planned |
+| Meta Quest | Meta Horizon | Remote stream | 📋 Planned |
+| HoloLens | HoloLens Emulator | Hyper-V | 📋 Planned |
+| Magic Leap | Magic Leap Lab | Remote | 📋 Planned |
+| SteamVR | SteamVR | Proton/Wine | 📋 Planned |
+| SteamOS | ChimeraOS | QEMU | 📋 Planned |
+
+### IoT / Embedded
+
+| Target | Emulator | Infrastructure | Status |
+|--------|----------|----------------|--------|
+| Raspberry Pi | QEMU | ARM emulation | 📋 Planned |
+| Pine64 | QEMU | ARM64 emulation | 📋 Planned |
+| ESP32/STM32 | QEMU | Embedded targets | 📋 Planned |
+| FreeRTOS | QEMU | RTOS targets | 📋 Planned |
+
+## Quality Gates
+
+```bash
+go fmt ./...        # Format
+go vet ./...        # Vet
+go build ./...      # Build
+go test ./...       # Tests
+golangci-lint run   # Lint
 ```
+
+## Status Legend
+
+| Symbol | Meaning |
+|--------|---------|
+| ✅ | Implemented and tested |
+| ⚠️ | Partial implementation (stub) |
+| 📋 | Planned (not started) |
+| ❌ | Not supported |
+
+---
+
+*This spec reflects the current implementation state. Platform target support is planned for future releases.*

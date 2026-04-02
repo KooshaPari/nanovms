@@ -1,31 +1,32 @@
-# Devenv Abstraction
+# NanoVMS - Nano Virtual Machine Services
 
-A Docker-alternative VM stack with OCI/sandbox support. Provides a unified interface for managing development environments across Mac, Windows (WSL), and Linux.
+Lightweight, headless VM abstraction for agents — supports desktop, mobile simulators, and emerging form factors.
 
 ## Features
 
-- **Multi-Platform Support**: Mac native (Lima/Colima), Windows (WSL2), Linux native
-- **OCI Compliant**: Uses OCI runtime specifications for container management
-- **Hexagonal Architecture**: Clean separation of concerns with ports and adapters
-- **Sandbox Isolation**: Supports gVisor, namespace isolation, and MicroVMs
+- **Multi-Platform Support**: macOS, Windows, Linux + mobile simulators (iOS, Android, tvOS, watchOS, VisionOS)
+- **Headless IDE Support**: Run Android Studio / Xcode in VMs for agent use
+- **Multi-Tier VM Architecture**: Native VMs → Container/WSL → MicroVMs (Firecracker)
+- **Sandbox Isolation**: gVisor, landlock, seccomp, WASM runtime layers
+- **Simulator Abstraction**: Unified interface for iOS Simulator, Android Emulator, tvOS, watchOS, VisionOS
 
 ## Quick Start
 
 ```bash
 # Clone the repository
-git clone https://github.com/KooshaPari/devenv-abstraction.git
-cd devenv-abstraction
+git clone https://github.com/KooshaPari/nanovms.git
+cd nanovms
 
 # Build
-go build ./cmd/devenv-abstraction
+go build ./cmd/nanovms
 
 # Run
-./devenv-abstraction --help
+./nanovms --help
 ```
 
 ## Architecture
 
-Devenv Abstraction uses a hexagonal (ports and adapters) architecture:
+NanoVMS uses a hexagonal (ports and adapters) architecture:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -59,6 +60,8 @@ Devenv Abstraction uses a hexagonal (ports and adapters) architecture:
 | macOS | Lima/Colima + vz | Namespace | Stable |
 | Windows | WSL2 + gVisor | Syscall interception | Stable |
 | Linux | gVisor/crun | Syscall filtering | Stable |
+| iOS Simulator | Via macOS host | Lima VM | Stable |
+| Android Emulator | Headless mode | Via Lima | Stable |
 
 ## License
 

@@ -1,19 +1,19 @@
-# AGENTS.md — devenv-abstraction
+# AGENTS.md — NanoVMS
 
 ## Project Overview
 
-- **Name**: devenv-abstraction
-- **Description**: Docker-alternative VM stack with OCI/sandbox support. Hexagonal architecture for container runtime abstraction across Mac, Windows, Linux
-- **Location**: `/Users/kooshapari/CodeProjects/Phenotype/repos/devenv-abstraction`
-- **Language Stack**: Go 1.22+
+- **Name**: NanoVMS (Nano Virtual Machine Services)
+- **Description**: Nano Virtual Machine Services — headless VM abstraction for agents with support for Apple, Android, Smart TV, Gaming, IoT/Embedded, and AR/VR platforms
+- **Location**: `/Users/kooshapari/CodeProjects/Phenotype/repos/nanovms`
+- **Language Stack**: Go 1.23+
 - **Published**: Private (Phenotype org)
 
 ## Quick Start
 
 ```bash
 # Clone and setup
-git clone https://github.com/KooshaPari/devenv-abstraction.git
-cd devenv-abstraction
+git clone https://github.com/KooshaPari/nanovms.git
+cd nanovms
 go mod download
 
 # Build
@@ -23,7 +23,7 @@ go build ./...
 go test ./...
 
 # Run CLI
-go run ./cmd/devenv-abstraction
+go run ./cmd/nanovms
 
 # Build documentation
 cd docs && npm install && npm run docs:build
@@ -54,10 +54,44 @@ cd docs && npm install && npm run docs:build
 
 | Platform | Backend | Status | Notes |
 |----------|---------|--------|-------|
+| **Apple** | | | |
 | macOS | Lima/Colima + vz | ✅ Active | Primary dev environment |
-| Windows | WSL2 + gVisor | ✅ Active | Primary Windows path |
-| Linux | Native + gVisor | ✅ Active | Native Linux development |
-| WASM | Wasmtime | 📋 Planned | Browser/edge execution |
+| iOS | Xcode Simulator | ✅ Via Lima | iPhone, iPad |
+| iPadOS | Xcode Simulator | ✅ Via Lima | iPad development |
+| tvOS | Xcode Simulator | ✅ Via Lima | Apple TV apps |
+| watchOS | Xcode Simulator | ✅ Via Lima | Apple Watch apps |
+| visionOS | Xcode Simulator | ✅ Via Lima | Vision Pro |
+| **Android** | | | |
+| Phone | Emulator headless | ✅ | Pixel, Samsung, etc. |
+| Tablet | Emulator | ✅ | Various form factors |
+| Wear OS | Emulator | ✅ | Smartwatch |
+| Android TV | TV Emulator | ✅ | Leanback launcher |
+| Automotive | Auto Emulator | ✅ | Google Automotive |
+| **Smart TV** | | | |
+| tvOS | Xcode | ✅ Via Lima | Apple TV |
+| Android TV | Android Emulator | ✅ | |
+| Samsung Tizen | Tizen Studio | 📋 Planned | Via Lima |
+| LG webOS | webOS SDK | 📋 Planned | Via Lima |
+| Roku | Roku SDK | 📋 Planned | Via Lima |
+| Fire TV | Fire OS Emulator | ✅ | Android-based |
+| **Gaming** | | | |
+| Nintendo Switch | Yuzu/Ryujinx | 📋 Planned | Via Lima + wine |
+| Xbox | Dev Mode | 📋 Planned | Windows UWP |
+| PlayStation | DevNet | 📋 Remote | Sony DevNet access |
+| **IoT/Embedded** | | | |
+| Raspberry Pi | QEMU | 📋 Planned | ARM emulation |
+| Pine64 | QEMU | 📋 Planned | ARM64 |
+| ESP32/FreeRTOS | QEMU | 📋 Planned | Embedded |
+| **AR/VR** | | | |
+| visionOS | Xcode | ✅ | Vision Pro |
+| SteamVR | Steam | 📋 Planned | Windows VR |
+| SteamOS | ChimeraOS | 📋 Planned | Steam Deck |
+| Meta Quest | Horizon | 📋 Remote | Stream to headset |
+| HoloLens | Emulator | 📋 Planned | Windows Hyper-V |
+| Magic Leap | Lab | 📋 Remote | Cloud simulator |
+| **Other** | | | |
+| Linux | Native + gVisor | ✅ Active | Native Linux |
+| Windows | WSL2 + gVisor | ✅ Active | Windows path |
 
 ## Quality Standards
 
@@ -113,19 +147,22 @@ Examples:
 
 ```bash
 # Show platform info
-devenv-abstraction info
+nanovms info
 
 # Create sandbox
-devenv-abstraction create --name myapp --platform mac
+nanovms create --name myapp --platform mac
+
+# Create mobile simulator
+nanovms create --name ios-test --platform mobile --simulator-type ios
 
 # List sandboxes
-devenv-abstraction list
+nanovms list
 
 # Delete sandbox
-devenv-abstraction delete <sandbox-id>
+nanovms delete <sandbox-id>
 
 # Pull OCI image
-devenv-abstraction pull oci://localhost:5000/myapp:latest
+nanovms pull oci://localhost:5000/myapp:latest
 ```
 
 ## Troubleshooting

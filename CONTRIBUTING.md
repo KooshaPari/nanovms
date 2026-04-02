@@ -1,4 +1,4 @@
-# Contributing to devenv-abstraction
+# Contributing to NanoVMS
 
 Thank you for your interest in contributing!
 
@@ -6,11 +6,11 @@ Thank you for your interest in contributing!
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/KooshaPari/devenv-abstraction.git
-   cd devenv-abstraction
+   git clone https://github.com/KooshaPari/nanovms.git
+   cd nanovms
    ```
 
-2. **Install Go 1.22+**
+2. **Install Go 1.23+**
    ```bash
    # On macOS
    brew install go
@@ -37,15 +37,13 @@ Thank you for your interest in contributing!
 ## Project Structure
 
 ```
-devenv-abstraction/
-├── cmd/              # CLI entry points
+nanovms/
+├── cmd/nanovms/       # CLI entry points
 ├── internal/
-│   ├── adapters/     # Platform adapters (mac, windows, linux, wasm)
-│   ├── core/        # Core business logic
-│   ├── domain/      # Domain models
-│   └── ports/       # Port interfaces
-├── pkg/             # Public packages
-└── docs/           # VitePress documentation
+│   ├── adapters/      # Platform adapters (mac, windows, linux, mobile, wasm)
+│   ├── domain/        # Domain models
+│   └── ports/          # Port interfaces
+└── docs/              # Documentation
 ```
 
 ## Code Style

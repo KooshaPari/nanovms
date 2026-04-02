@@ -1,99 +1,123 @@
-# devenv-abstraction
+# NanoVMS - Nano Virtual Machine Services
 
-> Docker-alternative VM stack with OCI/sandbox support
+> Lightweight, headless VM abstraction for agents — supports desktop, mobile, embedded, gaming, and emerging form factors
 
-A Go-based container runtime abstraction layer providing a unified interface for managing development environments across Mac, Windows (WSL), and Linux platforms.
+NanoVMS provides a unified interface for managing development environments and simulators across **desktop**, **mobile**, **embedded**, **gaming**, and **emerging platforms**.
 
 ## Features
 
-- **Multi-Platform Support**: Works on macOS, Windows (WSL2), and Linux
-- **OCI Compatible**: Outputs OCI-compliant bundles
-- **Hexagonal Architecture**: Clean separation of concerns
-- **Extensible Adapters**: Easy to add new platform backends
-- **Resource Management**: CPU, memory, disk, and network limits
+- **Two-Level Abstraction**: Infrastructure layer (Native, Lima, WSL, MicroVM, WASM) + Platform target layer
+- **Apple Ecosystem**: iOS, iPadOS, tvOS, watchOS, visionOS, macOS
+- **Android Ecosystem**: Phone, Tablet, Wear OS, Android TV, Automotive
+- **Smart TVs**: tvOS, Android TV, Samsung Tizen, LG webOS, Roku, Fire TV
+- **Gaming**: PlayStation, Nintendo Switch, Xbox development
+- **IoT/Embedded**: Raspberry Pi, Pine64, ESP32, FreeRTOS
+- **AR/VR**: Meta Quest, Apple Vision Pro, Microsoft HoloLens, SteamVR, SteamOS
+- **Multi-Tier VM**: Native → Lima/WSL → MicroVM (Firecracker) → WASM
+- **Sandbox Isolation**: gVisor, landlock, seccomp, bwrap, WASM
+- **Hexagonal Architecture**: Clean separation, extensible adapters
 
 ## Architecture
 
 ```
-devenv-abstraction/
-├── cmd/                    # CLI entry point
+nanovms/
+├── cmd/nanovms/              # CLI entry point
 ├── internal/
-│   ├── adapters/           # Platform implementations
-│   │   ├── mac/          # macOS (Lima + vz)
-│   │   ├── windows/      # Windows (WSL2 + gVisor)
-│   │   └── linux/        # Linux (gVisor + crun)
-│   ├── core/              # Business logic
-│   ├── domain/            # Domain models
-│   └── ports/            # Interface definitions
-├── pkg/                   # Shared packages
-└── docs/                 # Documentation
+│   ├── adapters/             # Infrastructure implementations
+│   │   ├── mac/             # Lima/VZ adapter (macOS)
+│   │   ├── windows/         # WSL adapter (Windows)
+│   │   ├── linux/           # Native/KVM adapter (Linux)
+│   │   ├── microvm/         # Firecracker adapter (all platforms)
+│   │   ├── wasm/            # WASM runtime adapter
+│   │   └── sandbox/         # Isolation adapters (bwrap, gVisor, etc.)
+│   ├── domain/               # Core models (Sandbox, VMFlavor, VMConfig)
+│   └── ports/                # Interface definitions (VMAdapter)
+└── pkg/                      # Public API library
 ```
+
+### Two-Level Abstraction
+
+1. **Infrastructure Layer** (CURRENT): VM runtimes
+   - `native` - HyperKit, Hyper-V, KVM
+   - `lima` - Lima with vz driver (macOS)
+   - `wsl` - Windows Subsystem for Linux
+   - `microvm` - Firecracker microVM
+   - `wasm` - WebAssembly runtime
+
+2. **Platform Target Layer** (PLANNED): Target platforms
+   - Apple: iOS, tvOS, watchOS, visionOS, macOS
+   - Android: Phone, Tablet, Wear, TV, Automotive
+   - Smart TV: Tizen, webOS, Roku, Fire TV
+   - Gaming: PlayStation, Switch, Xbox
+   - AR/VR: Quest, HoloLens, SteamVR, SteamOS
 
 ## Quick Start
 
 ```bash
 # Clone and build
-git clone https://github.com/KooshaPari/devenv-abstraction.git
-cd devenv-abstraction
-go build ./cmd/devenv-abstraction
+git clone https://github.com/KooshaPari/nanovms.git
+cd nanovms
+go build ./cmd/nanovms
 
-# List available sandboxes
-./devenv-abstraction list
+# Probe system capabilities
+./nanovms probe
 
-# Create a new sandbox
-./devenv-abstraction create my-dev-env --platform mac
-
-# Start a sandbox
-./devenv-abstraction start my-dev-env
-
-# Execute a command
-./devenv-abstraction exec my-dev-env -- go version
-
-# Stop a sandbox
-./devenv-abstraction stop my-dev-env
+# Create a sandbox with specified VM flavor
+./nanovms create dev --vm-flavor lima --image ubuntu:22.04
+./nanovms create secure --vm-flavor microvm --image ubuntu:22.04
 ```
 
-## Platform Backends
+## Supported Platforms
 
-| Platform | Backend | Requirements |
-|----------|---------|-------------|
-| macOS | Lima + vz | macOS 13+, Apple Silicon or Intel with VT-x |
-| Windows | WSL2 + gVisor | Windows 11 with WSL2 enabled |
-| Linux | gVisor + crun | Linux 5.x with kernel support |
+### Infrastructure Adapters
 
-## Configuration
+| Adapter | Platform | Status |
+|---------|----------|--------|
+| `mac/` | macOS | ✅ Implemented (Lima/VZ) |
+| `windows/` | Windows | ⚠️ Partial (WSL2 stub) |
+| `linux/` | Linux | ⚠️ Partial (Native/KVM stub) |
+| `microvm/` | All | 📋 Planned (Firecracker) |
+| `wasm/` | All | ⚠️ Partial (WASM stub) |
+| `sandbox/` | Linux | ✅ Implemented (bwrap, firejail) |
 
-Create a `devenv.toml`:
+### Planned: Platform Targets
 
-```toml
-[defaults]
-platform = "mac"
-resources.cpu = 4
-resources.memory = "8GB"
-resources.disk = "50GB"
+| Category | Targets | Infrastructure |
+|----------|---------|----------------|
+| Apple | iOS, iPadOS, tvOS, watchOS, visionOS | Lima/VZ |
+| Android | Phone, Tablet, Wear, TV, Auto | WSL2/Lima |
+| Smart TV | Tizen, webOS, Roku, Fire TV | QEMU/Lima |
+| Gaming | PlayStation, Switch, Xbox | Various |
+| AR/VR | Quest, HoloLens, SteamVR, SteamOS | Remote/QEMU |
+| IoT | Raspberry Pi, Pine64, ESP32, FreeRTOS | QEMU |
 
-[sandboxes.my-dev-env]
-platform = "mac"
-resources.cpu = 8
-resources.memory = "16GB"
-```
+## VM Tiers
+
+| Tier | Technology | Use Case | Overhead |
+|------|------------|----------|----------|
+| 1 - Native | HyperKit, Hyper-V, KVM | Production parity | Highest |
+| 2 - Lima/WSL | Lima/VZ, WSL2 | Daily development | Medium |
+| 3 - MicroVM | Firecracker, Cloud Hypervisor | CI/CD, isolation | Lowest |
+| 4 - WASM | Wasmtime, Wasmer | Lightweight execution | Minimal |
 
 ## Development
 
 ```bash
-# Run tests
+# Format
+go fmt ./...
+
+# Vet
+go vet ./...
+
+# Build
+go build -o bin/nanovms ./cmd/nanovms
+
+# Test
 go test ./...
 
-# Run linter
+# Lint
 golangci-lint run
-
-# Build for all platforms
-make build-all
 ```
-
-## Documentation
-
-Full documentation at: https://KooshaPari.github.io/devenv-abstraction
 
 ## License
 
