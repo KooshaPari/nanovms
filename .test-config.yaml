@@ -1,0 +1,79 @@
+# Test Configuration for NanoVMS
+# Free alternative to paid AI test generation services
+
+project:
+  name: nanovms
+  language: rust
+  framework: cargo-test
+
+# Built-in test patterns (no external services)
+test_patterns:
+  # BDD-style tests with Cucumber
+  bdd:
+    directory: tests/bdd
+    pattern: "*.feature"
+    runner: cucumber
+
+  # Unit tests with cargo
+  unit:
+    directory: tests/unit
+    pattern: "*.rs"
+    runner: cargo test
+
+  # Integration tests with Playwright
+  integration:
+    directory: tests/playwright
+    pattern: "*.spec.ts"
+    runner: playwright
+
+# Tier-specific test templates
+tier_tests:
+  wasm:
+    templates:
+      - test_wasm_startup_time
+      - test_wasm_memory_limits
+      - test_wasi_syscalls
+
+  gvisor:
+    templates:
+      - test_gvisor_sentry_isolation
+      - test_seccomp_filtering
+      - test_network_namespace
+
+  microvm:
+    templates:
+      - test_firecracker_boot_time
+      - test_kvm_isolation
+      - test_oci_compatibility
+
+# Test rules (local enforcement)
+rules:
+  - name: adapter_test_required
+    description: Every adapter must have comprehensive tests
+    pattern: "internal/adapters/*/"
+    required_tests:
+      - "test_create_vm"
+      - "test_start_vm"
+      - "test_stop_vm"
+      - "test_delete_vm"
+      - "test_exec_command"
+
+  - name: sandbox_isolation_tests
+    description: Every sandbox type needs isolation verification
+    pattern: "internal/adapters/sandbox/"
+    required_tests:
+      - "test_process_isolation"
+      - "test_filesystem_isolation"
+      - "test_network_isolation"
+
+# Coverage thresholds
+coverage:
+  unit: 80
+  integration: 70
+  overall: 75
+
+# Free test tools used:
+# - cargo test (built-in)
+# - cargo llvm-cov (coverage)
+# - cucumber (BDD)
+# - playwright (E2E)
