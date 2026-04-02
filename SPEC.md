@@ -1,48 +1,83 @@
 # devenv-abstraction Specification
 
-> Docker-alternative VM stack with OCI/sandbox support
+> Docker-alternative VM stack with OCI/sandbox support - 3-tier architecture
 
 ## Overview
 
-`devenv-abstraction` is a Go-based container runtime abstraction layer that provides a unified interface for managing development environments across Mac, Windows (WSL), and Linux platforms.
+`devenv-abstraction` is a Go-based container runtime abstraction layer that provides a unified interface for managing development environments across Mac, Windows, and Linux platforms with three isolation tiers plus sandboxing.
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        CLI / API                                 │
-├─────────────────────────────────────────────────────────────────┤
-│                      Ports (Interfaces)                         │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────────┐ │
-│  │RuntimePort   │ │ SandboxPort  │ │ ProcessPort              │ │
-│  └──────────────┘ └──────────────┘ └──────────────────────────┘ │
-├─────────────────────────────────────────────────────────────────┤
-│                      Core (Business Logic)                       │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────────┐ │
-│  │Sandbox       │ │ Lifecycle    │ │ Resource Manager          │ │
-│  │Orchestrator  │ │ Manager      │ │                          │ │
-│  └──────────────┘ └──────────────┘ └──────────────────────────┘ │
-├─────────────────────────────────────────────────────────────────┤
-│                      Adapters (Implementations)                 │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────────┐ │
-│  │ Mac          │ │ Windows/WSL  │ │ Linux Native             │ │
-│  │ (Lima/VZ)   │ │ (WSL2+gVisor│ │ (gVisor/crun)           │ │
-│  └──────────────┘ └──────────────┘ └──────────────────────────┘ │
-├─────────────────────────────────────────────────────────────────┤
-│                      OCI Runtime Layer                           │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────────┐ │
-│  │ runc         │ │ gVisor      │ │ youki / crun             │ │
-│  └──────────────┘ └──────────────┘ └──────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          CLI / API                                      │
+├─────────────────────────────────────────────────────────────────────────┤
+│                       Ports (Interfaces)                                │
+│  ┌──────────────┐ ┌──────────────┐ ┌────────────┐ ┌────────────┐  │
+│  │ RuntimePort   │ │ SandboxPort  │ │VMAdapterPort│ │WASMAdapter  │  │
+│  │              │ │              │ │            │ │ Port       │  │
+│  └──────────────┘ └──────────────┘ └────────────┘ └────────────┘  │
+├─────────────────────────────────────────────────────────────────────────┤
+│                       Core (Business Logic)                            │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────────┐     │
+│  │ Sandbox      │ │ Lifecycle    │ │ Resource Manager         │     │
+│  │ Orchestrator │ │ Manager      │ │                         │     │
+│  └──────────────┘ └──────────────┘ └──────────────────────────┘     │
+├─────────────────────────────────────────────────────────────────────────┤
+│                    Sandbox Isolation Layer                             │
+│  ┌──────────────┐ ┌──────────────┐ ┌────────────┐ ┌────────────┐    │
+│  │ gVisor       │ │ landlock     │ │ seccomp    │ │ wasmtime   │    │
+│  │ (runsc)      │ │ (Linux)      │ │ (all)      │ │ (WASM)     │    │
+│  └──────────────┘ └──────────────┘ └────────────┘ └────────────┘    │
+├─────────────────────────────────────────────────────────────────────────┤
+│                    VM Adapter Layer (3 Tiers)                          │
+│                                                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐  │
+│  │ TIER 1: Native VM (Full isolation, highest overhead)             │  │
+│  │  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────────┐│  │
+│  │  │ Mac:         │ │ Windows:    │ │ Linux:                  ││  │
+│  │  │ HyperKit /   │ │ Hyper-V /   │ │ KVM / QEMU             ││  │
+│  │  │ Virt Framework│ │ VMware      │ │                         ││  │
+│  │  └──────────────┘ └──────────────┘ └──────────────────────────┘│  │
+│  ├─────────────────────────────────────────────────────────────────┤  │
+│  │ TIER 2: Container/WSL (OS-level, medium overhead)               │  │
+│  │  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────────┐│  │
+│  │  │ Mac:         │ │ Windows:    │ │ Linux:                  ││  │
+│  │  │ Lima + VZ    │ │ WSL2        │ │ Native namespaces       ││  │
+│  │  │ driver       │ │             │ │ + cgroups v2           ││  │
+│  │  └──────────────┘ └──────────────┘ └──────────────────────────┘│  │
+│  ├─────────────────────────────────────────────────────────────────┤  │
+│  │ TIER 3: MicroVM (Lightweight VM, low overhead)                  │  │
+│  │  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────────┐│  │
+│  │  │ Firecracker  │ │ Firecracker  │ │ Firecracker /           ││  │
+│  │  │ (AWS)        │ │ (Cross-OS)   │ │ Cloud Hypervisor        ││  │
+│  │  └──────────────┘ └──────────────┘ └──────────────────────────┘│  │
+│  └─────────────────────────────────────────────────────────────────┘  │
+├─────────────────────────────────────────────────────────────────────────┤
+│                       OCI Runtime Layer                                │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────────────┐   │
+│  │ runc         │ │ gVisor      │ │ youki / crun               │   │
+│  │ (default)    │ │ (sandboxed) │ │ (OCI compliant)            │   │
+│  └──────────────┘ └──────────────┘ └──────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Platform Support
 
-| Platform | Backend | Status | Isolation |
-|----------|---------|--------|-----------|
-| macOS | Lima + vz driver | ✅ Stable | Namespace + cgroup |
-| Windows | WSL2 + gVisor | ✅ Stable | Syscall interception |
-| Linux | gVisor + crun | ✅ Stable | Ptrace sandboxing |
+| Platform | Tier 1 (Native VM) | Tier 2 (Container/WSL) | Tier 3 (MicroVM) |
+|----------|-------------------|----------------------|------------------|
+| **macOS** | ✅ Virt.framework (Apple Silicon) / HyperKit (Intel) | ✅ Lima + vz driver | ✅ Firecracker |
+| **Windows** | ✅ Hyper-V / VMware Workstation | ✅ WSL2 | ✅ Firecracker (via WSL2) |
+| **Linux** | ✅ KVM / QEMU | ✅ Native namespaces + cgroups v2 | ✅ Firecracker / Cloud Hypervisor |
+
+## Sandbox Isolation Support
+
+| Sandbox Type | Description | Platforms |
+|-------------|-------------|----------|
+| **gVisor** | User-space kernel, syscall interception | All (via runc) |
+| **landlock** | Filesystem sandboxing | Linux 5.13+ |
+| **seccomp** | Syscall filtering | All |
+| **wasmtime** | WASM runtime isolation | All (via wasm32-wasi) |
 
 ## Core Types
 
@@ -50,24 +85,41 @@
 
 ```go
 type Sandbox struct {
-    ID       string
-    Name     string
-    Status   SandboxStatus
-    Platform Platform
-    Config   SandboxConfig
+    ID        string
+    Name      string
+    Status    SandboxStatus
+    Platform  Platform
+    VMTier    VMTier
+    Sandbox   SandboxType
+    Config    SandboxConfig
 }
 ```
 
-### SandboxStatus
+### VMTier
 
 ```go
-type SandboxStatus string
+// VMTier represents the VM isolation tier
+type VMTier int
 
 const (
-    StatusPending   SandboxStatus = "pending"
-    StatusRunning   SandboxStatus = "running"
-    StatusStopped   SandboxStatus = "stopped"
-    StatusError     SandboxStatus = "error"
+    Tier1NativeVM VMTier = iota + 1 // HyperKit, Hyper-V, KVM
+    Tier2Container                   // Lima, WSL2, namespaces
+    Tier3MicroVM                     // Firecracker, Cloud Hypervisor
+)
+```
+
+### SandboxType
+
+```go
+// SandboxType represents the sandbox isolation type
+type SandboxType int
+
+const (
+    SandboxNone SandboxType = iota
+    SandboxGVisor    // gVisor user-space kernel
+    SandboxLandlock  // Linux landlock filesystem sandbox
+    SandboxSeccomp  // seccomp syscall filtering
+    SandboxWASM     // WASM runtime isolation
 )
 ```
 
@@ -84,37 +136,67 @@ const (
 ```
 
 ## Ports (Interfaces)
+## Adapter Interfaces
 
-### RuntimePort
+### VMAdapter (Port)
 
 ```go
-type RuntimePort interface {
-    // Name returns the adapter name
-    Name() string
+// VMAdapter is implemented by platform-specific VM adapters
+type VMAdapter interface {
+    // Platform returns the platform this adapter supports
+    Platform() Platform
 
-    // IsAvailable checks if the runtime is available on this system
-    IsAvailable() bool
+    // VMTier returns the tier this adapter implements
+    VMTier() VMTier
 
-    // Create creates a new sandbox
-    Create(ctx context.Context, name string) (string, error)
+    // Start starts the VM
+    Start(ctx context.Context, config VMConfig) error
 
-    // Delete removes a sandbox
-    Delete(ctx context.Context, id string) error
+    // Stop stops the VM
+    Stop(ctx context.Context) error
 
-    // List returns all sandboxes
-    List(ctx context.Context) ([]Sandbox, error)
+    // Status returns the current VM status
+    Status(ctx context.Context) (VMStatus, error)
 
-    // Start starts a sandbox
-    Start(ctx context.Context, id string) error
+    // Exec executes a command inside the VM
+    Exec(ctx context.Context, cmd []string, opts ExecOptions) error
 
-    // Stop stops a sandbox
-    Stop(ctx context.Context, id string) error
-
-    // Exec executes a command in a sandbox
-    Exec(ctx context.Context, id string, cmd []string) ([]byte, error)
+    // Mount mounts a directory into the VM
+    Mount(ctx context.Context, source, target string, readonly bool) error
 }
 ```
 
+### SandboxPort
+
+```go
+// SandboxPort is implemented by sandbox adapters
+type SandboxPort interface {
+    // SandboxType returns the type of sandbox this adapter implements
+    SandboxType() SandboxType
+
+    // Apply applies the sandbox profile to a process
+    Apply(ctx context.Context, pid int, profile SandboxProfile) error
+
+    // Validate validates a sandbox profile
+    Validate(profile SandboxProfile) error
+}
+```
+
+### WASMAdapterPort
+
+```go
+// WASMAdapterPort is implemented by WASM runtime adapters
+type WASMAdapterPort interface {
+    // Runtime returns the WASM runtime name
+    Runtime() string
+
+    // Compile compiles WASM module
+    Compile(ctx context.Context, wasm []byte) (CompiledModule, error)
+
+    // Instantiate creates a new WASM instance
+    Instantiate(ctx context.Context, module CompiledModule, imports WASMImports) error
+}
+```
 ## Sandbox Lifecycle
 
 ```

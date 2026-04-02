@@ -1,4 +1,4 @@
-// Package domain contains the core business logic and entities.
+// Package domain contains the core domain models.
 package domain
 
 import (
@@ -6,113 +6,197 @@ import (
 	"time"
 )
 
-// RuntimeType represents the type of container runtime.
-type RuntimeType string
+// SandboxType represents the type of sandbox isolation.
+type SandboxType string
 
 const (
-	RuntimeDocker    RuntimeType = "docker"
-	RuntimeContainerd RuntimeType = "containerd"
-	RuntimeCrun      RuntimeType = "crun"
-	RuntimeGvisor    RuntimeType = "gvisor"
-	RuntimeWasmtime  RuntimeType = "wasmtime"
-	RuntimeLima      RuntimeType = "lima"
-	RuntimeWSL       RuntimeType = "wsl"
-	RuntimeNative    RuntimeType = "native"
+	// SandboxTypeVM indicates a full virtual machine
+	SandboxTypeVM SandboxType = "vm"
+	// SandboxTypeContainer indicates container-based isolation
+	SandboxTypeContainer SandboxType = "container"
+	// SandboxTypeWasm indicates WebAssembly-based isolation
+	SandboxTypeWasm SandboxType = "wasm"
+	// SandboxTypeProcess indicates process-level isolation (gVisor, landlock)
+	SandboxTypeProcess SandboxType = "process"
 )
 
-// SandboxConfig represents the configuration for a sandboxed environment.
+// VMFlavor represents the VM implementation flavor per OS.
+type VMFlavor string
+
+const (
+	// VMFlavorNative uses native hypervisor (HyperKit, Hyper-V, KVM)
+	VMFlavorNative VMFlavor = "native"
+	// VMFlavorLima uses Lima with vz driver on Mac, native on Linux
+	VMFlavorLima VMFlavor = "lima"
+	// VMFlavorWSL uses Windows Subsystem for Linux
+	VMFlavorWSL VMFlavor = "wsl"
+	// VMFlavorMicroVM uses Firecracker microVM
+	VMFlavorMicroVM VMFlavor = "microvm"
+	// VMFlavorWasm uses WebAssembly runtime
+	VMFlavorWasm VMFlavor = "wasm"
+)
+
+// SandboxLayer represents a sandbox isolation layer.
+type SandboxLayer struct {
+	Type       SandboxType     // Type of sandbox
+	Name       string         // Name: gvisor, landlock, seccomp, wasmtime
+	Enabled    bool           // Whether this layer is enabled
+	Config     map[string]any // Layer-specific configuration
+	Order      int            // Order of application (lower = earlier)
+	 SyscallFilter []string   // Syscalls to intercept/allow
+}
+
+// SandboxConfig contains configuration for creating a sandbox.
 type SandboxConfig struct {
-	Name        string            `yaml:"name"`
-	Runtime     RuntimeType       `yaml:"runtime"`
-	Image       string            `yaml:"image"`
-	Mounts      []Mount           `yaml:"mounts"`
-	Environment map[string]string `yaml:"environment"`
-	Networking  bool              `yaml:"networking"`
-	Privileged  bool              `yaml:"privileged"`
-	MemoryMB    int               `yaml:"memory_mb"`
-	CPUCount    int               `yaml:"cpu_count"`
+	Name        string            `json:"name"`
+	Image      string           `json:"image"`
+	VMFlavor   VMFlavor        `json:"vm_flavor"`   // VM implementation flavor
+	SandboxLayers []SandboxLayer `json:"sandbox_layers"` // Isolation layers
+	Resources   ResourceConfig  `json:"resources"`
+	Network    NetworkConfig    `json:"network"`
+	Filesystems []FilesystemMount `json:"filesystems"`
+	Environment map[string]string `json:"environment"`
 }
 
-// Mount represents a volume mount.
-type Mount struct {
-	Source      string `yaml:"source"`
-	Target      string `yaml:"target"`
-	ReadOnly    bool   `yaml:"read_only"`
-	BindOptions string `yaml:"bind_options"`
+// ResourceConfig defines CPU/memory limits.
+type ResourceConfig struct {
+	CPU      int    `json:"cpu"`      // Number of CPUs
+	MemoryMB int    `json:"memory"`  // Memory in MB
+	DiskMB   int    `json:"disk"`    // Disk in MB
 }
 
-// Sandbox represents a running sandbox instance.
+// NetworkConfig defines network configuration.
+type NetworkConfig struct {
+	Type      string `json:"type"`       // bridge, nat, none
+	Subnet    string `json:"subnet"`    // Subnet CIDR
+	Ports     []PortMapping `json:"ports"`
+}
+
+// PortMapping defines port forwarding.
+type PortMapping struct {
+	HostPort     int    `json:"host_port"`
+	ContainerPort int   `json:"container_port"`
+	Protocol     string `json:"protocol"` // tcp, udp
+}
+
+// FilesystemMount defines a filesystem mount.
+type FilesystemMount struct {
+	Source      string `json:"source"`
+	Target      string `json:"target"`
+	ReadOnly    bool   `json:"read_only"`
+	Type        string `json:"type"` // bind, volume
+}
+
+// Sandbox represents a running sandbox.
 type Sandbox struct {
-	ID        string       `yaml:"id"`
-	Name      string       `yaml:"name"`
-	Runtime   RuntimeType  `yaml:"runtime"`
-	Status    SandboxStatus `yaml:"status"`
-	CreatedAt time.Time   `yaml:"created_at"`
-	Config    SandboxConfig `yaml:"config"`
+	ID          string           `json:"id"`
+	Name        string           `json:"name"`
+	Status      SandboxStatus     `json:"status"`
+	VMFlavor    VMFlavor        `json:"vm_flavor"`
+	Layers      []SandboxLayer   `json:"layers"`       // Active isolation layers
+	CreatedAt   time.Time       `json:"created_at"`
+	StartedAt   *time.Time      `json:"started_at"`
+	IPAddress   string           `json:"ip_address"`
+	Ports      []PortMapping    `json:"ports"`
+	Mounts     []Mount          `json:"mounts"`
+	Metrics    *SandboxMetrics  `json:"metrics,omitempty"`
 }
 
-// SandboxStatus represents the current status of a sandbox.
+// SandboxStatus represents the status of a sandbox.
 type SandboxStatus string
 
 const (
-	StatusCreated   SandboxStatus = "created"
-	StatusRunning   SandboxStatus = "running"
-	StatusPaused    SandboxStatus = "paused"
-	StatusStopped   SandboxStatus = "stopped"
-	StatusFailed    SandboxStatus = "failed"
+	SandboxStatusPending   SandboxStatus = "pending"
+	SandboxStatusRunning   SandboxStatus = "running"
+	SandboxStatusStopped   SandboxStatus = "stopped"
+	SandboxStatusFailed    SandboxStatus = "failed"
+	SandboxStatusDeleting  SandboxStatus = "deleting"
 )
 
-// OCIImage represents an OCI-compliant container image.
+// Mount represents a filesystem mount.
+type Mount struct {
+	Source string `json:"source"`
+	Target string `json:"target"`
+	Type   string `json:"type"`
+}
+
+// SandboxMetrics contains usage metrics for a sandbox.
+type SandboxMetrics struct {
+	CPUUsage    float64 `json:"cpu_usage"`    // Percentage
+	MemoryUsage int64   `json:"memory_usage"` // Bytes
+	DiskUsage   int64   `json:"disk_usage"`  // Bytes
+	NetworkRx   int64   `json:"network_rx"`  // Bytes received
+	NetworkTx   int64   `json:"network_tx"`  // Bytes sent
+}
+
+// String returns a string representation of the sandbox.
+func (s *Sandbox) String() string {
+	return fmt.Sprintf("Sandbox(%s, %s, %s)", s.ID, s.Name, s.Status)
+}
+
+// IsRunning returns true if the sandbox is running.
+func (s *Sandbox) IsRunning() bool {
+	return s.Status == SandboxStatusRunning
+}
+
+// OCIImage represents an OCI container image.
 type OCIImage struct {
-	Registry string `yaml:"registry"`
-	Name    string `yaml:"name"`
-	Tag     string `yaml:"tag"`
-	Digest  string `yaml:"digest"`
+	Ref   string `json:"ref"`
+	Digest string `json:"digest"`
+	Size   int64  `json:"size"`
+	Created time.Time `json:"created"`
+	Platform PlatformInfo `json:"platform"`
 }
 
-// ParseImage parses an image string into an OCIImage.
-func ParseImage(image string) (*OCIImage, error) {
-	// Handle registry/name:tag format
-	var registry, name, tag, digest string
-
-	// Simple parsing - can be enhanced for full OCI spec
-	parts := splitImageString(image)
-	if len(parts) == 0 {
-		return nil, fmt.Errorf("invalid image format: %s", image)
-	}
-
-	if len(parts) >= 1 {
-		name = parts[0]
-	}
-	if len(parts) >= 2 {
-		tag = parts[1]
-	}
-	if len(parts) >= 3 {
-		digest = parts[2]
-	}
-
-	return &OCIImage{
-		Registry: registry,
-		Name:    name,
-		Tag:     tag,
-		Digest:  digest,
-	}, nil
+// PlatformInfo describes the image platform.
+type PlatformInfo struct {
+	OS           string `json:"os"`
+	Architecture string `json:"architecture"`
+	Variant      string `json:"variant,omitempty"`
 }
 
-func splitImageString(s string) []string {
-	// Simplified - just split on :
-	var parts []string
-	var current []byte
-	for i := 0; i < len(s); i++ {
-		if s[i] == ':' {
-			parts = append(parts, string(current))
-			current = nil
-		} else {
-			current = append(current, s[i])
-		}
-	}
-	if current != nil {
-		parts = append(parts, string(current))
-	}
-	return parts
+// Network represents a virtual network.
+type Network struct {
+	Name   string `json:"name"`
+	Subnet string `json:"subnet"`
+	Type   string `json:"type"` // bridge, nat
+	ID     string `json:"id"`
 }
+
+// VMAdapter defines the interface for VM implementations.
+type VMAdapter interface {
+	// CreateVM creates a new VM with the given config.
+	CreateVM(ctx context.Context, config *VMConfig) (*VMinstance, error)
+	// StartVM starts an existing VM.
+	StartVM(ctx context.Context, id string) error
+	// StopVM stops a running VM.
+	StopVM(ctx context.Context, id string) error
+	// DeleteVM deletes a VM.
+	DeleteVM(ctx context.Context, id string) error
+	// ListVMs lists all VMs.
+	ListVMs(ctx context.Context) ([]*VMinstance, error)
+	// GetVM gets a VM by ID.
+	GetVM(ctx context.Context, id string) (*VMinstance, error)
+}
+
+// VMConfig contains configuration for creating a VM.
+type VMConfig struct {
+	Name      string
+	VMFlavor  VMFlavor
+	Image     string
+	Resources ResourceConfig
+	Network   NetworkConfig
+}
+
+// VMInstance represents a running VM instance.
+type VMInstance struct {
+	ID        string
+	Name      string
+	Flavor    VMFlavor
+	Status    string
+	IPAddress string
+	Ports     []PortMapping
+}
+
+// Ensure VMAdapter implementations satisfy the interface.
+var _ VMAdapter = (*VMAdapter)(nil)
