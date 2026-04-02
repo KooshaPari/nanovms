@@ -1,83 +1,43 @@
-# Contributing to NanoVMS
+# Contributing to [01;31m[K# [m[KNanoVMS - Nano Virtual Machine Services
 
-Thank you for your interest in contributing!
+First off, thank you for considering contributing to **[01;31m[K# [m[KNanoVMS - Nano Virtual Machine Services**! It's people like you who make this project better for everyone.
+
+## Code of Conduct
+
+By participating in this project, you agree to abide by our Code of Conduct.
+
+## How Can I Contribute?
+
+### Reporting Bugs
+
+- Use the Bug Report issue template
+- Provide a clear and descriptive title
+- Describe the exact steps to reproduce the problem
+
+### Suggesting Enhancements
+
+- Check the Issues to see if the enhancement has already been suggested
+- Use the Feature Request issue template
+
+### Pull Requests
+
+1. Fork the repo and create your branch from `main`
+2. If you've added code that should be tested, add tests
+3. If you've changed APIs, update the documentation
+4. Ensure the test suite passes (`go test ./...`)
+5. Make sure your code lints (`golangci-lint run`)
+6. Format your code (`go fmt ./...`)
 
 ## Development Setup
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/KooshaPari/nanovms.git
-   cd nanovms
-   ```
-
-2. **Install Go 1.23+**
-   ```bash
-   # On macOS
-   brew install go
-
-   # Verify
-   go version
-   ```
-
-3. **Install dependencies**
-   ```bash
-   go mod download
-   ```
-
-4. **Build**
-   ```bash
-   go build ./...
-   ```
-
-5. **Run tests**
-   ```bash
-   go test ./...
-   ```
-
-## Project Structure
-
-```
-nanovms/
-├── cmd/nanovms/       # CLI entry points
-├── internal/
-│   ├── adapters/      # Platform adapters (mac, windows, linux, mobile, wasm)
-│   ├── domain/        # Domain models
-│   └── ports/          # Port interfaces
-└── docs/              # Documentation
+```bash
+# Clone the repository\ngit clone <url>\ncd [01;31m[K# [m[KNanoVMS - Nano Virtual Machine Services\n\n# Install dependencies\ngo mod download\n\n# Run tests\ngo test ./...\n\n# Run linter\ngolangci-lint run\n\n# Format code\ngo fmt ./...\n
 ```
 
-## Code Style
+## License
 
-- Run `go fmt` before committing
-- Follow [Effective Go](https://golang.org/doc/effective_go)
-- Add tests for new functionality
-- Document exported functions
+By contributing, you agree that your contributions will be licensed under the MIT OR Apache-2.0 license.
 
-## Platform Adapter Guidelines
+---
 
-Each platform adapter must implement the `SandboxPort` interface:
-
-```go
-type SandboxPort interface {
-    Info() (PlatformInfo, error)
-    Create(ctx context.Context, cfg SandboxConfig) (*Sandbox, error)
-    Delete(ctx context.Context, id string) error
-    List(ctx context.Context) ([]Sandbox, error)
-}
-```
-
-## Submitting Changes
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feat/my-feature`
-3. Make your changes
-4. Run tests: `go test ./...`
-5. Commit with clear messages
-6. Push and open a PR
-
-## Reporting Issues
-
-Use GitHub Issues for bugs and feature requests. Include:
-- Go version
-- Operating system
-- Relevant logs or error messages
+Thank you for your contributions!
