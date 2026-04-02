@@ -23,13 +23,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
       - name: Run BDD Tests
-        run: |
-          if command -v npx &> /dev/null; then
-            npx @cucumber/cucumber run tests/bdd/tier-isolation.feature
-          else
-            echo "Cucumber not installed - skipping BDD tests"
-          fi
+        run: bunx @cucumber/cucumber run tests/bdd/tier-isolation.feature
 
   vitest-tests:
     name: Vitest Unit Tests
@@ -37,16 +35,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
 
-      - name: Install dependencies
-        run: npm install vitest @vitest/coverage-v8
-
-      - name: Run Vitest
-        run: npx vitest run --reporter=json
+      - name: Install & Run Vitest
+        run: |
+          bun add -d vitest @vitest/coverage-v8
+          bun run vitest run --reporter=json
 
       - name: Upload coverage
         uses: actions/upload-artifact@v4
@@ -60,16 +55,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
 
-      - name: Install Playwright
-        run: npm install @playwright/test && npx playwright install --with-deps
-
-      - name: Run Playwright Tests
-        run: npx playwright test
+      - name: Install & Run Playwright
+        run: |
+          bun add -d @playwright/test
+          bunx playwright install --with-deps
+          bun run playwright test
 
   cargo-tests:
     name: Rust Unit Tests
