@@ -72,12 +72,32 @@
 
 ## Sandbox Isolation Support
 
-| Sandbox Type | Description | Platforms |
-|-------------|-------------|----------|
-| **gVisor** | User-space kernel, syscall interception | All (via runc) |
-| **landlock** | Filesystem sandboxing | Linux 5.13+ |
-| **seccomp** | Syscall filtering | All |
-| **wasmtime** | WASM runtime isolation | All (via wasm32-wasi) |
+| Sandbox Type | Description | Platforms | Use Case |
+|-------------|-------------|----------|----------|
+| **Native Sandboxes** | Lightweight process isolation | | |
+| `bwrap` (bubblewrap) | Linux namespace sandbox, no VM | Linux | Fast dev envs, CI |
+| `firejail` | AppArmor/sandbox profiles | Linux | GUI apps, network isolation |
+| `unshare` | Manual namespace creation | Linux | Minimal containers |
+| **Native macOS** | macOS-specific sandboxing | | |
+| `sandbox-exec` | Apple sandbox profiles | macOS | App Store compliance |
+| **Native Windows** | Windows-specific sandboxing | | |
+| `Windows Sandbox` | Hyper-V lightweight VM | Windows | Quick testing |
+| **Kernel Sandboxes** | Syscall interception | | |
+| **gVisor** | User-space kernel, syscall interception | All (via runc) | High-security isolation |
+| **landlock** | Filesystem sandboxing | Linux 5.13+ | Filesystem restrictions |
+| **seccomp** | Syscall filtering | All | System call filtering |
+| **WASM** | WebAssembly runtime | All | Language-level isolation |
+
+### Native Sandbox Performance
+
+| Sandbox | Spin-up Time | Memory Overhead | Isolation Level |
+|---------|-------------|----------------|-----------------|
+| `bwrap` | < 10ms | ~0 | Process namespace |
+| `firejail` | < 50ms | ~1MB | AppArmor + namespaces |
+| `unshare` | < 5ms | ~0 | Namespaces only |
+| `sandbox-exec` | < 20ms | ~0 | Seatbelt profiles |
+| gVisor | ~100ms | ~50MB | User-space kernel |
+| MicroVM (Firecracker) | ~100ms | ~5MB | Full VM |
 
 ## Core Types
 

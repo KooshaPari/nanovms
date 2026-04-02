@@ -2,6 +2,7 @@
 package domain
 
 import (
+	"context"
 	"fmt"
 	"time"
 )
@@ -18,6 +19,26 @@ const (
 	SandboxTypeWasm SandboxType = "wasm"
 	// SandboxTypeProcess indicates process-level isolation (gVisor, landlock)
 	SandboxTypeProcess SandboxType = "process"
+	// SandboxTypeNative indicates native OS-level isolation (bwrap, firejail, namespaces)
+	SandboxTypeNative SandboxType = "native"
+)
+
+// NativeSandboxType represents the specific native sandbox implementation.
+type NativeSandboxType string
+
+const (
+	// NativeSandboxBwrap bubblewrap/bwrap - Linux namespace isolation
+	NativeSandboxBwrap NativeSandboxType = "bwrap"
+	// NativeSandboxFirejail - Firejail sandbox
+	NativeSandboxFirejail NativeSandboxType = "firejail"
+	// NativeSandboxUnshare - Linux unshare namespace isolation
+	NativeSandboxUnshare NativeSandboxType = "unshare"
+	// NativeSandboxChroot - chroot isolation
+	NativeSandboxChroot NativeSandboxType = "chroot"
+	// NativeSandboxWindowsContainer - Windows container isolation (process namespace)
+	NativeSandboxWindowsContainer NativeSandboxType = "windows-container"
+	// NativeSandboxMacOSContain - macOS sandbox-exec isolation
+	NativeSandboxMacOSContain NativeSandboxType = "sandbox-exec"
 )
 
 // VMFlavor represents the VM implementation flavor per OS.
@@ -37,25 +58,26 @@ const (
 )
 
 // SandboxLayer represents a sandbox isolation layer.
+// It can be stacked - e.g., Native (bwrap) -> Process (gVisor) -> VM (Firecracker)
 type SandboxLayer struct {
-	Type       SandboxType     // Type of sandbox
-	Name       string         // Name: gvisor, landlock, seccomp, wasmtime
-	Enabled    bool           // Whether this layer is enabled
-	Config     map[string]any // Layer-specific configuration
-	Order      int            // Order of application (lower = earlier)
-	 SyscallFilter []string   // Syscalls to intercept/allow
+	// Type of sandbox isolation
+	Type SandboxType `json:"type"`
+	// Implementation name (e.g., "gvisor", "bwrap", "firejail")
+	Implementation string `json:"implementation"`
+	// Config is the layer-specific configuration
+	Config interface{} `json:"config,omitempty"`
 }
 
-// SandboxConfig contains configuration for creating a sandbox.
+// SandboxConfig holds sandbox configuration.
 type SandboxConfig struct {
-	Name        string            `json:"name"`
-	Image      string           `json:"image"`
-	VMFlavor   VMFlavor        `json:"vm_flavor"`   // VM implementation flavor
-	SandboxLayers []SandboxLayer `json:"sandbox_layers"` // Isolation layers
-	Resources   ResourceConfig  `json:"resources"`
-	Network    NetworkConfig    `json:"network"`
-	Filesystems []FilesystemMount `json:"filesystems"`
-	Environment map[string]string `json:"environment"`
+	Name           string            `json:"name"`
+	Image          string            `json:"image"`
+	VMType         VMType           `json:"vm_type"`
+	VMConfig       *VMConfig        `json:"vm_config,omitempty"`
+	SandboxType    SandboxType      `json:"sandbox_type"`
+	SandboxLayers  []SandboxLayer   `json:"sandbox_layers,omitempty"`
+	NativeSandbox  *NativeSandboxConfig `json:"native_sandbox,omitempty"`
+	Labels         map[string]string `json:"labels,omitempty"`
 }
 
 // ResourceConfig defines CPU/memory limits.
