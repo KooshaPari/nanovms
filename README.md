@@ -1,5 +1,16 @@
 # NanoVMS - Nano Virtual Machine Services
 
+@trace VM-001: MicroVM Lifecycle
+@trace VM-002: WASM Sandbox
+@trace VM-003: Container Isolation
+@trace VM-004: Firecracker Integration
+@trace VM-009: Snapshot Management
+@trace VM-010: Storage Backend
+@trace VM-011: Networking (Cilium)
+@trace VM-012: Security Model
+@trace VM-013: CLI Interface
+@trace VM-014: Multi-Platform
+
 > Lightweight, headless VM abstraction for AI agents — Three-tier isolation architecture
 
 NanoVMS provides a unified interface for managing development environments and isolated execution across desktop, mobile, embedded, gaming, and emerging platforms.

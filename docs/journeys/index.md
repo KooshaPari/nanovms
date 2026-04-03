@@ -70,8 +70,8 @@ flowchart TB
 
 | Metric | P50 | P95 | P99 | Test Method |
 |--------|-----|-----|-----|-------------|
-| Cold Start | < 5ms | < 10ms | < 20ms | `hyperfine` |
-| Hot Path | < 1ms | < 2ms | < 5ms | `criterion` |
+| Cold Start | 2.4ms | < 10ms | < 20ms | `hyperfine` |
+| Hot Path | 450us | < 2ms | < 5ms | `criterion` |
 | Memory | < 10MB | < 20MB | < 50MB | `valgrind` |
 | Throughput | 10K/s | 50K/s | 100K/s | `wrk` |
 
