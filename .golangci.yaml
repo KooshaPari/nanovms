@@ -1,0 +1,70 @@
+# Go Linting Configuration
+# Modern Go best practices
+
+version: "2"
+
+run:
+  timeout: 10m
+  tests: true
+  modules-download-mode: readonly
+
+linters:
+  enable:
+    - errcheck      # Check for unchecked errors
+    - gosimple      # Simplify code
+    - govet         # Reports suspicious constructs
+    - ineffassign   # Detects unused variable assignments
+    - staticcheck   # Static analysis checks
+    - unused        # Checks for unused code
+    - gofmt         # Checks formatting
+    - goimports     # Format imports
+    - misspell      # Finds commonly misspelled words
+    - unconvert     # Detects unnecessary type conversions
+    - unparam       # Reports unused function parameters
+    - gocyclo       # Computes cyclomatic complexity
+    - dupl          # Code clone detection
+    - goconst       # Finds repeated strings
+    - godox         # Fixme/Debug markers
+    - testifylint   # Testing assertions
+    - testifylintlint # Additional testify checks
+    - gocritic      # Provides diagnostics
+    - gosec         # Security vulnerabilities
+    - nohttpexpect  # Check no httpmock
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+  gosec:
+    excludes:
+      - G104  # Unhandled errors
+  gocyclo:
+    min-complexity: 15
+  dupl:
+    threshold: 150
+  testifylint:
+    disable-all: true
+    enabled:
+      - error-is-equal
+      - error-as-contains
+      - floats-equal
+      - nil-compare
+      - require-error
+      - suitesetup
+      - compares
+      - error-wrapper
+      - go-require
+      -|http-writer-response-writer
+      - Panic
+      - floats
+      - go-require
+      - InDelta
+      - JSONEq
+
+issues:
+  exclude-use-cache: true
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - dupl
+        - gocyclo
