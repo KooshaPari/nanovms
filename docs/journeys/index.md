@@ -19,7 +19,7 @@ import FeatureDetail from '../../.vitepress/theme/components/FeatureDetail.vue'
 | [Quick Start](./quick-start) | 5 min | ⭐ Beginner | ![Quick Start](/gifs/nanovms-quickstart.gif) |
 | [Core Integration](./core-integration) | 15 min | ⭐⭐ Intermediate | ![Integration](/gifs/nanovms-integration.gif) |
 | [Production Setup](./production-setup) | 30 min | ⭐⭐⭐ Advanced | ![Production](/gifs/nanovms-production.gif) |
-| [Troubleshooting](./troubleshooting) | 10 min | ⭐⭐ Intermediate | ![Troubleshooting](/gifs/nanovms-troubleshooting.gif) |
+| [Troubleshooting](./troubleshooting) | 10 min | ⭐⭐ Intermediate | ![Troubleshooting](/gifs/nanovms-troubleshooting.svg) |
 
 ---
 
