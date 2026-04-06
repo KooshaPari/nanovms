@@ -1,0 +1,8 @@
+version: '3'
+tasks:
+  fmt:
+    cmds:
+      - cargo fmt
+  test:
+    cmds:
+      - cargo test
