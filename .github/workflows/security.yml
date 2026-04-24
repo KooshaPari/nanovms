@@ -29,7 +29,7 @@ jobs:
           fetch-depth: 0
 
       - name: Secrets scan (trufflehog)
-        uses: trufflesecurity/trufflehog@main
+        uses: trufflesecurity/trufflehog@3fc0c2aa6648d54242e4af6fbfde0701796e4fb0  # was: @main
         with:
           path: ./
           base: ${{ github.event.repository.default_branch }}
@@ -51,7 +51,7 @@ jobs:
           go-version: '1.21'
 
       - name: Run Gosec
-        uses: securego/gosec@master
+        uses: securego/gosec@24ee992e9515e0cbf4f818c256311a93bf7418e2  # was: @master
         with:
           args: '-fmt sarif -out gosec-results.sarif ./...'
 
@@ -98,7 +98,7 @@ jobs:
         run: docker build -t ${{ github.event.repository.name }}:scan .
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # was: @master
         with:
           image-ref: '${{ github.event.repository.name }}:scan'
           format: 'sarif'
