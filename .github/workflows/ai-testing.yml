@@ -1,0 +1,94 @@
+name: Testing Infrastructure
+
+on:
+  push:
+    branches: [main, docs]
+    paths:
+      - 'tests/**'
+      - 'vitest.config.ts'
+      - 'playwright.config.ts'
+      - '**.rs'
+  pull_request:
+    paths:
+      - 'tests/**'
+      - 'vitest.config.ts'
+      - 'playwright.config.ts'
+  schedule:
+    - cron: '0 2 * * *'  # Weekly test run
+
+permissions:
+  contents: read
+
+jobs:
+  bdd-tests:
+    name: BDD Tier Isolation Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Run BDD Tests
+        run: bunx @cucumber/cucumber run tests/bdd/tier-isolation.feature
+
+  vitest-tests:
+    name: Vitest Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install & Run Vitest
+        run: |
+          bun add -d vitest @vitest/coverage-v8
+          bun run vitest run --reporter=json
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitest-coverage
+          path: coverage/
+
+  playwright-tests:
+    name: Playwright Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install & Run Playwright
+        run: |
+          bun add -d @playwright/test
+          bunx playwright install --with-deps
+          bun run playwright test
+
+  cargo-tests:
+    name: Rust Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run cargo tests
+        run: cargo test --workspace
+
+  vm-tier-tests:
+    name: VM Tier Isolation
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        tier: [wasm, gvisor, microvm]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test ${{ matrix.tier }} isolation
+        run: |
+          echo "Testing ${{ matrix.tier }} isolation tier"
+          cargo test --test tier_isolation_${{ matrix.tier }}
