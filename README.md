@@ -1,5 +1,9 @@
 # NanoVMS - Nano Virtual Machine Services
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/KooshaPari/nanovms/actions/workflows/ci.yml/badge.svg)](https://github.com/KooshaPari/nanovms/actions/workflows/ci.yml)
+[![Go](https://img.shields.io/badge/go-1.22+-00ADD8.svg?logo=go&logoColor=white)](go.mod)
+
 @trace VM-001: MicroVM Lifecycle
 @trace VM-002: WASM Sandbox
 @trace VM-003: Container Isolation
