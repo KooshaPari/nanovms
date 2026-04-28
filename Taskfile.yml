@@ -1,27 +1,97 @@
 version: '3'
+
+vars:
+  PROJECT_LANG:
+    sh: |
+      if [ -f go.mod ]; then
+        printf go
+      elif [ -f package.json ]; then
+        printf node
+      else
+        printf unknown
+      fi
+  NODE_PM:
+    sh: |
+      if [ -f bun.lockb ] || [ -f bun.lock ]; then
+        printf bun
+      elif [ -f pnpm-lock.yaml ]; then
+        printf pnpm
+      elif [ -f yarn.lock ]; then
+        printf yarn
+      else
+        printf npm
+      fi
+
 tasks:
   build:
-    desc: Build all Go packages.
+    desc: Build the project for the detected language.
     cmds:
-      - go build ./...
+      - |
+        case "{{.PROJECT_LANG}}" in
+          go)
+            go build ./cmd/nanovms
+            ;;
+          node)
+            {{.NODE_PM}} run build
+            ;;
+          *)
+            echo "unsupported project language: {{.PROJECT_LANG}}" >&2
+            exit 1
+            ;;
+        esac
 
   test:
-    desc: Run the Go test suite.
+    desc: Run the project test suite.
     cmds:
-      - go test ./...
+      - |
+        case "{{.PROJECT_LANG}}" in
+          go)
+            go test ./cmd/... ./internal/...
+            ;;
+          node)
+            {{.NODE_PM}} test
+            ;;
+          *)
+            echo "unsupported project language: {{.PROJECT_LANG}}" >&2
+            exit 1
+            ;;
+        esac
 
   lint:
-    desc: Run Go linters.
+    desc: Run the project lint checks.
     cmds:
-      - go vet ./...
       - |
-        if command -v golangci-lint >/dev/null 2>&1; then
-          golangci-lint run
-        else
-          echo "golangci-lint not installed; skipping"
-        fi
+        case "{{.PROJECT_LANG}}" in
+          go)
+            go vet ./cmd/... ./internal/...
+            if command -v golangci-lint >/dev/null 2>&1; then
+              golangci-lint run
+            else
+              echo "golangci-lint not installed; skipping"
+            fi
+            ;;
+          node)
+            {{.NODE_PM}} run lint
+            ;;
+          *)
+            echo "unsupported project language: {{.PROJECT_LANG}}" >&2
+            exit 1
+            ;;
+        esac
 
   clean:
-    desc: Remove Go build and test caches.
+    desc: Remove build and test caches for the detected language.
     cmds:
-      - go clean -cache -testcache
+      - |
+        case "{{.PROJECT_LANG}}" in
+          go)
+            go clean -cache -testcache
+            ;;
+          node)
+            rm -rf node_modules .turbo .vitepress/dist dist build coverage
+            ;;
+          *)
+            echo "unsupported project language: {{.PROJECT_LANG}}" >&2
+            exit 1
+            ;;
+        esac
