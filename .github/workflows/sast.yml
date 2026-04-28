@@ -15,7 +15,7 @@ jobs:
       security-events: write
       actions: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: github/codeql-action/init-action@v3
         with:
           languages: [typescript, python, rust, go]
