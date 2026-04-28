@@ -4,7 +4,7 @@
 
 **Version**: 3.0
 **Status**: Draft
-**Last Updated**: 2026-04-02
+**Last Updated**: 2026-04-27
 
 ## Overview
 
@@ -15,6 +15,15 @@ NanoVMS provides **state-of-the-art cloud infrastructure** optimized for **consu
 - **CI/CD Pipelines**: High-density ephemeral build containers
 - **Edge Computing**: Distributed workloads on commodity hardware
 - **Research HPC**: GPU-accelerated workloads on consumer GPUs
+
+## Pine Compatibility Baseline
+
+Start from **Windows, Linux, and macOS** as the baseline compatibility targets. Expand to other
+**POSIX-like** targets only when the case is justified by product scope and user demand.
+
+Treat adjacent and extension surfaces as part of the frame, including **Proton**, **CrossOver
+reverse-engineering**, **Docker Desktop**, **OrbStack**, and other worthwhile competitors or
+compatibility layers that define user expectations.
 
 ---
 
@@ -1806,4 +1815,3 @@ fio --name=randread --ioengine=io_uring --rw=randread --bs=4k --numjobs=4 --size
 | Kernel Engineer | 180K | 220K | 280K |
 | Hypervisor Engineer | 200K | 260K | 350K |
 | Platform Architect | 220K | 280K | 400K |
-
