@@ -12,17 +12,17 @@ import (
 type WindowsTier string
 
 const (
-	WindowsTierNative WindowsTier = "native" // Hyper-V, Windows Sandbox
-	WindowsTierWSL    WindowsTier = "wsl"    // WSL2 + gVisor
+	WindowsTierNative  WindowsTier = "native"  // Hyper-V, Windows Sandbox
+	WindowsTierWSL     WindowsTier = "wsl"     // WSL2 + gVisor
 	WindowsTierMicroVM WindowsTier = "microvm" // Cloud Hypervisor
 )
 
 // Adapter implements the ports.RuntimeAdapter for Windows with multiple tiers.
 type Adapter struct {
-	wslPath        string
-	hyperVPath     string
-	microVMPath    string
-	defaultTier    WindowsTier
+	wslPath     string
+	hyperVPath  string
+	microVMPath string
+	defaultTier WindowsTier
 }
 
 // New creates a new Windows adapter with multiple tier support.
@@ -169,6 +169,7 @@ func (a *Adapter) createWSLSandbox(ctx context.Context, name string, config *Con
 	// Set up gVisor as the default runtime
 	setRuntime := exec.CommandContext(ctx, a.wslPath, "-d", wslName, "--", "bash", "-c",
 		"echo 'export GRICD_OPTS=--gvisor-default' >> ~/.bashrc")
+	setRuntime.Run() // Best effort - runtime defaults can be configured later.
 
 	return wslName, nil
 }
