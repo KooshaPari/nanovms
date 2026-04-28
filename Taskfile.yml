@@ -95,7 +95,7 @@ tasks:
         case "{{.PROJECT_LANG}}" in
           go)
             go clean -cache -testcache || go clean -testcache
-            find . -name coverage.out -o -name coverage.html -o -name coverage.xml -o -name test-output.json -o -name unit-tests.xml | xargs rm -f
+            find . \( -name coverage.out -o -name coverage.html -o -name coverage.xml -o -name test-output.json -o -name unit-tests.xml \) -type f -delete
             ;;
           node)
             rm -rf node_modules .turbo .vitepress/dist dist build coverage
