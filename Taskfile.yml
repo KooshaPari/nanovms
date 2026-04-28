@@ -1,9 +1,7 @@
 version: '3'
 
 vars:
-  GO_PACKAGES:
-    sh: |
-      go list ./cmd/... ./internal/... 2>/dev/null | tr '\n' ' '
+  GO_PACKAGES: ./cmd/... ./internal/...
   PROJECT_LANG:
     sh: |
       if [ -f go.mod ]; then
