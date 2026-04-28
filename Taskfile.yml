@@ -1,8 +1,27 @@
 version: '3'
 tasks:
-  fmt:
+  build:
+    desc: Build all Go packages.
     cmds:
-      - cargo fmt
+      - go build ./...
+
   test:
+    desc: Run the Go test suite.
     cmds:
-      - cargo test
+      - go test ./...
+
+  lint:
+    desc: Run Go linters.
+    cmds:
+      - go vet ./...
+      - |
+        if command -v golangci-lint >/dev/null 2>&1; then
+          golangci-lint run
+        else
+          echo "golangci-lint not installed; skipping"
+        fi
+
+  clean:
+    desc: Remove Go build and test caches.
+    cmds:
+      - go clean -cache -testcache
