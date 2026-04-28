@@ -1,7 +1,13 @@
 version: '3'
 
 vars:
-  GO_PACKAGES: ./cmd/... ./internal/...
+  GO_PACKAGES:
+    sh: |
+      find cmd internal -name '*.go' -print 2>/dev/null \
+        | xargs -n1 dirname \
+        | sort -u \
+        | sed 's#^#./#' \
+        | tr '\n' ' '
   PROJECT_LANG:
     sh: |
       if [ -f go.mod ]; then
@@ -86,7 +92,7 @@ tasks:
       - |
         case "{{.PROJECT_LANG}}" in
           go)
-            go clean -cache -testcache
+            go clean -cache -testcache || go clean -testcache
             find . -name coverage.out -o -name coverage.html -o -name coverage.xml -o -name test-output.json -o -name unit-tests.xml | xargs rm -f
             ;;
           node)
