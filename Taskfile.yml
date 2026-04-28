@@ -1,9 +1,14 @@
 version: '3'
 
 vars:
+  GO_PACKAGE_DIRS:
+    sh: |
+      find cmd internal -type f -name '*.go' -not -path '*/vendor/*' -exec dirname {} \; 2>/dev/null | sort -u | tr '\n' ' '
   GO_PACKAGES:
     sh: |
-      go list ./cmd/... ./internal/... 2>/dev/null | tr '\n' ' '
+      for dir in {{.GO_PACKAGE_DIRS}}; do
+        go list "./${dir}" 2>/dev/null || true
+      done | tr '\n' ' '
   PROJECT_LANG:
     sh: |
       if [ -f go.mod ]; then
