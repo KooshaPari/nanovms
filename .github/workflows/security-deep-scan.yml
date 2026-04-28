@@ -31,7 +31,7 @@ jobs:
           severity: 'CRITICAL,HIGH'
       
       - name: Upload Trivy scan results
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: 'trivy-results.sarif'
 
@@ -64,15 +64,15 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v2
+        uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
       
       - name: Autobuild
-        uses: github/codeql-action/autobuild@v2
+        uses: github/codeql-action/autobuild@v4
       
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v2
+        uses: github/codeql-action/analyze@v4
 
   # 4. Container Security (if Dockerfile exists)
   container-scan:
@@ -95,6 +95,6 @@ jobs:
           output: 'trivy-image-results.sarif'
       
       - name: Upload image scan results
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: 'trivy-image-results.sarif'
