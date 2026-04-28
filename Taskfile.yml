@@ -1,15 +1,17 @@
 version: '3'
 
 vars:
-  GO_PACKAGES:
+  PROJECT_LANGUAGES:
     sh: |
-      go list -e -f '{{"{{"}}if .Error{{"}}"}}{{"{{"}}else{{"}}"}}{{"{{"}}.ImportPath{{"}}"}}{{"{{"}}end{{"}}"}}' ./... | awk 'NF' | tr '\n' ' '
-  PROJECT_LANG:
-    sh: |
+      languages=""
       if [ -f go.mod ]; then
-        printf go
-      elif [ -f package.json ]; then
-        printf node
+        languages="${languages}go "
+      fi
+      if [ -f package.json ]; then
+        languages="${languages}node "
+      fi
+      if [ -n "$languages" ]; then
+        printf "%s" "$languages" | sed 's/[[:space:]]*$//'
       else
         printf unknown
       fi
@@ -24,84 +26,82 @@ vars:
       else
         printf npm
       fi
+  HAS_DOCS_BUILD:
+    sh: |
+      if [ -f package.json ] && grep -q '"docs:build"' package.json; then
+        printf true
+      else
+        printf false
+      fi
+  HAS_NODE_TEST:
+    sh: |
+      if [ -f package.json ] && grep -q '"test"' package.json; then
+        printf true
+      else
+        printf false
+      fi
+  HAS_NODE_LINT:
+    sh: |
+      if [ -f package.json ] && grep -q '"lint"' package.json; then
+        printf true
+      else
+        printf false
+      fi
 
 tasks:
   default:
-    desc: Show available tasks and the detected project language.
+    desc: Show available tasks and detected project languages.
     cmds:
       - task --list
-      - 'echo "detected language: {{.PROJECT_LANG}}"'
+      - 'echo "detected languages: {{.PROJECT_LANGUAGES}}"'
 
   build:
-    desc: Build the project for the detected language.
+    desc: Build Go packages and optional docs assets.
     cmds:
       - |
-        case "{{.PROJECT_LANG}}" in
-          go)
-            go build {{.GO_PACKAGES}}
-            ;;
-          node)
-            {{.NODE_PM}} run build
-            ;;
-          *)
-            echo "unsupported project language: {{.PROJECT_LANG}}" >&2
-            exit 1
-            ;;
-        esac
+        if [ -f go.mod ]; then
+          go build ./...
+        fi
+        if [ "{{.HAS_DOCS_BUILD}}" = "true" ]; then
+          {{.NODE_PM}} run docs:build
+        fi
 
   test:
-    desc: Run the project test suite for the detected language.
+    desc: Run Go tests and optional Node test script.
     cmds:
       - |
-        case "{{.PROJECT_LANG}}" in
-          go)
-            go test {{.GO_PACKAGES}}
-            ;;
-          node)
-            {{.NODE_PM}} test
-            ;;
-          *)
-            echo "unsupported project language: {{.PROJECT_LANG}}" >&2
-            exit 1
-            ;;
-        esac
+        if [ -f go.mod ]; then
+          go test ./...
+        fi
+        if [ "{{.HAS_NODE_TEST}}" = "true" ]; then
+          {{.NODE_PM}} test
+        fi
 
   lint:
-    desc: Run lint checks for the detected language.
+    desc: Run Go formatting/vet checks and optional Node lint script.
     cmds:
       - |
-        case "{{.PROJECT_LANG}}" in
-          go)
-            go vet {{.GO_PACKAGES}}
-            if command -v golangci-lint >/dev/null 2>&1; then
-              golangci-lint run {{.GO_PACKAGES}}
-            else
-              echo "golangci-lint not installed; skipping"
-            fi
-            ;;
-          node)
-            {{.NODE_PM}} run lint
-            ;;
-          *)
-            echo "unsupported project language: {{.PROJECT_LANG}}" >&2
-            exit 1
-            ;;
-        esac
+        if [ -f go.mod ]; then
+          test -z "$(gofmt -l $(find . -name '*.go' -not -path './vendor/*'))"
+          go vet ./...
+          if command -v golangci-lint >/dev/null 2>&1; then
+            golangci-lint run ./...
+          else
+            echo "golangci-lint not installed; skipping"
+          fi
+        fi
+        if [ "{{.HAS_NODE_LINT}}" = "true" ]; then
+          {{.NODE_PM}} run lint
+        fi
 
   clean:
-    desc: Remove build and test caches for the detected language.
+    desc: Remove build outputs and test caches.
     cmds:
       - |
-        case "{{.PROJECT_LANG}}" in
-          go)
-            go clean -cache -testcache || go clean -testcache
-            find . \( -name coverage.out -o -name coverage.html -o -name coverage.xml -o -name test-output.json -o -name unit-tests.xml \) -type f -delete
-            ;;
-          node)
-            rm -rf node_modules .turbo .vitepress/dist dist build coverage
-            ;;
-          *)
-            echo "unsupported project language: {{.PROJECT_LANG}}" >&2
-            exit 1
-            ;;
-        esac
+        if [ -f go.mod ]; then
+          go clean -cache -testcache || echo "go clean cache cleanup skipped"
+          find . \( -name coverage.out -o -name coverage.html -o -name coverage.xml -o -name test-output.json -o -name unit-tests.xml \) -type f -delete
+        fi
+        if [ -f package.json ]; then
+          rm -rf node_modules docs/.vitepress/dist dist build coverage
+        fi
