@@ -1,14 +1,9 @@
 version: '3'
 
 vars:
-  GO_PACKAGE_DIRS:
-    sh: |
-      find cmd internal -type f -name '*.go' -not -path '*/vendor/*' -exec dirname {} \; 2>/dev/null | sort -u | tr '\n' ' '
   GO_PACKAGES:
     sh: |
-      for dir in {{.GO_PACKAGE_DIRS}}; do
-        go list "./${dir}" 2>/dev/null || true
-      done | tr '\n' ' '
+      go list ./cmd/... ./internal/... 2>/dev/null | tr '\n' ' '
   PROJECT_LANG:
     sh: |
       if [ -f go.mod ]; then
@@ -31,6 +26,12 @@ vars:
       fi
 
 tasks:
+  default:
+    desc: Show available tasks and the detected project language.
+    cmds:
+      - task --list
+      - 'echo "detected language: {{.PROJECT_LANG}}"'
+
   build:
     desc: Build the project for the detected language.
     cmds:
