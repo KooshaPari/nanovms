@@ -47,7 +47,7 @@ jobs:
           bun run vitest run --reporter=json
 
       - name: Upload coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vitest-coverage
           path: coverage/
