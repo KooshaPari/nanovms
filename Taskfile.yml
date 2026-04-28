@@ -3,12 +3,18 @@ version: '3'
 vars:
   GO_PACKAGES:
     sh: |
-      find . -mindepth 2 -name '*.go' \
-        -not -path './vendor/*' \
-        -not -path './node_modules/*' \
-        -not -path './dist/*' \
-        -not -path './build/*' \
-        -exec dirname {} \; | sort -u | tr '\n' ' '
+      roots=""
+      for root in cmd internal integrations tests; do
+        if [ -d "${root}" ] && find "${root}" -name '*.go' -print -quit | grep -q .; then
+          roots="${roots} ./${root}/..."
+        fi
+      done
+
+      if [ -n "${roots}" ]; then
+        go list -e -f '{{if not .Error}}{{.ImportPath}}{{end}}' ${roots} | awk 'NF' | tr '\n' ' '
+      else
+        printf ./...
+      fi
   PROJECT_LANG:
     sh: |
       if [ -f go.mod ]; then
