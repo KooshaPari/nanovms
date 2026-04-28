@@ -3,11 +3,7 @@ version: '3'
 vars:
   GO_PACKAGES:
     sh: |
-      find cmd internal -name '*.go' -print 2>/dev/null \
-        | xargs -n1 dirname \
-        | sort -u \
-        | sed 's#^#./#' \
-        | tr '\n' ' '
+      go list ./cmd/... ./internal/... 2>/dev/null | tr '\n' ' '
   PROJECT_LANG:
     sh: |
       if [ -f go.mod ]; then
