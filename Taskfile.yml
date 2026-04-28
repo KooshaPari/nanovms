@@ -3,18 +3,7 @@ version: '3'
 vars:
   GO_PACKAGES:
     sh: |
-      roots=""
-      for root in cmd internal integrations tests; do
-        if [ -d "${root}" ] && find "${root}" -name '*.go' -print -quit | grep -q .; then
-          roots="${roots} ./${root}/..."
-        fi
-      done
-
-      if [ -n "${roots}" ]; then
-        go list -e -f '{{if not .Error}}{{.ImportPath}}{{end}}' ${roots} | awk 'NF' | tr '\n' ' '
-      else
-        printf ./...
-      fi
+      go list -e -f '{{"{{"}}if .Error{{"}}"}}{{"{{"}}else{{"}}"}}{{"{{"}}.ImportPath{{"}}"}}{{"{{"}}end{{"}}"}}' ./... | awk 'NF' | tr '\n' ' '
   PROJECT_LANG:
     sh: |
       if [ -f go.mod ]; then
