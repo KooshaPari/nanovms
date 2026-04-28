@@ -1,7 +1,14 @@
 version: '3'
 
 vars:
-  GO_PACKAGES: ./cmd/... ./internal/...
+  GO_PACKAGES:
+    sh: |
+      find . -mindepth 2 -name '*.go' \
+        -not -path './vendor/*' \
+        -not -path './node_modules/*' \
+        -not -path './dist/*' \
+        -not -path './build/*' \
+        -exec dirname {} \; | sort -u | tr '\n' ' '
   PROJECT_LANG:
     sh: |
       if [ -f go.mod ]; then
@@ -48,7 +55,7 @@ tasks:
         esac
 
   test:
-    desc: Run the project test suite.
+    desc: Run the project test suite for the detected language.
     cmds:
       - |
         case "{{.PROJECT_LANG}}" in
@@ -65,7 +72,7 @@ tasks:
         esac
 
   lint:
-    desc: Run the project lint checks.
+    desc: Run lint checks for the detected language.
     cmds:
       - |
         case "{{.PROJECT_LANG}}" in
