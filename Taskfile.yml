@@ -1,6 +1,7 @@
 version: '3'
 
 vars:
+  GO_PACKAGES: ./cmd/... ./internal/...
   PROJECT_LANG:
     sh: |
       if [ -f go.mod ]; then
@@ -29,7 +30,7 @@ tasks:
       - |
         case "{{.PROJECT_LANG}}" in
           go)
-            go build ./cmd/nanovms
+            go build {{.GO_PACKAGES}}
             ;;
           node)
             {{.NODE_PM}} run build
@@ -46,7 +47,7 @@ tasks:
       - |
         case "{{.PROJECT_LANG}}" in
           go)
-            go test ./cmd/... ./internal/...
+            go test {{.GO_PACKAGES}}
             ;;
           node)
             {{.NODE_PM}} test
@@ -63,9 +64,9 @@ tasks:
       - |
         case "{{.PROJECT_LANG}}" in
           go)
-            go vet ./cmd/... ./internal/...
+            go vet {{.GO_PACKAGES}}
             if command -v golangci-lint >/dev/null 2>&1; then
-              golangci-lint run
+              golangci-lint run {{.GO_PACKAGES}}
             else
               echo "golangci-lint not installed; skipping"
             fi
@@ -86,6 +87,7 @@ tasks:
         case "{{.PROJECT_LANG}}" in
           go)
             go clean -cache -testcache
+            find . -name coverage.out -o -name coverage.html -o -name coverage.xml -o -name test-output.json -o -name unit-tests.xml | xargs rm -f
             ;;
           node)
             rm -rf node_modules .turbo .vitepress/dist dist build coverage
