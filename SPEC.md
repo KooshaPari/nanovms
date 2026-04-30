@@ -18,12 +18,25 @@ NanoVMS provides **state-of-the-art cloud infrastructure** optimized for **consu
 
 ## Pine Compatibility Baseline
 
-Start from **Windows, Linux, and macOS** as the baseline compatibility targets. Expand to other
-**POSIX-like** targets only when the case is justified by product scope and user demand.
+Treat **Windows, Linux, and macOS** as the baseline compatibility envelope. The current codebase
+already exposes platform adapters for those surfaces, plus sandbox and WASM layers, so the spec
+should stay aligned with the adapters instead of assuming future targets.
 
-Treat adjacent and extension surfaces as part of the frame, including **Proton**, **CrossOver
-reverse-engineering**, **Docker Desktop**, **OrbStack**, and other worthwhile competitors or
-compatibility layers that define user expectations.
+### Current Support Matrix
+
+| Surface | Status | Code-backed source of truth |
+|---------|--------|-----------------------------|
+| macOS | Implemented | `internal/adapters/mac` |
+| Windows | Partial | `internal/adapters/windows` |
+| Linux | Partial | `internal/adapters/linux` |
+| Sandbox isolation | Implemented | `internal/adapters/sandbox` |
+| WASM runtime | Partial | `internal/adapters/wasm` |
+| MicroVM / Firecracker | Planned | `internal/adapters/mac`, `internal/adapters/linux` |
+
+Treat adjacent and extension surfaces as reference-only unless product scope calls them in:
+**Proton**, **CrossOver reverse-engineering**, **Docker Desktop**, **OrbStack**, and similar
+compatibility layers are useful expectation-setting inputs, but they are not baseline support
+commitments.
 
 ---
 

@@ -10,11 +10,11 @@
 
 | Metric | Value |
 |--------|-------|
-| Functional Requirements | TBD |
-| Test Files | TBD |
-| Test Functions | TBD |
+| Functional Requirements | Pending mapping |
+| Test Files | Pending inventory |
+| Test Functions | Pending inventory |
 | Coverage Target | 80% |
-| Current Coverage | TBD |
+| Current Coverage | Pending measurement |
 
 ---
 
@@ -36,17 +36,17 @@
 
 | FR ID | Description | Test Files | Coverage Status |
 |-------|-------------|------------|-----------------|
-| TBD | TBD | TBD | TBD |
+| Pending mapping | Pending mapping | Pending mapping | Pending measurement |
 
 ---
 
 ## Coverage Gaps
 
 ### Critical Gaps
-1. TBD
+1. Coverage mapping has not been completed yet.
 
 ### Partial Coverage
-1. TBD
+1. No coverage gaps have been categorized yet.
 
 ---
 

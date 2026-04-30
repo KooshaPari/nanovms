@@ -47,6 +47,20 @@ NanoVMS provides a unified interface for managing development environments and i
 | **2** | gVisor (runsc) | ~90ms | ~20MB | Semi-trusted code |
 | **3** | Firecracker | ~125ms | <5MB | Untrusted code |
 
+### Compatibility Matrix
+
+| Surface | Status | Notes |
+|---------|--------|-------|
+| macOS | Implemented | Native VM paths via `internal/adapters/mac` |
+| Windows | Partial | WSL2, Hyper-V, and Cloud Hypervisor paths in `internal/adapters/windows` |
+| Linux | Partial | Native namespaces and MicroVM support in `internal/adapters/linux` |
+| Sandbox isolation | Implemented | gVisor, landlock, seccomp, and wasmtime in `internal/adapters/sandbox` |
+| WASM runtime | Partial | wasmtime, wasmer, and WAVM in `internal/adapters/wasm` |
+| MicroVM / Firecracker | Planned | Baseline target, but not yet a stable cross-platform contract |
+
+Reference surfaces like Proton, CrossOver reverse-engineering, Docker Desktop, and OrbStack are
+useful comparators, not baseline commitments.
+
 ### Infrastructure Adapters
 
 | Adapter | Platform | Technology | Status |
@@ -79,7 +93,7 @@ nanovms/
 │   │   ├── mac/             # Lima/VZ adapter (macOS)
 │   │   ├── windows/         # WSL adapter (Windows)
 │   │   ├── linux/           # Native/KVM adapter (Linux)
-│   │   ├── microvm/         # Firecracker adapter (all platforms)
+│   │   ├── microvm/         # Planned dedicated Firecracker adapter
 │   │   ├── wasm/            # Wasmtime adapter
 │   │   └── sandbox/         # bwrap, firejail, gVisor
 │   ├── domain/               # Core models (Sandbox, VMFlavor)
