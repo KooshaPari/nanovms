@@ -15,6 +15,9 @@ import (
 	"github.com/kooshapari/nanovms/internal/ports"
 )
 
+// runscPath is the path to the runsc binary (gVisor runtime).
+var runscPath = "/usr/local/bin/runsc"
+
 // Adapter implements the SandboxPort interface for sandbox isolation technologies.
 // It provides a unified interface for gVisor, landlock, seccomp, and wasmtime sandboxes.
 type Adapter struct {
@@ -146,7 +149,7 @@ func (a *gvisorAdapter) Create(ctx context.Context, config domain.SandboxConfig)
 	return &domain.Sandbox{
 		ID:         id,
 		Type:       domain.SandboxTypeGVisor,
-		Config:     config,
+		Config:     &config,
 		PID:        -1,
 		Status:     domain.SandboxStatusCreating,
 		Mounts:     config.Mounts,
@@ -185,7 +188,7 @@ func (a *landlockAdapter) Create(ctx context.Context, config domain.SandboxConfi
 	return &domain.Sandbox{
 		ID:          id,
 		Type:        domain.SandboxTypeLandlock,
-		Config:      config,
+		Config:      &config,
 		PID:         -1,
 		Status:      domain.SandboxStatusCreating,
 		Mounts:      config.Mounts,
@@ -215,7 +218,7 @@ func (a *seccompAdapter) Create(ctx context.Context, config domain.SandboxConfig
 	return &domain.Sandbox{
 		ID:          id,
 		Type:        domain.SandboxTypeSeccomp,
-		Config:      config,
+		Config:      &config,
 		PID:         -1,
 		Status:      domain.SandboxStatusCreating,
 		Mounts:      config.Mounts,
@@ -244,7 +247,7 @@ func (a *wasmtimeAdapter) Create(ctx context.Context, config domain.SandboxConfi
 	return &domain.Sandbox{
 		ID:          id,
 		Type:        domain.SandboxTypeWasmtime,
-		Config:      config,
+		Config:      &config,
 		PID:         -1,
 		Status:      domain.SandboxStatusCreating,
 		Mounts:      config.Mounts,
@@ -324,7 +327,7 @@ func (a *nativeSandboxAdapter) Create(ctx context.Context, config domain.Sandbox
 	sandbox := &domain.Sandbox{
 		ID:          id,
 		Type:        domain.SandboxTypeNative,
-		Config:      config,
+		Config:      &config,
 		PID:         -1,
 		Status:      domain.SandboxStatusCreating,
 		Mounts:      config.Mounts,

@@ -57,27 +57,37 @@ const (
 	VMFlavorWasm VMFlavor = "wasm"
 )
 
-// SandboxLayer represents a sandbox isolation layer.
+// SandboxLayer represents a sandbox isolation layer type.
 // It can be stacked - e.g., Native (bwrap) -> Process (gVisor) -> VM (Firecracker)
-type SandboxLayer struct {
-	// Type of sandbox isolation
-	Type SandboxType `json:"type"`
-	// Implementation name (e.g., "gvisor", "bwrap", "firejail")
-	Implementation string `json:"implementation"`
-	// Config is the layer-specific configuration
-	Config interface{} `json:"config,omitempty"`
-}
+type SandboxLayer string
+
+const (
+	SandboxLayerNone     SandboxLayer = ""
+	SandboxLayerGVisor   SandboxLayer = "gvisor"
+	SandboxLayerSRAMP    SandboxLayer = "sRAMP"
+	SandboxLayerWasmtime SandboxLayer = "wasmtime"
+)
 
 // SandboxConfig holds sandbox configuration.
 type SandboxConfig struct {
-	Name          string               `json:"name"`
-	Image         string               `json:"image"`
-	VMType        VMType               `json:"vm_type"`
-	VMConfig      *VMConfig            `json:"vm_config,omitempty"`
-	SandboxType   SandboxType          `json:"sandbox_type"`
-	SandboxLayers []SandboxLayer       `json:"sandbox_layers,omitempty"`
-	NativeSandbox *NativeSandboxConfig `json:"native_sandbox,omitempty"`
-	Labels        map[string]string    `json:"labels,omitempty"`
+	Name             string                 `json:"name"`
+	Image            string                 `json:"image"`
+	VMType           VMType                 `json:"vm_type"`
+	VMTier           VMTier                 `json:"vm_tier,omitempty"`
+	VMConfig         *VMConfig              `json:"vm_config,omitempty"`
+	SandboxType      SandboxType            `json:"sandbox_type"`
+	SandboxLayer     SandboxLayer           `json:"sandbox_layer,omitempty"`
+	SandboxLayers    []SandboxLayer         `json:"sandbox_layers,omitempty"`
+	NativeSandbox    *NativeSandboxConfig   `json:"native_sandbox,omitempty"`
+	Labels           map[string]string      `json:"labels,omitempty"`
+	Mounts           []Mount                `json:"mounts,omitempty"`
+	Environment      map[string]string      `json:"env,omitempty"`
+	ReadOnlyRootfs   bool                  `json:"read_only_rootfs,omitempty"`
+	TmpfsTmp         bool                  `json:"tmpfs_tmp,omitempty"`
+	SeccompProfile   string                `json:"seccomp_profile,omitempty"`
+	WorkDir          string                `json:"work_dir,omitempty"`
+	FirejailProfile  string                `json:"firejail_profile,omitempty"`
+	RuntimePath      string                `json:"runtime_path,omitempty"`
 }
 
 // VMType is the user-facing VM flavor selector in sandbox configuration.
@@ -125,17 +135,23 @@ type FilesystemMount struct {
 
 // Sandbox represents a running sandbox.
 type Sandbox struct {
-	ID        string          `json:"id"`
-	Name      string          `json:"name"`
-	Status    SandboxStatus   `json:"status"`
-	VMFlavor  VMFlavor        `json:"vm_flavor"`
-	Layers    []SandboxLayer  `json:"layers"` // Active isolation layers
-	CreatedAt time.Time       `json:"created_at"`
-	StartedAt *time.Time      `json:"started_at"`
-	IPAddress string          `json:"ip_address"`
-	Ports     []PortMapping   `json:"ports"`
-	Mounts    []Mount         `json:"mounts"`
-	Metrics   *SandboxMetrics `json:"metrics,omitempty"`
+	ID           string            `json:"id"`
+	Name         string            `json:"name"`
+	Status       SandboxStatus     `json:"status"`
+	VMFlavor     VMFlavor          `json:"vm_flavor"`
+	Type         SandboxType       `json:"type,omitempty"`
+	Config       *SandboxConfig    `json:"config,omitempty"`
+	PID          int               `json:"pid,omitempty"`
+	VMTier       VMTier            `json:"vm_tier,omitempty"`
+	SandboxLayer SandboxLayer      `json:"sandbox_layer,omitempty"`
+	Layers       []SandboxLayer   `json:"layers"` // Active isolation layers
+	CreatedAt    time.Time         `json:"created_at"`
+	StartedAt    *time.Time        `json:"started_at"`
+	IPAddress    string            `json:"ip_address"`
+	Ports        []PortMapping     `json:"ports"`
+	Mounts       []Mount           `json:"mounts"`
+	Metrics      *SandboxMetrics   `json:"metrics,omitempty"`
+	Environment  map[string]string `json:"env,omitempty"`
 }
 
 // SandboxStatus represents the status of a sandbox.
@@ -151,13 +167,15 @@ const (
 
 // Mount represents a filesystem mount.
 type Mount struct {
-	Source string `json:"source"`
-	Target string `json:"target"`
-	Type   string `json:"type"`
+	Source   string `json:"source"`
+	Target   string `json:"target"`
+	Type     string `json:"type"`
+	ReadOnly bool   `json:"read_only,omitempty"`
 }
 
 // SandboxMetrics contains usage metrics for a sandbox.
 type SandboxMetrics struct {
+	SandboxID   string  `json:"sandbox_id,omitempty"`
 	CPUUsage    float64 `json:"cpu_usage"`    // Percentage
 	MemoryUsage int64   `json:"memory_usage"` // Bytes
 	DiskUsage   int64   `json:"disk_usage"`   // Bytes

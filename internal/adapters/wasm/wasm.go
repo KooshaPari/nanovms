@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/kooshapari/nanovms/internal/domain"
-	"github.com/kooshapari/nanovms/internal/ports"
 )
 
 // WASMAdapter implements ports.WASMModulePort for WASM runtime environments

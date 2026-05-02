@@ -135,7 +135,7 @@ func (a *Adapter) Create(ctx context.Context, config domain.SandboxConfig) (*dom
 		ID:           name,
 		Name:         name,
 		Status:       domain.StatusCreated,
-		Config:       config,
+		Config:       &config,
 		VMTier:       config.VMTier,
 		SandboxLayer: config.SandboxLayer,
 	}, nil
