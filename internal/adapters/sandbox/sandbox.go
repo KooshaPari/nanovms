@@ -6,6 +6,7 @@ package sandbox
 import (
 	"context"
 	"fmt"
+	"io"
 	"os/exec"
 	"strings"
 	"time"
@@ -16,11 +17,15 @@ import (
 
 // Adapter implements the SandboxPort interface for sandbox isolation technologies.
 // It provides a unified interface for gVisor, landlock, seccomp, and wasmtime sandboxes.
-type Adapter struct{}
+type Adapter struct {
+	sandboxes map[string]*domain.Sandbox
+}
 
 // NewAdapter creates a new sandbox adapter.
 func NewAdapter() *Adapter {
-	return &Adapter{}
+	return &Adapter{
+		sandboxes: make(map[string]*domain.Sandbox),
+	}
 }
 
 // gvisorAdapter implements sandboxing using gVisor (runsc).
@@ -44,37 +49,51 @@ type wasmtimeAdapter struct {
 	wasmEngine string
 }
 
-// New creates a new sandbox with the specified configuration.
-func (a *Adapter) New(ctx context.Context, config domain.SandboxConfig) (*domain.Sandbox, error) {
-	var adapter ports.SandboxPort
-
-	switch config.Type {
-	case domain.SandboxTypeGVisor:
-		adapter = &gvisorAdapter{
-			runtime:   config.RuntimePath,
-			overlayFS: config.EnableOverlayFS,
-		}
-	case domain.SandboxTypeLandlock:
-		adapter = &landlockAdapter{
-			noNewPrivs: config.NoNewPrivs,
-		}
-	case domain.SandboxTypeSeccomp:
-		adapter = &seccompAdapter{
-			defaultAction: config.SeccompDefaultAction,
-		}
-	case domain.SandboxTypeWasmtime:
-		adapter = &wasmtimeAdapter{
-			wasmEngine: config.WasmEngine,
-		}
-	default:
-		return nil, fmt.Errorf("unsupported sandbox type: %s", config.Type)
+// Create creates a new sandbox with the specified configuration.
+func (a *Adapter) Create(ctx context.Context, config domain.SandboxConfig) (*domain.Sandbox, error) {
+	id := generateID()
+	now := time.Now()
+	sandbox := &domain.Sandbox{
+		ID:        id,
+		Name:      config.Name,
+		Status:    domain.SandboxStatusPending,
+		VMFlavor:  config.VMType,
+		CreatedAt: now,
 	}
-
-	return adapter.New(ctx, config)
+	a.sandboxes[id] = sandbox
+	return sandbox, nil
 }
 
-// List lists available sandbox runtimes.
-func (a *Adapter) List(ctx context.Context) ([]domain.SandboxRuntime, error) {
+// Start implements ports.SandboxPort for Adapter.
+func (a *Adapter) Start(ctx context.Context, id string) error {
+	sandbox, exists := a.sandboxes[id]
+	if !exists {
+		return fmt.Errorf("sandbox not found: %s", id)
+	}
+	now := time.Now()
+	sandbox.Status = domain.SandboxStatusRunning
+	sandbox.StartedAt = &now
+	return nil
+}
+
+// Stop implements ports.SandboxPort for Adapter.
+func (a *Adapter) Stop(ctx context.Context, id string, force bool) error {
+	sandbox, exists := a.sandboxes[id]
+	if !exists {
+		return fmt.Errorf("sandbox not found: %s", id)
+	}
+	sandbox.Status = domain.SandboxStatusStopped
+	return nil
+}
+
+// Delete implements ports.SandboxPort for Adapter.
+func (a *Adapter) Delete(ctx context.Context, id string) error {
+	delete(a.sandboxes, id)
+	return nil
+}
+
+// ListRuntimes lists available sandbox runtimes.
+func (a *Adapter) ListRuntimes(ctx context.Context) ([]domain.SandboxRuntime, error) {
 	runtimes := []domain.SandboxRuntime{}
 
 	// Check for gVisor
@@ -110,8 +129,8 @@ func (a *Adapter) List(ctx context.Context) ([]domain.SandboxRuntime, error) {
 	return runtimes, nil
 }
 
-// New implements ports.SandboxPort for gvisorAdapter.
-func (a *gvisorAdapter) New(ctx context.Context, config domain.SandboxConfig) (*domain.Sandbox, error) {
+// Create implements ports.SandboxPort for gvisorAdapter.
+func (a *gvisorAdapter) Create(ctx context.Context, config domain.SandboxConfig) (*domain.Sandbox, error) {
 	id := generateID()
 
 	cmd := exec.CommandContext(ctx, a.runtime,
@@ -136,31 +155,32 @@ func (a *gvisorAdapter) New(ctx context.Context, config domain.SandboxConfig) (*
 }
 
 // Start implements ports.SandboxPort for gvisorAdapter.
-func (a *gvisorAdapter) Start(ctx context.Context, sandbox *domain.Sandbox) error {
-	// gVisor sandbox is started with the run command
-	// PID is assigned when the container starts
-	sandbox.Status = domain.SandboxStatusRunning
-	return nil
+func (a *gvisorAdapter) Start(ctx context.Context, id string) error {
+	cmd := exec.CommandContext(ctx, a.runtime, "kill", "-SIGCONT", id)
+	return cmd.Run()
 }
 
 // Stop implements ports.SandboxPort for gvisorAdapter.
-func (a *gvisorAdapter) Stop(ctx context.Context, sandbox *domain.Sandbox) error {
-	cmd := exec.CommandContext(ctx, a.runtime, "kill", sandbox.ID)
+func (a *gvisorAdapter) Stop(ctx context.Context, id string, force bool) error {
+	signal := "SIGTERM"
+	if force {
+		signal = "SIGKILL"
+	}
+	cmd := exec.CommandContext(ctx, a.runtime, "kill", "-"+signal, id)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to stop sandbox: %w", err)
 	}
-	sandbox.Status = domain.SandboxStatusStopped
 	return nil
 }
 
 // Delete implements ports.SandboxPort for gvisorAdapter.
-func (a *gvisorAdapter) Delete(ctx context.Context, sandbox *domain.Sandbox) error {
-	cmd := exec.CommandContext(ctx, a.runtime, "delete", sandbox.ID)
+func (a *gvisorAdapter) Delete(ctx context.Context, id string) error {
+	cmd := exec.CommandContext(ctx, a.runtime, "delete", id)
 	return cmd.Run()
 }
 
-// New implements ports.SandboxPort for landlockAdapter.
-func (a *landlockAdapter) New(ctx context.Context, config domain.SandboxConfig) (*domain.Sandbox, error) {
+// Create implements ports.SandboxPort for landlockAdapter.
+func (a *landlockAdapter) Create(ctx context.Context, config domain.SandboxConfig) (*domain.Sandbox, error) {
 	id := generateID()
 	return &domain.Sandbox{
 		ID:          id,
@@ -174,26 +194,23 @@ func (a *landlockAdapter) New(ctx context.Context, config domain.SandboxConfig) 
 }
 
 // Start implements ports.SandboxPort for landlockAdapter.
-func (a *landlockAdapter) Start(ctx context.Context, sandbox *domain.Sandbox) error {
+func (a *landlockAdapter) Start(ctx context.Context, id string) error {
 	// Landlock is enforced at the kernel level via syscalls
-	// Start the process with landlock enabled
-	sandbox.Status = domain.SandboxStatusRunning
 	return nil
 }
 
 // Stop implements ports.SandboxPort for landlockAdapter.
-func (a *landlockAdapter) Stop(ctx context.Context, sandbox *domain.Sandbox) error {
-	sandbox.Status = domain.SandboxStatusStopped
+func (a *landlockAdapter) Stop(ctx context.Context, id string, force bool) error {
 	return nil
 }
 
 // Delete implements ports.SandboxPort for landlockAdapter.
-func (a *landlockAdapter) Delete(ctx context.Context, sandbox *domain.Sandbox) error {
+func (a *landlockAdapter) Delete(ctx context.Context, id string) error {
 	return nil // Landlock rules are cleaned up with the process
 }
 
-// New implements ports.SandboxPort for seccompAdapter.
-func (a *seccompAdapter) New(ctx context.Context, config domain.SandboxConfig) (*domain.Sandbox, error) {
+// Create implements ports.SandboxPort for seccompAdapter.
+func (a *seccompAdapter) Create(ctx context.Context, config domain.SandboxConfig) (*domain.Sandbox, error) {
 	id := generateID()
 	return &domain.Sandbox{
 		ID:          id,
@@ -207,24 +224,22 @@ func (a *seccompAdapter) New(ctx context.Context, config domain.SandboxConfig) (
 }
 
 // Start implements ports.SandboxPort for seccompAdapter.
-func (a *seccompAdapter) Start(ctx context.Context, sandbox *domain.Sandbox) error {
-	sandbox.Status = domain.SandboxStatusRunning
+func (a *seccompAdapter) Start(ctx context.Context, id string) error {
 	return nil
 }
 
 // Stop implements ports.SandboxPort for seccompAdapter.
-func (a *seccompAdapter) Stop(ctx context.Context, sandbox *domain.Sandbox) error {
-	sandbox.Status = domain.SandboxStatusStopped
+func (a *seccompAdapter) Stop(ctx context.Context, id string, force bool) error {
 	return nil
 }
 
 // Delete implements ports.SandboxPort for seccompAdapter.
-func (a *seccompAdapter) Delete(ctx context.Context, sandbox *domain.Sandbox) error {
+func (a *seccompAdapter) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-// New implements ports.SandboxPort for wasmtimeAdapter.
-func (a *wasmtimeAdapter) New(ctx context.Context, config domain.SandboxConfig) (*domain.Sandbox, error) {
+// Create implements ports.SandboxPort for wasmtimeAdapter.
+func (a *wasmtimeAdapter) Create(ctx context.Context, config domain.SandboxConfig) (*domain.Sandbox, error) {
 	id := generateID()
 	return &domain.Sandbox{
 		ID:          id,
@@ -238,19 +253,17 @@ func (a *wasmtimeAdapter) New(ctx context.Context, config domain.SandboxConfig) 
 }
 
 // Start implements ports.SandboxPort for wasmtimeAdapter.
-func (a *wasmtimeAdapter) Start(ctx context.Context, sandbox *domain.Sandbox) error {
-	sandbox.Status = domain.SandboxStatusRunning
+func (a *wasmtimeAdapter) Start(ctx context.Context, id string) error {
 	return nil
 }
 
 // Stop implements ports.SandboxPort for wasmtimeAdapter.
-func (a *wasmtimeAdapter) Stop(ctx context.Context, sandbox *domain.Sandbox) error {
-	sandbox.Status = domain.SandboxStatusStopped
+func (a *wasmtimeAdapter) Stop(ctx context.Context, id string, force bool) error {
 	return nil
 }
 
 // Delete implements ports.SandboxPort for wasmtimeAdapter.
-func (a *wasmtimeAdapter) Delete(ctx context.Context, sandbox *domain.Sandbox) error {
+func (a *wasmtimeAdapter) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
@@ -281,22 +294,24 @@ func generateID() string {
 // bwrap (bubblewrap), firejail, or unshare/Linux namespaces.
 // These provide millisecond startup times vs seconds for VMs.
 type nativeSandboxAdapter struct {
-	tool        string // "bwrap", "firejail", or "unshare"
-	userNS      bool   // Use user namespaces
-	mountNS     bool   // Use mount namespaces
-	pidNS       bool   // Use PID namespace
-	netNS       bool   // Use network namespace
+	tool     string                  // "bwrap", "firejail", or "unshare"
+	userNS   bool                    // Use user namespaces
+	mountNS  bool                    // Use mount namespaces
+	pidNS    bool                    // Use PID namespace
+	netNS    bool                    // Use network namespace
+	sandboxes map[string]*domain.Sandbox // Store sandboxes by ID
 }
 
 // NewNativeSandbox creates a native sandbox adapter with the specified tool.
 func NewNativeSandbox(tool string) *nativeSandboxAdapter {
 	return &nativeSandboxAdapter{
-		tool: tool,
+		tool:     tool,
+		sandboxes: make(map[string]*domain.Sandbox),
 	}
 }
 
-// New creates a new native sandbox.
-func (a *nativeSandboxAdapter) New(ctx context.Context, config domain.SandboxConfig) (*domain.Sandbox, error) {
+// Create creates a new native sandbox.
+func (a *nativeSandboxAdapter) Create(ctx context.Context, config domain.SandboxConfig) (*domain.Sandbox, error) {
 	id := generateID()
 
 	// Check if the tool is available
@@ -306,7 +321,7 @@ func (a *nativeSandboxAdapter) New(ctx context.Context, config domain.SandboxCon
 		config.RuntimePath = path
 	}
 
-	return &domain.Sandbox{
+	sandbox := &domain.Sandbox{
 		ID:          id,
 		Type:        domain.SandboxTypeNative,
 		Config:      config,
@@ -314,11 +329,18 @@ func (a *nativeSandboxAdapter) New(ctx context.Context, config domain.SandboxCon
 		Status:      domain.SandboxStatusCreating,
 		Mounts:      config.Mounts,
 		Environment: config.Environment,
-	}, nil
+	}
+	a.sandboxes[id] = sandbox
+	return sandbox, nil
 }
 
 // Start launches the command inside the native sandbox.
-func (a *nativeSandboxAdapter) Start(ctx context.Context, sandbox *domain.Sandbox) error {
+func (a *nativeSandboxAdapter) Start(ctx context.Context, id string) error {
+	sandbox, exists := a.sandboxes[id]
+	if !exists {
+		return fmt.Errorf("sandbox not found: %s", id)
+	}
+
 	var cmd *exec.Cmd
 
 	switch a.tool {
@@ -456,9 +478,17 @@ func (a *nativeSandboxAdapter) startUnshare(ctx context.Context, sandbox *domain
 }
 
 // Stop terminates the sandboxed process.
-func (a *nativeSandboxAdapter) Stop(ctx context.Context, sandbox *domain.Sandbox) error {
+func (a *nativeSandboxAdapter) Stop(ctx context.Context, id string, force bool) error {
+	sandbox, exists := a.sandboxes[id]
+	if !exists {
+		return fmt.Errorf("sandbox not found: %s", id)
+	}
 	if sandbox.PID > 0 {
-		cmd := exec.CommandContext(ctx, "kill", "-9", fmt.Sprintf("%d", sandbox.PID))
+		signal := "SIGTERM"
+		if force {
+			signal = "SIGKILL"
+		}
+		cmd := exec.CommandContext(ctx, "kill", "-"+signal, fmt.Sprintf("%d", sandbox.PID))
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("failed to stop native sandbox: %w", err)
 		}
@@ -468,7 +498,9 @@ func (a *nativeSandboxAdapter) Stop(ctx context.Context, sandbox *domain.Sandbox
 }
 
 // Delete cleans up the sandbox.
-func (a *nativeSandboxAdapter) Delete(ctx context.Context, sandbox *domain.Sandbox) error {
+func (a *nativeSandboxAdapter) Delete(ctx context.Context, id string) error {
+	// Remove from store
+	delete(a.sandboxes, id)
 	// Native sandboxes don't need cleanup - resources are freed when process exits
 	return nil
 }
@@ -520,3 +552,169 @@ var _ ports.SandboxPort = (*landlockAdapter)(nil)
 var _ ports.SandboxPort = (*seccompAdapter)(nil)
 var _ ports.SandboxPort = (*wasmtimeAdapter)(nil)
 var _ ports.SandboxPort = (*nativeSandboxAdapter)(nil)
+
+// List implements ports.SandboxPort for Adapter.
+func (a *Adapter) List(ctx context.Context) ([]*domain.Sandbox, error) {
+	return []*domain.Sandbox{}, nil
+}
+
+// Get implements ports.SandboxPort for Adapter.
+func (a *Adapter) Get(ctx context.Context, id string) (*domain.Sandbox, error) {
+	return nil, fmt.Errorf("sandbox not found: %s", id)
+}
+
+// Logs implements ports.SandboxPort for Adapter.
+func (a *Adapter) Logs(ctx context.Context, id string, follow bool) (io.ReadCloser, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+// Exec implements ports.SandboxPort for Adapter.
+func (a *Adapter) Exec(ctx context.Context, id string, cmd []string) (io.ReadCloser, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+// Metrics implements ports.SandboxPort for Adapter.
+func (a *Adapter) Metrics(ctx context.Context, id string) (*domain.SandboxMetrics, error) {
+	return nil, fmt.Errorf("sandbox not found: %s", id)
+}
+
+// List implements ports.SandboxPort for gvisorAdapter.
+func (a *gvisorAdapter) List(ctx context.Context) ([]*domain.Sandbox, error) {
+	return []*domain.Sandbox{}, nil
+}
+
+// Get implements ports.SandboxPort for gvisorAdapter.
+func (a *gvisorAdapter) Get(ctx context.Context, id string) (*domain.Sandbox, error) {
+	return nil, fmt.Errorf("sandbox not found: %s", id)
+}
+
+// Logs implements ports.SandboxPort for gvisorAdapter.
+func (a *gvisorAdapter) Logs(ctx context.Context, id string, follow bool) (io.ReadCloser, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+// Exec implements ports.SandboxPort for gvisorAdapter.
+func (a *gvisorAdapter) Exec(ctx context.Context, id string, cmd []string) (io.ReadCloser, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+// Metrics implements ports.SandboxPort for gvisorAdapter.
+func (a *gvisorAdapter) Metrics(ctx context.Context, id string) (*domain.SandboxMetrics, error) {
+	return nil, fmt.Errorf("sandbox not found: %s", id)
+}
+
+// List implements ports.SandboxPort for landlockAdapter.
+func (a *landlockAdapter) List(ctx context.Context) ([]*domain.Sandbox, error) {
+	return []*domain.Sandbox{}, nil
+}
+
+// Get implements ports.SandboxPort for landlockAdapter.
+func (a *landlockAdapter) Get(ctx context.Context, id string) (*domain.Sandbox, error) {
+	return nil, fmt.Errorf("sandbox not found: %s", id)
+}
+
+// Logs implements ports.SandboxPort for landlockAdapter.
+func (a *landlockAdapter) Logs(ctx context.Context, id string, follow bool) (io.ReadCloser, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+// Exec implements ports.SandboxPort for landlockAdapter.
+func (a *landlockAdapter) Exec(ctx context.Context, id string, cmd []string) (io.ReadCloser, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+// Metrics implements ports.SandboxPort for landlockAdapter.
+func (a *landlockAdapter) Metrics(ctx context.Context, id string) (*domain.SandboxMetrics, error) {
+	return nil, fmt.Errorf("sandbox not found: %s", id)
+}
+
+// List implements ports.SandboxPort for seccompAdapter.
+func (a *seccompAdapter) List(ctx context.Context) ([]*domain.Sandbox, error) {
+	return []*domain.Sandbox{}, nil
+}
+
+// Get implements ports.SandboxPort for seccompAdapter.
+func (a *seccompAdapter) Get(ctx context.Context, id string) (*domain.Sandbox, error) {
+	return nil, fmt.Errorf("sandbox not found: %s", id)
+}
+
+// Logs implements ports.SandboxPort for seccompAdapter.
+func (a *seccompAdapter) Logs(ctx context.Context, id string, follow bool) (io.ReadCloser, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+// Exec implements ports.SandboxPort for seccompAdapter.
+func (a *seccompAdapter) Exec(ctx context.Context, id string, cmd []string) (io.ReadCloser, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+// Metrics implements ports.SandboxPort for seccompAdapter.
+func (a *seccompAdapter) Metrics(ctx context.Context, id string) (*domain.SandboxMetrics, error) {
+	return nil, fmt.Errorf("sandbox not found: %s", id)
+}
+
+// List implements ports.SandboxPort for wasmtimeAdapter.
+func (a *wasmtimeAdapter) List(ctx context.Context) ([]*domain.Sandbox, error) {
+	return []*domain.Sandbox{}, nil
+}
+
+// Get implements ports.SandboxPort for wasmtimeAdapter.
+func (a *wasmtimeAdapter) Get(ctx context.Context, id string) (*domain.Sandbox, error) {
+	return nil, fmt.Errorf("sandbox not found: %s", id)
+}
+
+// Logs implements ports.SandboxPort for wasmtimeAdapter.
+func (a *wasmtimeAdapter) Logs(ctx context.Context, id string, follow bool) (io.ReadCloser, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+// Exec implements ports.SandboxPort for wasmtimeAdapter.
+func (a *wasmtimeAdapter) Exec(ctx context.Context, id string, cmd []string) (io.ReadCloser, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+// Metrics implements ports.SandboxPort for wasmtimeAdapter.
+func (a *wasmtimeAdapter) Metrics(ctx context.Context, id string) (*domain.SandboxMetrics, error) {
+	return nil, fmt.Errorf("sandbox not found: %s", id)
+}
+
+// List implements ports.SandboxPort for nativeSandboxAdapter.
+func (a *nativeSandboxAdapter) List(ctx context.Context) ([]*domain.Sandbox, error) {
+	result := make([]*domain.Sandbox, 0, len(a.sandboxes))
+	for _, s := range a.sandboxes {
+		result = append(result, s)
+	}
+	return result, nil
+}
+
+// Get implements ports.SandboxPort for nativeSandboxAdapter.
+func (a *nativeSandboxAdapter) Get(ctx context.Context, id string) (*domain.Sandbox, error) {
+	sandbox, exists := a.sandboxes[id]
+	if !exists {
+		return nil, fmt.Errorf("sandbox not found: %s", id)
+	}
+	return sandbox, nil
+}
+
+// Logs implements ports.SandboxPort for nativeSandboxAdapter.
+func (a *nativeSandboxAdapter) Logs(ctx context.Context, id string, follow bool) (io.ReadCloser, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+// Exec implements ports.SandboxPort for nativeSandboxAdapter.
+func (a *nativeSandboxAdapter) Exec(ctx context.Context, id string, cmd []string) (io.ReadCloser, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+// Metrics implements ports.SandboxPort for nativeSandboxAdapter.
+func (a *nativeSandboxAdapter) Metrics(ctx context.Context, id string) (*domain.SandboxMetrics, error) {
+	sandbox, exists := a.sandboxes[id]
+	if !exists {
+		return nil, fmt.Errorf("sandbox not found: %s", id)
+	}
+	return &domain.SandboxMetrics{
+		SandboxID: sandbox.ID,
+		CPUUsage:  0,
+		MemoryUsage: 0,
+	}, nil
+}
