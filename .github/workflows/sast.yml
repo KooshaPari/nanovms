@@ -19,5 +19,5 @@ jobs:
       - uses: github/codeql-action/init-action@v4
         with:
           languages: [typescript, python, rust, go]
-      - uses: github/codeql-action/autobuild@ce64ddcb0d8d890d2df4a9d1c04ff297367dea2a  # was: no ref (default branch)
-      - uses: github/codeql-action/analyze@ce64ddcb0d8d890d2df4a9d1c04ff297367dea2a  # was: no ref (default branch)
+      - uses: github/codeql-action/autobuild@95e58e9a2cdfd71adc6e0353d5c52f41a045d225  # was: no ref (default branch)
+      - uses: github/codeql-action/analyze@95e58e9a2cdfd71adc6e0353d5c52f41a045d225  # was: no ref (default branch)
