@@ -1,5 +1,7 @@
 # NVMS - NanoVM Service (Unified)
 
+[![AI Slop Inside](https://sladge.net/badge.svg)](https://sladge.net)
+
 > **Merged Implementation**: KooshaPari/nanovms + BytePort/nvms + PhenoCompose Driver
 
 NVMS provides **3-tier isolation** for secure, efficient application deployment:
