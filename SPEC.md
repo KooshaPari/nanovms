@@ -3,8 +3,8 @@
 > Nano Virtual Machine Services — SOTA Cloud Infrastructure for Consumer Hardware
 
 **Version**: 3.0
-**Status**: Draft
-**Last Updated**: 2026-04-02
+**Status**: Current
+**Last Updated**: 2026-05-05
 
 ## Overview
 

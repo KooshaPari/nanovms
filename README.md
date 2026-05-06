@@ -1,5 +1,7 @@
 # NVMS - NanoVM Service (Unified)
 
+[![AI Slop Inside](https://sladge.net/badge.svg)](https://sladge.net)
+
 > **Merged Implementation**: KooshaPari/nanovms + BytePort/nvms + PhenoCompose Driver
 
 NVMS provides **3-tier isolation** for secure, efficient application deployment:
@@ -81,8 +83,10 @@ cargo install pheno-compose --features nvms-driver
 ## Documentation
 
 - [PhenoCompose Integration](integrations/pheno-compose/README.md)
-- [AWS Deployment](docs/aws-deployment.md)
-- [Architecture](docs/architecture.md)
+- [Architecture](docs/reference/architecture.md)
+- [Quickstart Guide](docs/guides/quickstart.md)
+- [Implementation Roadmap](docs/implementation-roadmap.md)
+- [ADR Index](docs/adr/)
 
 ## License
 
