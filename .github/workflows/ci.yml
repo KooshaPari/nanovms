@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: TypeScript CI
+    uses: KooshaPari/template-commons/.github/workflows/reusable-typescript-ci.yml@main
+    with:
+      node-version: "20"
+      package-manager: npm
+
+  security:
+    name: Security Audit
+    uses: KooshaPari/template-commons/.github/workflows/reusable-security-scan.yml@main
+    with:
+      language: typescript
+    secrets:
+      SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+  phenotype-validate:
+    name: Governance Validation
+    uses: KooshaPari/phenotypeActions/.github/workflows/validate-governance.yml@main
