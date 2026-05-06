@@ -1,0 +1,16 @@
+version: '2'
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gofmt
+    - goimports
+lint:
+  timeout: 5m
+  modules-download-mode: readonly
+issues:
+  exclude-use-default: false

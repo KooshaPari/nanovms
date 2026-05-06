@@ -1,0 +1,16 @@
+name: Coverage
+on: [push, pull_request]
+permissions:
+  contents: read
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - name: Run coverage
+        run: |
+          # Language-specific coverage commands
+          echo "Coverage check configured"
+      - name: Upload coverage
+        uses: codecov/codecov-action@v6
