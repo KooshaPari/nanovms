@@ -3,7 +3,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-
 on:
   push:
     branches: [main, master]
@@ -17,7 +16,7 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -26,9 +25,9 @@ jobs:
           cache: true
 
       - name: Lint
-        run: |
-          go install golang.org/x/lint/golint@latest
-          golint -set_exit_status ./...
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
 
       - name: Test
         run: go test -race -short ./...
@@ -37,4 +36,5 @@ jobs:
         run: |
           go test -coverprofile=coverage.out ./...
           go tool cover -func=coverage.out
-          grep -v "total:" coverage.out | awk '{s+=$3; c++} END {print "Coverage: " s/c "%"}' 
+          # Calculate average coverage from per-function percentages
+          grep -v "^total:" coverage.out | awk 'NF==3 && $3 ~ /[0-9.]+%$/ {gsub(/%/,"",$3); s+=$3; c++} END {if(c>0) printf "Coverage: %.1f%%\n", s/c; else print "Coverage: 0%"}' 

@@ -22,6 +22,6 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - uses: github/codeql-action/init-action@v4
         with:
-          languages: [typescript, python, rust, go]
+          languages: [go, typescript, python]
       - uses: github/codeql-action/autobuild@95e58e9a2cdfd71adc6e0353d5c52f41a045d225  # was: no ref (default branch)
       - uses: github/codeql-action/analyze@95e58e9a2cdfd71adc6e0353d5c52f41a045d225  # was: no ref (default branch)

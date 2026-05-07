@@ -6,19 +6,18 @@ concurrency:
 
 on:
   push:
-    branches: [main, docs]
+    branches: [main]
     paths:
       - 'tests/**'
       - 'vitest.config.ts'
       - 'playwright.config.ts'
-      - '**.rs'
   pull_request:
     paths:
       - 'tests/**'
       - 'vitest.config.ts'
       - 'playwright.config.ts'
   schedule:
-    - cron: '0 2 * * *'  # Weekly test run
+    - cron: '0 2 * * 0'  # Weekly test run (Sunday)
 
 permissions:
   contents: read
@@ -71,28 +70,17 @@ jobs:
           bunx playwright install --with-deps
           bun run playwright test
 
-  cargo-tests:
-    name: Rust Unit Tests
+  go-tests:
+    name: Go Unit Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@v4
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
 
-      - name: Run cargo tests
-        run: cargo test --workspace
-
-  vm-tier-tests:
-    name: VM Tier Isolation
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        tier: [wasm, gvisor, microvm]
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-
-      - name: Test ${{ matrix.tier }} isolation
-        run: |
-          echo "Testing ${{ matrix.tier }} isolation tier"
-          cargo test --test tier_isolation_${{ matrix.tier }}
+      - name: Run Go tests
+        run: go test -v -race -short ./...

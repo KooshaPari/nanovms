@@ -11,10 +11,22 @@ jobs:
   coverage:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+
       - name: Run coverage
         run: |
-          # Language-specific coverage commands
-          echo "Coverage check configured"
+          go test -coverprofile=coverage.out ./...
+          go tool cover -func=coverage.out
+          # Calculate average coverage safely — skip "total:" and empty lines
+          grep -v "^total:" coverage.out | awk 'NF==3 && $3 ~ /[0-9.]+%$/ {gsub(/%/,"",$3); s+=$3; c++} END {if(c>0) printf "Coverage: %.1f%%\n", s/c; else print "Coverage: 0%"}'
+
       - name: Upload coverage
         uses: codecov/codecov-action@v6
+        with:
+          files: ./coverage.out
