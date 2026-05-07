@@ -1,10 +1,10 @@
 # Test Configuration for NanoVMS
-# Modern testing stack: Vitest + Playwright + Cargo
+# Modern testing stack: Vitest + Playwright + Go
 
 project:
   name: nanovms
-  language: rust
-  framework: cargo-test
+  language: go
+  framework: go-test
 
 # Test Configuration
 test:
@@ -25,15 +25,16 @@ test:
     config: playwright.config.ts
     browsers: [chromium, firefox, webkit]
 
-  # Cargo for Rust tests
-  cargo:
+  # Go tests
+  go:
     enabled: true
-    features: [test-utils]
+    race: true
+    timeout: 120s
 
 # Test patterns
 patterns:
-  unit: "tests/unit/**/*.rs"
-  integration: "tests/integration/**/*.rs"
+  unit: "tests/unit/**/*_test.go"
+  integration: "tests/integration/**/*_test.go"
   e2e: "tests/e2e/**/*.ts"
   bdd: "tests/bdd/**/*.feature"
 

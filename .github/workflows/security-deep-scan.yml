@@ -23,7 +23,7 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # was: @master
@@ -35,7 +35,7 @@ jobs:
           severity: 'CRITICAL,HIGH'
       
       - name: Upload Trivy scan results
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@ed410739ba306e4ebe5e123421a6bd694e494a2b
         with:
           sarif_file: 'trivy-results.sarif'
 
@@ -43,7 +43,7 @@ jobs:
   secret-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           fetch-depth: 0
       
@@ -65,18 +65,18 @@ jobs:
       matrix:
         language: ['go', 'python', 'typescript']
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
+        uses: github/codeql-action/init@ed410739ba306e4ebe5e123421a6bd694e494a2b
         with:
           languages: ${{ matrix.language }}
       
       - name: Autobuild
-        uses: github/codeql-action/autobuild@v4
+        uses: github/codeql-action/autobuild@ed410739ba306e4ebe5e123421a6bd694e494a2b
       
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4
+        uses: github/codeql-action/analyze@ed410739ba306e4ebe5e123421a6bd694e494a2b
 
   # 4. Container Security (if Dockerfile exists)
   container-scan:
@@ -86,7 +86,7 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       
       - name: Build image
         run: docker build -t app:${{ github.sha }} .
@@ -99,6 +99,6 @@ jobs:
           output: 'trivy-image-results.sarif'
       
       - name: Upload image scan results
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@ed410739ba306e4ebe5e123421a6bd694e494a2b
         with:
           sarif_file: 'trivy-image-results.sarif'
