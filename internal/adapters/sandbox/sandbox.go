@@ -152,12 +152,12 @@ func (a *gvisorAdapter) Create(ctx context.Context, config domain.SandboxConfig)
 	}
 
 	return &domain.Sandbox{
-		ID:         id,
-		Type:       domain.SandboxTypeGVisor,
-		Config:     &config,
-		PID:        -1,
-		Status:     domain.SandboxStatusCreating,
-		Mounts:     config.Mounts,
+		ID:          id,
+		Type:        domain.SandboxTypeGVisor,
+		Config:      &config,
+		PID:         -1,
+		Status:      domain.SandboxStatusCreating,
+		Mounts:      config.Mounts,
 		Environment: config.Environment,
 	}, nil
 }
@@ -409,18 +409,18 @@ func generateID() string {
 // bwrap (bubblewrap), firejail, or unshare/Linux namespaces.
 // These provide millisecond startup times vs seconds for VMs.
 type nativeSandboxAdapter struct {
-	tool     string                  // "bwrap", "firejail", or "unshare"
-	userNS   bool                    // Use user namespaces
-	mountNS  bool                    // Use mount namespaces
-	pidNS    bool                    // Use PID namespace
-	netNS    bool                    // Use network namespace
+	tool      string                     // "bwrap", "firejail", or "unshare"
+	userNS    bool                       // Use user namespaces
+	mountNS   bool                       // Use mount namespaces
+	pidNS     bool                       // Use PID namespace
+	netNS     bool                       // Use network namespace
 	sandboxes map[string]*domain.Sandbox // Store sandboxes by ID
 }
 
 // NewNativeSandbox creates a native sandbox adapter with the specified tool.
 func NewNativeSandbox(tool string) *nativeSandboxAdapter {
 	return &nativeSandboxAdapter{
-		tool:     tool,
+		tool:      tool,
 		sandboxes: make(map[string]*domain.Sandbox),
 	}
 }
@@ -972,8 +972,8 @@ func (a *nativeSandboxAdapter) Metrics(ctx context.Context, id string) (*domain.
 		return nil, fmt.Errorf("sandbox not found: %s", id)
 	}
 	return &domain.SandboxMetrics{
-		SandboxID: sandbox.ID,
-		CPUUsage:  0,
+		SandboxID:   sandbox.ID,
+		CPUUsage:    0,
 		MemoryUsage: 0,
 	}, nil
 }

@@ -144,12 +144,12 @@ func (a *Adapter) createMicroVM(ctx context.Context, config interface{}) (string
 
 	// Create VM config
 	vmConfig := map[string]interface{}{
-		"name":    name,
-		"vmm":     firecrackerPath,
-		"kernel":  "/var/lib/devenv/vmlinux",
-		"initrd":  "/var/lib/devenv/initrd",
-		"memory":   "512M",
-		"vcpus":    2,
+		"name":   name,
+		"vmm":    firecrackerPath,
+		"kernel": "/var/lib/devenv/vmlinux",
+		"initrd": "/var/lib/devenv/initrd",
+		"memory": "512M",
+		"vcpus":  2,
 	}
 
 	_ = vmConfig // Use in actual implementation

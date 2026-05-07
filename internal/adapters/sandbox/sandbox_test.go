@@ -290,7 +290,7 @@ func TestNativeSandboxExecNonexistent(t *testing.T) {
 
 func TestSandboxConfigDefaults(t *testing.T) {
 	cfg := domain.SandboxConfig{
-		Name: "test",
+		Name:   "test",
 		VMType: domain.VMFlavor("native"),
 	}
 	if cfg.Name != "test" {

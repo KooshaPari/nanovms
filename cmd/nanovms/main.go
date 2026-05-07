@@ -96,9 +96,9 @@ func resolveSandboxTier(platform, tier string) string {
 
 func createSandbox(ctx context.Context, platform, vmTier, sandboxOpt, name, image string) (*domain.Sandbox, error) {
 	config := domain.SandboxConfig{
-		Name: name,
-		Image: image,
-		VMType: domain.VMFlavor(vmTier),
+		Name:        name,
+		Image:       image,
+		VMType:      domain.VMFlavor(vmTier),
 		SandboxType: domain.SandboxType(sandboxOpt),
 	}
 
