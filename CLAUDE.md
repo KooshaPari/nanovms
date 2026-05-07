@@ -9,8 +9,8 @@ Extends parent governance. See:
 ## Project Overview
 
 **Name:** nanovms (NVMS — NanoVM Service)
-**Description:** Unified 3-tier isolation runtime: WASM (~1ms), gVisor (~90ms), Firecracker (~125ms). Merged implementation: KooshaPari/nanovms + BytePort/nvms + PhenoCompose driver.
-**Language Stack:** Go, TypeScript
+**Description:** Unified 3-tier isolation runtime: WASM (~1ms), gVisor (~90ms), Firecracker (~125ms). Unified implementation: KooshaPari/nanovms + BytePort/nvms.
+**Language Stack:** Go (primary), TypeScript (VitePress docs only)
 **Location:** `repos/nanovms`
 **Status:** Active
 
@@ -29,14 +29,14 @@ All work MUST be tracked in AgilePlus:
 │                    UNIFIED NVMS STACK                        │
 ├─────────────────────────────────────────────────────────────┤
 │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    │
-│  │ PhenoCompose│    │   NVMS CLI  │    │  BytePort   │    │
-│  │   (Rust)    │    │    (Go)     │    │   (Go)      │    │
+│  │   NVMS CLI  │    │  BytePort   │    │  Go SDK     │    │
+│  │    (Go)     │    │   (Go)      │    │  (Go)       │    │
 │  └──────┬──────┘    └──────┬──────┘    └──────┬──────┘    │
 │         └──────────────────┴──────────────────┘            │
 │                            │                                │
 │                    ┌───────▼───────┐                        │
 │                    │   NVMS Core   │                        │
-│                    │    (Merged)   │                        │
+│                    │    (Go)      │                        │
 │                    └───────┬───────┘                        │
 │         ┌──────────────────┼──────────────────┐            │
 │         ▼                  ▼                  ▼            │
@@ -59,14 +59,20 @@ All work MUST be tracked in AgilePlus:
 
 From this repository root:
 ```bash
-# Linting and formatting
-go fmt ./... && go vet ./...
+# Linting (golangci-lint — configured in .github/golangci.yml)
+golangci-lint run ./...
+
+# Formatting
+go fmt ./...
+
+# Vet
+go vet ./...
 
 # Testing
-go test ./...
+go test -race -short ./...
 
 # Build
-go build ./cmd/nvms
+go build ./cmd/nanovms
 ```
 
 ## Worktree & Git Discipline
@@ -83,6 +89,7 @@ go build ./cmd/nvms
 - `README.md` — Project overview and quick start
 - `AGENTS.md` — AI agent instructions
 - `CHANGELOG.md` — Version history
+- `.github/golangci.yml` — Go linter configuration (used by CI quality-gate.yml)
 
 ---
 
