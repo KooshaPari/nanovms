@@ -18,7 +18,7 @@ permissions:
 jobs:
   # 1. Dependency Vulnerability Scan (Snyk-style)
   dependency-scan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       security-events: write
@@ -41,7 +41,7 @@ jobs:
 
   # 2. Secret Scanning (Trufflehog)
   secret-scan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
@@ -55,7 +55,7 @@ jobs:
           extra_args: --only-verified
   # 3. Code Security Analysis (CodeQL)
   codeql-analysis:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       security-events: write
@@ -68,19 +68,19 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
+        uses: github/codeql-action/init@b25d0ebf40e5b63ee81e1bd6e5d2a12b7c2aeb61 # v4
         with:
           languages: ${{ matrix.language }}
       
       - name: Autobuild
-        uses: github/codeql-action/autobuild@v4
+        uses: github/codeql-action/autobuild@b25d0ebf40e5b63ee81e1bd6e5d2a12b7c2aeb61 # v4
       
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4
+        uses: github/codeql-action/analyze@b25d0ebf40e5b63ee81e1bd6e5d2a12b7c2aeb61 # v4
 
   # 4. Container Security (if Dockerfile exists)
   container-scan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: hashFiles('**/Dockerfile') != ''
     permissions:
       contents: read

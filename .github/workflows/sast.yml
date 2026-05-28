@@ -13,15 +13,15 @@ permissions:
 
 jobs:
   codeql:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       security-events: write
       actions: read
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-      - uses: github/codeql-action/init-action@v4
+      - uses: github/codeql-action/init-action@b25d0ebf40e5b63ee81e1bd6e5d2a12b7c2aeb61 # v4
         with:
           languages: [go, typescript, python]
-      - uses: github/codeql-action/autobuild@95e58e9a2cdfd71adc6e0353d5c52f41a045d225  # was: no ref (default branch)
-      - uses: github/codeql-action/analyze@95e58e9a2cdfd71adc6e0353d5c52f41a045d225  # was: no ref (default branch)
+      - uses: github/codeql-action/autobuild@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4
+      - uses: github/codeql-action/analyze@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4
