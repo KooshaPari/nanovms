@@ -25,7 +25,7 @@ permissions:
 jobs:
   bdd-tests:
     name: BDD Tier Isolation Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
@@ -37,7 +37,7 @@ jobs:
 
   vitest-tests:
     name: Vitest Unit Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
@@ -57,7 +57,7 @@ jobs:
 
   playwright-tests:
     name: Playwright Integration Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
@@ -72,7 +72,7 @@ jobs:
 
   go-tests:
     name: Go Unit Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 

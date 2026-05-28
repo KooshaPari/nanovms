@@ -18,7 +18,7 @@ permissions:
 jobs:
   # 1. Dependency Vulnerability Scan (Snyk-style)
   dependency-scan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       security-events: write
@@ -41,7 +41,7 @@ jobs:
 
   # 2. Secret Scanning (Trufflehog)
   secret-scan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
@@ -55,7 +55,7 @@ jobs:
           extra_args: --only-verified
   # 3. Code Security Analysis (CodeQL)
   codeql-analysis:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       security-events: write
@@ -80,7 +80,7 @@ jobs:
 
   # 4. Container Security (if Dockerfile exists)
   container-scan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: hashFiles('**/Dockerfile') != ''
     permissions:
       contents: read

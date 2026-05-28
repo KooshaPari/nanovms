@@ -17,14 +17,14 @@ concurrency:
 jobs:
   ci:
     name: TypeScript CI
-    uses: KooshaPari/template-commons/.github/workflows/reusable-typescript-ci.yml@main
+    uses: KooshaPari/template-commons/.github/workflows/reusable-typescript-ci.yml@fcacc0a2072d2abed860543c0c02c05f0842b7b5
     with:
       node-version: "20"
       package-manager: npm
 
   security:
     name: Security Audit
-    uses: KooshaPari/template-commons/.github/workflows/reusable-security-scan.yml@main
+    uses: KooshaPari/template-commons/.github/workflows/reusable-security-scan.yml@fcacc0a2072d2abed860543c0c02c05f0842b7b5
     with:
       language: typescript
     secrets:
@@ -32,11 +32,11 @@ jobs:
 
   phenotype-validate:
     name: Governance Validation
-    uses: KooshaPari/phenotypeActions/.github/workflows/validate-governance.yml@main
+    uses: KooshaPari/phenotypeActions/.github/workflows/validate-governance.yml@48772d7560c964fff01a209742429f24283e96cf
 
   go-ci:
     name: Go CI
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 

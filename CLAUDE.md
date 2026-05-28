@@ -19,7 +19,7 @@ Extends parent governance. See:
 All work MUST be tracked in AgilePlus:
 - CLI: `cd /Users/kooshapari/CodeProjects/Phenotype/repos/AgilePlus && agileplus <command>`
 - Check for existing specs before implementing
-- Create spec for new work: `agileplus specify --title "<feature>" --description "<desc>"`
+- Create spec for new work: `agileplus specify --feature <feature>`
 - No code without corresponding AgilePlus spec
 
 ## Repository Layout
