@@ -51,6 +51,34 @@ NanoVMS follows a modular, layered architecture designed for extensibility and p
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
+## SDK Layer
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           SDK & Integration Layer                             │
+│                                                                             │
+│  ┌─────────────────────────────┐  ┌─────────────────────────────┐        │
+│  │      Rust SDK (nvms-sdk)     │  │      Go SDK (pkg/sdk)       │        │
+│  │  ┌───────────────────────┐  │  │  ┌───────────────────────┐  │        │
+│  │  │  AudioSource trait    │  │  │  │  Client interface       │  │        │
+│  │  │  Renderer trait       │  │  │  │  VM models              │  │        │
+│  │  │  NvmsClient           │  │  │  │  │  Sandbox models           │  │        │
+│  │  │  REST / gRPC          │  │  │  │  │  Error types              │  │        │
+│  │  └───────────────────────┘  │  │  └───────────────────────┘  │        │
+│  └─────────────────────────────┘  └─────────────────────────────┘        │
+│                              │                                              │
+│                              ▼                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                    Integration Adapters                              │   │
+│  │  ┌────────────────────┐  ┌────────────────────┐                  │   │
+│  │  │ PhenoCompose Driver│  │  BytePort Adapter    │                  │   │
+│  │  │   (Rust)           │  │   (Go)               │                  │   │
+│  │  └────────────────────┘  └────────────────────┘                  │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
 ## Module Architecture
 
 ```
@@ -82,6 +110,12 @@ nanovms/
 │   ├── fs/               # Filesystem utilities
 │   ├── net/              # Networking utilities
 │   └── vm/               # VM utilities
+├── sdk/                   # Language SDKs
+│   └── rust/              # Rust SDK (nvms-sdk)
+│       ├── src/           # Library source
+│       └── Cargo.toml     # Manifest
+├── integrations/          # External integrations
+│   └── pheno-compose/     # PhenoCompose driver
 └── tools/                 # Development tools
     ├── benchmark/         # Benchmark suite
     └── fuzz/              # Fuzzing tests
