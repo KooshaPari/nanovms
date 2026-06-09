@@ -47,6 +47,20 @@ vars:
       else
         printf false
       fi
+  RUST_DIR:
+    sh: |
+      if [ -d sdk/rust ]; then
+        printf sdk/rust
+      else
+        printf .
+      fi
+  HAS_RUST:
+    sh: |
+      if [ -f sdk/rust/Cargo.toml ] || [ -f Cargo.toml ]; then
+        printf true
+      else
+        printf false
+      fi
 
 tasks:
   default:
@@ -54,6 +68,79 @@ tasks:
     cmds:
       - task --list
       - 'echo "detected languages: {{.PROJECT_LANGUAGES}}"'
+
+  backend:build:
+    desc: Build all Go packages and binaries.
+    cmds:
+      - go build ./...
+
+  backend:test:
+    desc: Run Go tests with race detection.
+    cmds:
+      - go test -v -race ./...
+
+  backend:lint:
+    desc: Run Go formatting, vet, and golangci-lint.
+    cmds:
+      - test -z "$(gofmt -l $(find . -name '*.go' -not -path './vendor/*'))"
+      - go vet ./...
+      - |
+        if command -v golangci-lint >/dev/null 2>&1; then
+          golangci-lint run ./...
+        else
+          echo "golangci-lint not installed; skipping"
+        fi
+
+  sdk:rs:build:
+    desc: Build the Rust SDK.
+    dir: "{{.RUST_DIR}}"
+    cmds:
+      - cargo build --all-features
+
+  sdk:rs:test:
+    desc: Run Rust SDK tests.
+    dir: "{{.RUST_DIR}}"
+    cmds:
+      - cargo test --all-features
+
+  sdk:rs:lint:
+    desc: Run cargo fmt and clippy on the Rust SDK.
+    dir: "{{.RUST_DIR}}"
+    cmds:
+      - cargo fmt -- --check
+      - cargo clippy --all-features -- -D warnings
+
+  web:build:
+    desc: Build web / docs assets.
+    cmds:
+      - |
+        if [ "{{.HAS_DOCS_BUILD}}" = "true" ]; then
+          {{.NODE_PM}} run docs:build
+        else
+          echo "No docs:build script found; skipping"
+        fi
+
+  web:lint:
+    desc: Run web lint if available.
+    cmds:
+      - |
+        if [ "{{.HAS_NODE_LINT}}" = "true" ]; then
+          {{.NODE_PM}} run lint
+        else
+          echo "No lint script found; skipping"
+        fi
+
+  all:build:
+    desc: Build all backend, SDK, and web targets.
+    deps: [backend:build, sdk:rs:build, web:build]
+
+  all:test:
+    desc: Run all test suites.
+    deps: [backend:test, sdk:rs:test]
+
+  all:lint:
+    desc: Run all lint checks.
+    deps: [backend:lint, sdk:rs:lint, web:lint]
 
   build:
     desc: Build Go packages and optional docs assets.
@@ -104,4 +191,8 @@ tasks:
         fi
         if [ -f package.json ]; then
           rm -rf node_modules docs/.vitepress/dist dist build coverage
+        fi
+      - |
+        if [ "{{.HAS_RUST}}" = "true" ]; then
+          cd {{.RUST_DIR}} && cargo clean || echo "cargo clean skipped"
         fi
