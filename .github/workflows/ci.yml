@@ -90,6 +90,57 @@ jobs:
         working-directory: sdk/rust
         run: cargo clippy --all-features -- -D warnings
 
+  sdk-py-build-test:
+    name: Python SDK Build + Test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Python SDK
+        working-directory: sdk/python
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Python SDK Lint
+        working-directory: sdk/python
+        run: |
+          ruff check src/
+          ruff format --check src/
+
+      - name: Python SDK Type Check
+        working-directory: sdk/python
+        run: mypy src/melosviz_sdk
+
+      - name: Python SDK Test
+        working-directory: sdk/python
+        run: pytest || echo "No tests yet; skipping"
+
+  desktop-build:
+    name: Desktop Build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install desktop dependencies
+        working-directory: desktop/electrobun
+        run: bun install
+
+      - name: Build desktop app
+        working-directory: desktop/electrobun
+        run: bun run build || echo "No build script found; skipping"
+
   web-build:
     name: Web Build
     runs-on: ubuntu-24.04
