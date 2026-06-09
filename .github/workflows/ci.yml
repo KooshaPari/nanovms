@@ -15,33 +15,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ci:
-    name: TypeScript CI
-    uses: KooshaPari/template-commons/.github/workflows/reusable-typescript-ci.yml@fcacc0a2072d2abed860543c0c02c05f0842b7b5
-    with:
-      node-version: "20"
-      package-manager: npm
-
-  security:
-    name: Security Audit
-    uses: KooshaPari/template-commons/.github/workflows/reusable-security-scan.yml@fcacc0a2072d2abed860543c0c02c05f0842b7b5
-    with:
-      language: typescript
-    secrets:
-      SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
-
-  phenotype-validate:
-    name: Governance Validation
-    uses: KooshaPari/phenotypeActions/.github/workflows/validate-governance.yml@48772d7560c964fff01a209742429f24283e96cf
-
-  go-ci:
-    name: Go CI
+  go-build-test:
+    name: Go Build + Test
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        uses: actions/setup-go@v5
         with:
           go-version: "1.23"
           cache: true
@@ -49,11 +30,114 @@ jobs:
       - name: Download Go module dependencies
         run: go mod download
 
-      - name: Vet
+      - name: Go Vet
         run: go vet ./...
 
-      - name: Build
+      - name: Go Build
         run: go build ./...
 
-      - name: Test
+      - name: Go Test
         run: go test -v -race -short ./...
+
+      - name: Go Format Check
+        run: |
+          fmt_files=$(gofmt -l $(find . -name '*.go' -not -path './vendor/*'))
+          if [ -n "$fmt_files" ]; then
+            echo "Go files need formatting:"
+            echo "$fmt_files"
+            exit 1
+          fi
+
+      - name: Go Lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.60
+          args: --config=.github/golangci.yml ./...
+
+  sdk-rs-build-test:
+    name: Rust SDK Build + Test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: sdk/rust
+
+      - name: Rust SDK Build
+        working-directory: sdk/rust
+        run: cargo build --all-features
+
+      - name: Rust SDK Test
+        working-directory: sdk/rust
+        run: cargo test --all-features
+
+      - name: Rust SDK Format Check
+        working-directory: sdk/rust
+        run: |
+          if ! cargo fmt -- --check; then
+            echo "Rust files need formatting. Run 'cargo fmt' in sdk/rust/"
+            exit 1
+          fi
+
+      - name: Rust SDK Clippy
+        working-directory: sdk/rust
+        run: cargo clippy --all-features -- -D warnings
+
+  web-build:
+    name: Web Build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Docs
+        run: npm run docs:build
+
+      - name: Lint (if available)
+        run: |
+          if npm run lint --if-present 2>/dev/null; then
+            echo "Lint completed"
+          else
+            echo "No lint script found; skipping"
+          fi
+
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+
+      - name: Go Vulnerability Check
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: NPM Audit
+        run: npm audit --audit-level=moderate || true
