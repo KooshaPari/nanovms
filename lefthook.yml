@@ -1,0 +1,51 @@
+commit-msg:
+  commands:
+    commitlint:
+      run: npx --no-install commitlint --edit {1} || true
+      skip:
+        - merge
+        - squash
+
+pre-commit:
+  commands:
+    gofmt:
+      glob: "*.go"
+      run: gofmt -w {staged_files}
+      stage_fixed: true
+
+    govet:
+      glob: "*.go"
+      run: go vet ./...
+
+    cargo-fmt:
+      glob: "*.rs"
+      root: "sdk/rust"
+      run: cargo fmt
+      stage_fixed: true
+
+    cargo-clippy:
+      glob: "*.rs"
+      root: "sdk/rust"
+      run: cargo clippy --all-features -- -D warnings
+
+    eslint:
+      glob: "*.{js,ts,jsx,tsx}"
+      run: |
+        if command -v eslint >/dev/null 2>&1; then
+          eslint --fix {staged_files}
+        elif npx eslint --version >/dev/null 2>&1; then
+          npx eslint --fix {staged_files}
+        else
+          echo "eslint not installed; skipping"
+          exit 0
+        fi
+      stage_fixed: true
+
+pre-push:
+  commands:
+    go-test:
+      run: go test -short ./...
+
+    rust-test:
+      root: "sdk/rust"
+      run: cargo test --all-features
