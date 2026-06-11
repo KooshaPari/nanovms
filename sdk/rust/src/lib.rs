@@ -6,6 +6,7 @@
 pub mod client;
 pub mod error;
 pub mod models;
+pub mod syscalls;
 
 pub use client::NvmsClient;
 pub use error::{NvmsError, Result};
