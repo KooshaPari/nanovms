@@ -19,10 +19,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           fetch-depth: 0
-
-      - name: Run Trufflehog
-        uses: trufflesecurity/trufflehog@3fc0c2aa6648d54242e4af6fbfde0701796e4fb0
-        with:
-          path: ./
-          base: ${{ github.event.repository.default_branch }}
-          extra_args: --only-verified
+      - uses: trufflehog/actions/setup@main  # DEFERRED: repo 404 from git ls-remote; pin in a follow-up task
+      - run: trufflehog github --only-verified --no-update
+        env:
+          GH_TOKEN: \${{ secrets.GITHUB_TOKEN }}

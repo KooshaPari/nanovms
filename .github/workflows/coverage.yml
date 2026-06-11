@@ -28,6 +28,4 @@ jobs:
           grep -v "^total:" coverage.out | awk 'NF==3 && $3 ~ /[0-9.]+%$/ {gsub(/%/,"",$3); s+=$3; c++} END {if(c>0) printf "Coverage: %.1f%%\n", s/c; else print "Coverage: 0%"}'
 
       - name: Upload coverage
-        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2
-        with:
-          files: ./coverage.out
+        uses: codecov/codecov-action@f2274c2c340e0c81c8f7dc407b2a477b8935f171  # v6
