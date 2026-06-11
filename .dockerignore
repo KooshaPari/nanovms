@@ -1,0 +1,116 @@
+.git
+.github
+.DS_Store
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Go artifacts
+bin/
+coverage.out
+*.test
+
+# Node artifacts
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+coverage/
+dist/
+build/
+
+# Test and tool caches
+.cache/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+playwright-report/
+test-results/
+
+# Logs and temporary files
+*.log
+*.tmp
+tmp/
+temp/
+
+# --- L2 #28 hygiene baseline (added 2026-06-11) ---
+# .dockerignore — Phenotype org canonical (L2 #28)
+# Source of truth: phenotype-org-governance/.dockerignore
+# Ship to all focus repos as a verbatim copy.
+# Reference: https://docs.docker.com/engine/reference/builder/#dockerignore-file
+
+# Version control
+.gitignore
+.gitattributes
+
+# Documentation (build context bloat; not needed at runtime)
+*.md
+README*
+CHANGELOG*
+LICENSE*
+docs/
+
+# Build artifacts
+target/
+**/.next/
+**/.nuxt/
+**/.output/
+**/__pycache__/
+**/htmlcov/
+**/.coverage
+**/.coverage.*
+
+# Node / JS
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+bun.lock
+
+# Rust / Go
+**/Cargo.lock
+**/.cargo
+**/vendor/
+go.sum
+**/go-build/
+
+# Python
+**/.venv/
+**/venv/
+**/env/
+**/*.egg-info/
+**/.eggs/
+**/*.whl
+**/*.tar.gz
+**/*.pyc
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+**/Thumbs.db
+
+# Logs / temp
+
+# Local environment
+**/.env.local
+**/.env.*.local
+**/.env.example
+
+# CI / workflows
+.github/workflows/
+.gitlab-ci.yml
+.circleci/
+.drone.yml
+
+# Docker
+Dockerfile.bak
+docker-compose.override.yml
+.dockerignore
+
+# Test fixtures (do not ship into image)
+**/tests/fixtures/large/
+**/snapshots/baselines/
