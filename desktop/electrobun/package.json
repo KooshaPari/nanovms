@@ -1,0 +1,35 @@
+{
+  "name": "@nanovms/electrobun",
+  "version": "0.1.0",
+  "description": "Electrobun desktop application for NanoVMS — manage VMs and sandboxes from a native webview UI",
+  "type": "module",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "electrobun dev",
+    "build": "electrobun build",
+    "package": "electrobun package",
+    "lint": "eslint src/",
+    "format": "prettier --write src/"
+  },
+  "dependencies": {
+    "electrobun": "^0.1.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "eslint": "^9.0.0",
+    "prettier": "^3.2.0",
+    "typescript": "^5.4.0"
+  },
+  "peerDependencies": {
+    "bun": ">=1.0.0"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/KooshaPari/nanovms.git",
+    "directory": "desktop/electrobun"
+  }
+}

@@ -27,7 +27,7 @@ const (
 // CompileOpts holds WASM compilation options.
 type CompileOpts struct {
 	OptimizeLevel                int  `json:"optimize_level"`
-	SupportsStreamingCompilation bool  `json:"supports_streaming"`
+	SupportsStreamingCompilation bool `json:"supports_streaming"`
 	MaxMemoryPages               int  `json:"max_memory_pages"`
 }
 
@@ -69,7 +69,7 @@ const (
 	SandboxTypeGVisor   SandboxType = "gvisor"
 	SandboxTypeLandlock SandboxType = "landlock"
 	SandboxTypeWasmtime SandboxType = "wasmtime"
-	SandboxTypeSeccomp SandboxType = "seccomp"
+	SandboxTypeSeccomp  SandboxType = "seccomp"
 )
 
 // Status constants for Sandbox.

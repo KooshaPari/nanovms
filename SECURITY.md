@@ -9,7 +9,7 @@
 
 ## Reporting a Vulnerability
 
-We take the security of **[01;31m[K# [m[KNanoVMS - Nano Virtual Machine Services** seriously. If you discover a security vulnerability, please do NOT open a public issue. Instead, report it privately.
+We take the security of **NanoVMS - Nano Virtual Machine Services** seriously. If you discover a security vulnerability, please do NOT open a public issue. Instead, report it privately.
 
 ### What to include
 
@@ -26,7 +26,7 @@ Keep dependencies updated and review security advisories regularly.
 
 ## Dependency Scanning
 
-[01;31m[K# [m[KNanoVMS - Nano Virtual Machine Services regularly scans dependencies for known vulnerabilities:
+NanoVMS - Nano Virtual Machine Services regularly scans dependencies for known vulnerabilities:
 
 - govulncheck ./...
 - Dependabot for automated updates

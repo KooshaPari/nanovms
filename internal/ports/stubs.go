@@ -6,7 +6,7 @@ import "github.com/kooshapari/nanovms/internal/domain"
 type VMTier = domain.VMFlavor
 
 const (
-	VMTierNative VMTier = "native"
-	VMTierLimaVZ VMTier = "lima"
+	VMTierNative  VMTier = "native"
+	VMTierLimaVZ  VMTier = "lima"
 	VMTierMicroVM VMTier = "microvm"
 )

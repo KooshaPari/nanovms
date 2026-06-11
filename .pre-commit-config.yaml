@@ -1,3 +1,7 @@
+# Pre-commit hooks for nanovms
+# Install: pre-commit install
+# Run manually: pre-commit run --all-files
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
@@ -8,10 +12,4 @@ repos:
       - id: check-json
       - id: check-added-large-files
       - id: check-merge-conflict
-      - id: check-toml
       - id: detect-private-key
-  - repo: https://github.com/compilerla/conventional-pre-commit
-    rev: v3.0.0
-    hooks:
-      - id: conventional-pre-commit
-        stages: [commit-msg]

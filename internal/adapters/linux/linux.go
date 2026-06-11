@@ -144,12 +144,12 @@ func (a *Adapter) createMicroVM(ctx context.Context, config interface{}) (string
 
 	// Create VM config
 	vmConfig := map[string]interface{}{
-		"name":    name,
-		"vmm":     firecrackerPath,
-		"kernel":  "/var/lib/devenv/vmlinux",
-		"initrd":  "/var/lib/devenv/initrd",
-		"memory":   "512M",
-		"vcpus":    2,
+		"name":   name,
+		"vmm":    firecrackerPath,
+		"kernel": "/var/lib/devenv/vmlinux",
+		"initrd": "/var/lib/devenv/initrd",
+		"memory": "512M",
+		"vcpus":  2,
 	}
 
 	_ = vmConfig // Use in actual implementation
@@ -228,7 +228,12 @@ func (a *Adapter) execNative(ctx context.Context, id string, cmd []string, stdin
 
 	if strings.HasPrefix(id, "devenv-wasm-") {
 		// WASM execution via wasmtime
-		execCmd = exec.CommandContext(ctx, "wasmtime", "--dir", "/", "cmd[0]")
+		if len(cmd) == 0 {
+			return fmt.Errorf("no command provided for WASM sandbox")
+		}
+		args := []string{"wasmtime", "--dir", "/"}
+		args = append(args, cmd...)
+		execCmd = exec.CommandContext(ctx, args[0], args[1:]...)
 	} else if strings.Contains(id, "devenv-") {
 		// Execute in namespace
 		execCmd = exec.CommandContext(ctx, "unshare", "--user", "--map-root-user", "--mount", "--ipc", "--pid", "--fork", "bash", "-c", strings.Join(cmd, " "))

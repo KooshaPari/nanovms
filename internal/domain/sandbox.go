@@ -70,24 +70,24 @@ const (
 
 // SandboxConfig holds sandbox configuration.
 type SandboxConfig struct {
-	Name             string                 `json:"name"`
-	Image            string                 `json:"image"`
-	VMType           VMType                 `json:"vm_type"`
-	VMTier           VMTier                 `json:"vm_tier,omitempty"`
-	VMConfig         *VMConfig              `json:"vm_config,omitempty"`
-	SandboxType      SandboxType            `json:"sandbox_type"`
-	SandboxLayer     SandboxLayer           `json:"sandbox_layer,omitempty"`
-	SandboxLayers    []SandboxLayer         `json:"sandbox_layers,omitempty"`
-	NativeSandbox    *NativeSandboxConfig   `json:"native_sandbox,omitempty"`
-	Labels           map[string]string      `json:"labels,omitempty"`
-	Mounts           []Mount                `json:"mounts,omitempty"`
-	Environment      map[string]string      `json:"env,omitempty"`
-	ReadOnlyRootfs   bool                  `json:"read_only_rootfs,omitempty"`
-	TmpfsTmp         bool                  `json:"tmpfs_tmp,omitempty"`
-	SeccompProfile   string                `json:"seccomp_profile,omitempty"`
-	WorkDir          string                `json:"work_dir,omitempty"`
-	FirejailProfile  string                `json:"firejail_profile,omitempty"`
-	RuntimePath      string                `json:"runtime_path,omitempty"`
+	Name            string               `json:"name"`
+	Image           string               `json:"image"`
+	VMType          VMType               `json:"vm_type"`
+	VMTier          VMTier               `json:"vm_tier,omitempty"`
+	VMConfig        *VMConfig            `json:"vm_config,omitempty"`
+	SandboxType     SandboxType          `json:"sandbox_type"`
+	SandboxLayer    SandboxLayer         `json:"sandbox_layer,omitempty"`
+	SandboxLayers   []SandboxLayer       `json:"sandbox_layers,omitempty"`
+	NativeSandbox   *NativeSandboxConfig `json:"native_sandbox,omitempty"`
+	Labels          map[string]string    `json:"labels,omitempty"`
+	Mounts          []Mount              `json:"mounts,omitempty"`
+	Environment     map[string]string    `json:"env,omitempty"`
+	ReadOnlyRootfs  bool                 `json:"read_only_rootfs,omitempty"`
+	TmpfsTmp        bool                 `json:"tmpfs_tmp,omitempty"`
+	SeccompProfile  string               `json:"seccomp_profile,omitempty"`
+	WorkDir         string               `json:"work_dir,omitempty"`
+	FirejailProfile string               `json:"firejail_profile,omitempty"`
+	RuntimePath     string               `json:"runtime_path,omitempty"`
 }
 
 // VMType is the user-facing VM flavor selector in sandbox configuration.
@@ -144,7 +144,7 @@ type Sandbox struct {
 	PID          int               `json:"pid,omitempty"`
 	VMTier       VMTier            `json:"vm_tier,omitempty"`
 	SandboxLayer SandboxLayer      `json:"sandbox_layer,omitempty"`
-	Layers       []SandboxLayer   `json:"layers"` // Active isolation layers
+	Layers       []SandboxLayer    `json:"layers"` // Active isolation layers
 	CreatedAt    time.Time         `json:"created_at"`
 	StartedAt    *time.Time        `json:"started_at"`
 	IPAddress    string            `json:"ip_address"`

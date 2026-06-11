@@ -1,16 +1,32 @@
 name: Coverage
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on: [push, pull_request]
 permissions:
   contents: read
 
 jobs:
   coverage:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: "1.23"
+          cache: true
+
       - name: Run coverage
         run: |
-          # Language-specific coverage commands
-          echo "Coverage check configured"
+          go test -coverprofile=coverage.out ./...
+          go tool cover -func=coverage.out
+          # Calculate average coverage safely — skip "total:" and empty lines
+          grep -v "^total:" coverage.out | awk 'NF==3 && $3 ~ /[0-9.]+%$/ {gsub(/%/,"",$3); s+=$3; c++} END {if(c>0) printf "Coverage: %.1f%%\n", s/c; else print "Coverage: 0%"}'
+
       - name: Upload coverage
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2
+        with:
+          files: ./coverage.out

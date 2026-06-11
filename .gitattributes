@@ -1,42 +1,19 @@
-# Normalize line endings
-* text=auto
+# Auto detect text files and perform LF normalization
+* text=auto eol=lf
 
-# Source files
-*.rs text
-*.py text
-*.ts text
-*.tsx text
-*.js text
-*.jsx text
-*.go text
-*.rs.text text eol=lf
+# Rust
+*.rs text diff=rust
+Cargo.lock text -diff
 
-# Binary files
-*.png binary
-*.jpg binary
-*.jpeg binary
-*.gif binary
-*.mp4 binary
-*.mov binary
-*.pdf binary
-*.ico binary
-*.icns binary
-
-# Lockfiles
-*.lock text
-Cargo.lock text
-package-lock.json text
-pnpm-lock.yaml text
-bun.lockb binary
-yarn.lock text
-
-# Docs
-*.md text
-*.mdx text
+# Config / docs
+*.toml text
 *.yml text
 *.yaml text
-*.toml text
+*.md text diff=markdown
 *.json text
 
-# Shell
-*.sh text eol=lf
+# Binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.pdf binary

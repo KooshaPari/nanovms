@@ -1,192 +1,54 @@
 # AGENTS.md — NanoVMS
 
 ## Project Overview
-
 - **Name**: NanoVMS (Nano Virtual Machine Services)
-- **Description**: Nano Virtual Machine Services — headless VM abstraction for agents with support for Apple, Android, Smart TV, Gaming, IoT/Embedded, and AR/VR platforms
+- **Description**: Go-based runtime and CLI for 3-tier isolation: WASM, gVisor, and Firecracker
 - **Location**: `/Users/kooshapari/CodeProjects/Phenotype/repos/nanovms`
-- **Language Stack**: Go 1.23+
+- **Language Stack**: Go 1.23+; Node.js only for VitePress docs tooling
 - **Published**: Private (Phenotype org)
 
-## Quick Start
+## Repository Structure
+- `api/` — API contracts and generated surfaces
+- `docs/` — VitePress docs and reference material
+- `go/` — Go runtime and library code
+- `sdk/` — shared SDK/client helpers
+- `scripts/` — repository automation
+- `tests/` — test fixtures and integration coverage
+- `.github/workflows/` — CI and security workflows
+- `package.json` — docs tooling and VitePress scripts
+- `go.mod` — Go module definition
 
+## Quality Checks
+
+From the repository root:
 ```bash
-# Clone and setup
-git clone https://github.com/KooshaPari/nanovms.git
-cd nanovms
-go mod download
-
-# Build
+go fmt ./...
+go vet ./...
+golangci-lint run ./...
+go test ./...
+go test -race ./...
 go build ./...
-
-# Run tests
-go test ./...
-
-# Run CLI
-go run ./cmd/nanovms
-
-# Build documentation
-cd docs && npm install && npm run docs:build
+npm run docs:build
 ```
 
-## Architecture
+## Worktree & Git Discipline
+- Feature work uses repo-specific worktrees: `repos/nanovms-wtrees/<topic>/`
+- Keep the canonical repo on `main` except during explicit merge operations
+- Use temporary feature branches for implementation work and integrate via PR or squash commit
 
-### Hexagonal Architecture
+## CI / Workflow Guidance
+- Keep workflow action references pinned and review them when dependencies change
+- Prefer Linux runners unless a workflow has a hard macOS requirement
+- Keep security workflows in `.github/workflows/` aligned with the current toolchain
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        Ports (Interfaces)                    │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐ │
-│  │ SandboxPort     │  │ RuntimePort     │  │ ImagePort   │ │
-│  └────────┬────────┘  └────────┬────────┘  └──────┬──────┘ │
-└───────────┼─────────────────────┼──────────────────┼────────┘
-            │                     │                  │
-┌───────────▼─────────────────────▼──────────────────▼────────┐
-│                      Adapters                               │
-│  ┌──────────┐  ┌───────────┐  ┌──────────┐  ┌──────────┐ │
-│  │ Mac      │  │ Windows   │  │ Linux    │  │ WASM     │ │
-│  │ (Lima)   │  │ (WSL2)    │  │ (Native) │  │ (Wasmtime)│ │
-│  └──────────┘  └───────────┘  └──────────┘  └──────────┘ │
-└─────────────────────────────────────────────────────────────┘
-```
+## Related Documents
+- `README.md` — project overview and quick start
+- `CLAUDE.md` — Claude-specific repository guidance
+- `SPEC.md` — system specification and architecture notes
+- `PLAN.md` — implementation plan
+- `ADR.md` — architecture decisions
+- `CHANGELOG.md` — version history
 
-### Platform Support
+---
 
-| Platform | Backend | Status | Notes |
-|----------|---------|--------|-------|
-| **Apple** | | | |
-| macOS | Lima/Colima + vz | ✅ Active | Primary dev environment |
-| iOS | Xcode Simulator | ✅ Via Lima | iPhone, iPad |
-| iPadOS | Xcode Simulator | ✅ Via Lima | iPad development |
-| tvOS | Xcode Simulator | ✅ Via Lima | Apple TV apps |
-| watchOS | Xcode Simulator | ✅ Via Lima | Apple Watch apps |
-| visionOS | Xcode Simulator | ✅ Via Lima | Vision Pro |
-| **Android** | | | |
-| Phone | Emulator headless | ✅ | Pixel, Samsung, etc. |
-| Tablet | Emulator | ✅ | Various form factors |
-| Wear OS | Emulator | ✅ | Smartwatch |
-| Android TV | TV Emulator | ✅ | Leanback launcher |
-| Automotive | Auto Emulator | ✅ | Google Automotive |
-| **Smart TV** | | | |
-| tvOS | Xcode | ✅ Via Lima | Apple TV |
-| Android TV | Android Emulator | ✅ | |
-| Samsung Tizen | Tizen Studio | 📋 Planned | Via Lima |
-| LG webOS | webOS SDK | 📋 Planned | Via Lima |
-| Roku | Roku SDK | 📋 Planned | Via Lima |
-| Fire TV | Fire OS Emulator | ✅ | Android-based |
-| **Gaming** | | | |
-| Nintendo Switch | Yuzu/Ryujinx | 📋 Planned | Via Lima + wine |
-| Xbox | Dev Mode | 📋 Planned | Windows UWP |
-| PlayStation | DevNet | 📋 Remote | Sony DevNet access |
-| **IoT/Embedded** | | | |
-| Raspberry Pi | QEMU | 📋 Planned | ARM emulation |
-| Pine64 | QEMU | 📋 Planned | ARM64 |
-| ESP32/FreeRTOS | QEMU | 📋 Planned | Embedded |
-| **AR/VR** | | | |
-| visionOS | Xcode | ✅ | Vision Pro |
-| SteamVR | Steam | 📋 Planned | Windows VR |
-| SteamOS | ChimeraOS | 📋 Planned | Steam Deck |
-| Meta Quest | Horizon | 📋 Remote | Stream to headset |
-| HoloLens | Emulator | 📋 Planned | Windows Hyper-V |
-| Magic Leap | Lab | 📋 Remote | Cloud simulator |
-| **Other** | | | |
-| Linux | Native + gVisor | ✅ Active | Native Linux |
-| Windows | WSL2 + gVisor | ✅ Active | Windows path |
-
-## Quality Standards
-
-### Go Code Quality
-
-- **Formatter**: `go fmt` (mandatory)
-- **Linter**: `go vet`, `golangci-lint`
-- **Tests**: `go test` with coverage >70%
-- **Dependencies**: Use `go mod`, no vendor/
-
-### Test Requirements
-
-```bash
-# Unit tests
-go test ./...
-
-# Integration tests (requires platform tooling)
-go test ./... -tags=integration
-
-# Benchmark tests
-go test -bench=. ./...
-```
-
-## Git Workflow
-
-### Branch Naming
-
-Format: `<type>/<platform>/<description>`
-
-Types: `feat`, `fix`, `docs`, `refactor`, `test`
-
-Examples:
-- `feat/mac/lima-adapter`
-- `fix/windows/wsl2-path`
-- `docs/api-reference`
-
-### Commit Messages
-
-Format: `<type>(<platform>): <description>`
-
-Examples:
-- `feat(mac): add Lima adapter with vz driver support`
-- `fix(windows): handle WSL2 path conversion on NTFS`
-- `docs(linux): add gVisor integration guide`
-
-## Documentation
-
-- VitePress for user-facing docs
-- Run `npm run docs:dev` for local preview
-- Docs deploy automatically to GitHub Pages on main branch push
-
-## CLI Commands
-
-```bash
-# Show platform info
-nanovms info
-
-# Create sandbox
-nanovms create --name myapp --platform mac
-
-# Create mobile simulator
-nanovms create --name ios-test --platform mobile --simulator-type ios
-
-# List sandboxes
-nanovms list
-
-# Delete sandbox
-nanovms delete <sandbox-id>
-
-# Pull OCI image
-nanovms pull oci://localhost:5000/myapp:latest
-```
-
-## Troubleshooting
-
-### Lima not found (macOS)
-```bash
-# Install Lima
-brew install lima
-
-# Verify
-limactl --version
-```
-
-### WSL2 not found (Windows)
-```powershell
-# Install WSL2
-wsl --install
-
-# Verify
-wsl --list --verbose
-```
-
-### gVisor not available
-```bash
-# Install gVisor
-go install github.com/google/gvisor/gvisor@latest
-```
+For broader policy, use the canonical sources referenced by the parent Claude files.

@@ -1,2 +1,15 @@
 # Default owner
-* @KooshaPari
+*       @KooshaPari
+
+# Go code
+# .go files and Go module files
+*.go         @KooshaPari
+go.mod       @KooshaPari
+go.sum       @KooshaPari
+
+# Docs
+docs/       @KooshaPari
+
+# CI/CD
+.github/workflows/  @KooshaPari
+.github/*.yml      @KooshaPari

@@ -88,6 +88,38 @@ podman run -it --rm \
   ghcr.io/kooshapari/nanovms:latest
 ```
 
+## Rust SDK Quick Start
+
+### Install the SDK
+
+```bash
+# Add to your Cargo.toml
+[dependencies]
+nvms-sdk = { git = "https://github.com/KooshaPari/nanovms", subdir = "sdk/rust" }
+
+# Or clone and build locally
+git clone https://github.com/KooshaPari/nanovms.git
+cd nanovms/sdk/rust
+cargo build
+```
+
+### Basic SDK Usage
+
+```rust
+use nvms_sdk::{NvmsClient, AudioSource, Renderer, Result};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let client = NvmsClient::new("http://localhost:8080").await?;
+
+    // List running VMs
+    let vms = client.list_vms().await?;
+    println!("Running VMs: {:?}", vms);
+
+    Ok(())
+}
+```
+
 ## First Steps
 
 ### 1. Initialize NanoVMS
@@ -403,6 +435,11 @@ sudo iptables -L -n | grep nanovms
 - [Game Automation](guides/game-automation.md) - Testing workflow
 - [Agent Environments](guides/agents.md) - Desktop automation
 - [Performance Tuning](guides/performance.md) - Optimization tips
+
+### SDK Development
+
+- [Rust SDK](sdk/rust/README.md) - Build integrations with the Rust SDK
+- [PhenoCompose Driver](integrations/pheno-compose/README.md) - Orchestrate with PhenoCompose
 
 ### Community
 
