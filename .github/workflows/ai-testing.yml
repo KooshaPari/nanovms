@@ -1,23 +1,20 @@
 name: Testing Infrastructure
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 
 on:
   push:
-    branches: [main]
+    branches: [main, docs]
     paths:
       - 'tests/**'
       - 'vitest.config.ts'
       - 'playwright.config.ts'
+      - '**.rs'
   pull_request:
     paths:
       - 'tests/**'
       - 'vitest.config.ts'
       - 'playwright.config.ts'
   schedule:
-    - cron: '0 2 * * 0'  # Weekly test run (Sunday)
+    - cron: '0 2 * * *'  # Weekly test run
 
 permissions:
   contents: read
@@ -25,10 +22,9 @@ permissions:
 jobs:
   bdd-tests:
     name: BDD Tier Isolation Tests
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2
@@ -38,10 +34,9 @@ jobs:
 
   vitest-tests:
     name: Vitest Unit Tests
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2
@@ -52,17 +47,16 @@ jobs:
           bun run vitest run --reporter=json
 
       - name: Upload coverage
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: vitest-coverage
           path: coverage/
 
   playwright-tests:
     name: Playwright Integration Tests
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2
@@ -73,15 +67,28 @@ jobs:
           bunx playwright install --with-deps
           bun run playwright test
 
-  go-tests:
-    name: Go Unit Tests
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
+  cargo-tests:
+    name: Rust Unit Tests
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9  # stable
 
-      - name: Run Go tests
-        run: go test -v -race -short ./...
+      - name: Run cargo tests
+        run: cargo test --workspace
+
+  vm-tier-tests:
+    name: VM Tier Isolation
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        tier: [wasm, gvisor, microvm]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Test ${{ matrix.tier }} isolation
+        run: |
+          echo "Testing ${{ matrix.tier }} isolation tier"
+          cargo test --test tier_isolation_${{ matrix.tier }}

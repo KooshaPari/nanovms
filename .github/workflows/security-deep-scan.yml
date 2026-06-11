@@ -1,8 +1,4 @@
 name: Deep Security Scan
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 
 on:
   push:
@@ -18,16 +14,15 @@ permissions:
 jobs:
   # 1. Dependency Vulnerability Scan (Snyk-style)
   dependency-scan:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@314ff8b43182423b84c50b1670b0e10f858f2d98  # was: @master
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # was: @master
         with:
           scan-type: 'fs'
           ignore-unfixed: true
@@ -42,10 +37,9 @@ jobs:
 
   # 2. Secret Scanning (Trufflehog)
   secret-scan:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           fetch-depth: 0
       
@@ -57,8 +51,7 @@ jobs:
           extra_args: --only-verified
   # 3. Code Security Analysis (CodeQL)
   codeql-analysis:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       security-events: write
@@ -66,9 +59,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: ['go', 'python', 'typescript']
+        language: ['rust', 'go', 'python', 'typescript']
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       
       - name: Initialize CodeQL
         uses: github/codeql-action/init@411bbbe57033eedfc1a82d68c01345aa96c737d7  # v4
@@ -83,20 +76,19 @@ jobs:
 
   # 4. Container Security (if Dockerfile exists)
   container-scan:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    runs-on: ubuntu-latest
     if: hashFiles('**/Dockerfile') != ''
     permissions:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       
       - name: Build image
         run: docker build -t app:${{ github.sha }} .
       
       - name: Scan image with Trivy
-        uses: aquasecurity/trivy-action@314ff8b43182423b84c50b1670b0e10f858f2d98  # was: @master
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # was: @master
         with:
           image-ref: 'app:${{ github.sha }}'
           format: 'sarif'

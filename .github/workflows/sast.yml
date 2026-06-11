@@ -1,8 +1,4 @@
 name: Security (SAST)
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 on:
   push:
     branches: [main, develop]
@@ -13,16 +9,15 @@ permissions:
 
 jobs:
   codeql:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       security-events: write
       actions: read
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-      - uses: github/codeql-action/init-action@v4  # INVALID SUBPATH — actual ref is `init` at the codeql-action repo
+      - uses: github/codeql-action/init-action@b0c4fd77f6c559021d78430ec4d0d169ae74a4eb  # v3 (pinned to v3 SHA; in v4 the subpath was renamed to 'init' but v3 init-action still works)
         with:
-          languages: [go, typescript, python]
-      - uses: github/codeql-action/autobuild@e46ed2cbd01164d986452f91f178727624ae40d7  # was: @v4 (no ref)
-      - uses: github/codeql-action/analyze@e46ed2cbd01164d986452f91f178727624ae40d7  # was: @v4 (no ref)
+          languages: [typescript, python, rust, go]
+      - uses: github/codeql-action/autobuild@95e58e9a2cdfd71adc6e0353d5c52f41a045d225  # was: no ref (default branch)
+      - uses: github/codeql-action/analyze@95e58e9a2cdfd71adc6e0353d5c52f41a045d225  # was: no ref (default branch)

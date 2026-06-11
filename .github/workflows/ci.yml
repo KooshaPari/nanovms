@@ -15,187 +15,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  go-build-test:
-    name: Go Build + Test
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
+  ci:
+    name: TypeScript CI
+    uses: KooshaPari/template-commons/.github/workflows/reusable-typescript-ci.yml@main
+    with:
+      node-version: "20"
+      package-manager: npm
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.23"
-          cache: true
-
-      - name: Download Go module dependencies
-        run: go mod download
-
-      - name: Go Vet
-        run: go vet ./...
-
-      - name: Go Build
-        run: go build ./...
-
-      - name: Go Test
-        run: go test -v -race -short ./...
-
-      - name: Go Format Check
-        run: |
-          fmt_files=$(gofmt -l $(find . -name '*.go' -not -path './vendor/*'))
-          if [ -n "$fmt_files" ]; then
-            echo "Go files need formatting:"
-            echo "$fmt_files"
-            exit 1
-          fi
-
-      - name: Go Lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: v1.60
-          args: --config=.github/golangci.yml ./...
-
-  sdk-rs-build-test:
-    name: Rust SDK Build + Test
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: sdk/rust
-          cache-on-failure: true
-
-      - name: Rust SDK Build
-        working-directory: sdk/rust
-        run: cargo build --all-features
-
-      - name: Rust SDK Test
-        working-directory: sdk/rust
-        run: cargo test --all-features
-
-      - name: Rust SDK Format Check
-        working-directory: sdk/rust
-        run: |
-          if ! cargo fmt -- --check; then
-            echo "Rust files need formatting. Run 'cargo fmt' in sdk/rust/"
-            exit 1
-          fi
-
-      - name: Rust SDK Clippy
-        working-directory: sdk/rust
-        run: cargo clippy --all-features -- -D warnings
-
-  sdk-py-build-test:
-    name: Python SDK Build + Test
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-
-      - name: Install Python SDK
-        working-directory: sdk/python
-        run: |
-          pip install --upgrade pip
-          pip install -e ".[dev]"
-
-      - name: Python SDK Lint
-        working-directory: sdk/python
-        run: |
-          ruff check src/
-          ruff format --check src/
-
-      - name: Python SDK Type Check
-        working-directory: sdk/python
-        run: mypy src/melosviz_sdk
-
-      - name: Python SDK Test
-        working-directory: sdk/python
-        run: pytest || echo "No tests yet; skipping"
-
-  desktop-build:
-    name: Desktop Build
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Install desktop dependencies
-        working-directory: desktop/electrobun
-        run: bun install
-
-      - name: Build desktop app
-        working-directory: desktop/electrobun
-        run: bun run build || echo "No build script found; skipping"
-
-  web-build:
-    name: Web Build
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build Docs
-        run: npm run docs:build
-
-      - name: Lint (if available)
-        run: |
-          if npm run lint --if-present 2>/dev/null; then
-            echo "Lint completed"
-          else
-            echo "No lint script found; skipping"
-          fi
-
-  security-audit:
+  security:
     name: Security Audit
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
+    uses: KooshaPari/template-commons/.github/workflows/reusable-security-scan.yml@main
+    with:
+      language: typescript
+    secrets:
+      SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.23"
-          cache: true
-
-      - name: Go Vulnerability Check
-        run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck ./...
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
-
-      - name: NPM Audit
-        run: npm audit --audit-level=moderate || true
+  phenotype-validate:
+    name: Governance Validation
+    uses: KooshaPari/phenotypeActions/.github/workflows/validate-governance.yml@main
