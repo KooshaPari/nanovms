@@ -1,15 +1,73 @@
-# Pre-commit hooks for nanovms
+# L2 #33 pre-commit baseline, 2026-06-11.
 # Install: pre-commit install
-# Run manually: pre-commit run --all-files
+# Run default hooks: pre-commit run --all-files
+# Run heavy language baselines: pre-commit run --all-files --hook-stage manual
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
-      - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
-      - id: check-json
+        args: [--allow-multiple-documents]
+      - id: check-toml
       - id: check-added-large-files
-      - id: check-merge-conflict
-      - id: detect-private-key
+        args: [--maxkb=1000]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix]
+        types_or: [python, pyi]
+      - id: ruff-format
+        types_or: [python, pyi]
+
+  - repo: https://github.com/psf/black
+    rev: 24.10.0
+    hooks:
+      - id: black
+        language_version: python3.11
+        types_or: [python, pyi]
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+
+  - repo: local
+    hooks:
+      - id: cargo-clippy
+        name: cargo clippy -- -D warnings
+        entry: cargo clippy --workspace --all-targets --all-features
+        args: [--, -D, warnings]
+        language: system
+        types: [rust]
+        pass_filenames: false
+        stages: [manual]
+
+      - id: golangci-lint
+        name: golangci-lint run --timeout 5m
+        entry: golangci-lint run
+        args: [--timeout, 5m]
+        language: system
+        types: [go]
+        pass_filenames: false
+        stages: [manual]
+
+      - id: tsc
+        name: tsc --noEmit
+        entry: npx tsc
+        args: [--noEmit]
+        language: system
+        types_or: [ts, tsx]
+        pass_filenames: false
+        stages: [manual]
+
+      - id: trufflehog
+        name: trufflehog filesystem
+        entry: trufflehog filesystem --no-update --only-verified --fail .
+        language: system
+        pass_filenames: false
+        stages: [manual]
+
