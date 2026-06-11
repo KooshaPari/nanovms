@@ -1,0 +1,104 @@
+# .dockerignore — Phenotype org canonical (L2 #28)
+# Source of truth: phenotype-org-governance/.dockerignore
+# Ship to all focus repos as a verbatim copy.
+# Reference: https://docs.docker.com/engine/reference/builder/#dockerignore-file
+
+# Version control
+.git
+.gitignore
+.gitattributes
+.github
+
+# Documentation (build context bloat; not needed at runtime)
+*.md
+README*
+CHANGELOG*
+LICENSE*
+docs/
+**/docs/
+
+# Build artifacts
+target/
+**/target/
+dist/
+build/
+**/build/
+**/dist/
+**/.next/
+**/.nuxt/
+**/.output/
+**/coverage/
+**/.pytest_cache/
+**/__pycache__/
+**/.mypy_cache/
+**/.ruff_cache/
+**/htmlcov/
+**/.coverage
+**/.coverage.*
+
+# Node / JS
+node_modules/
+**/node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+bun.lock
+
+# Rust / Go
+**/Cargo.lock
+**/.cargo
+**/vendor/
+go.sum
+**/go-build/
+
+# Python
+**/.venv/
+**/venv/
+**/env/
+**/*.egg-info/
+**/.eggs/
+**/*.whl
+**/*.tar.gz
+**/*.pyc
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+**/.DS_Store
+**/Thumbs.db
+
+# Logs / temp
+*.log
+**/*.log
+*.tmp
+**/*.tmp
+**/tmp/
+**/temp/
+
+# Local environment
+.env
+.env.*
+**/.env
+**/.env.local
+**/.env.*.local
+!.env.example
+**/.env.example
+
+# CI / workflows
+.github/workflows/
+.gitlab-ci.yml
+.circleci/
+.drone.yml
+
+# Docker
+Dockerfile.bak
+docker-compose.override.yml
+.dockerignore
+
+# Test fixtures (do not ship into image)
+**/tests/fixtures/large/
+**/snapshots/baselines/

@@ -19,3 +19,24 @@ indent_style = tab
 
 [*.md]
 trim_trailing_whitespace = false
+
+# --- appended by L2 #28 on 2026-06-11 ---
+[*.rs]
+indent_size = 4
+max_line_length = 100
+
+[*.go]
+indent_style = tab
+indent_size = 4
+
+[*.{ts,tsx,js,jsx,mjs,cjs}]
+indent_size = 2
+
+[*.{toml,yaml,yml,json,html,css,scss}]
+indent_size = 2
+
+[*.{zsh,sh,bash}]
+indent_size = 2
+
+[*.{diff,patch}]
+trim_trailing_whitespace = false
