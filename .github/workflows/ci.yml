@@ -18,6 +18,7 @@ jobs:
   go-build-test:
     name: Go Build + Test
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -57,6 +58,7 @@ jobs:
   sdk-rs-build-test:
     name: Rust SDK Build + Test
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -69,6 +71,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: sdk/rust
+          cache-on-failure: true
 
       - name: Rust SDK Build
         working-directory: sdk/rust
@@ -93,6 +96,7 @@ jobs:
   sdk-py-build-test:
     name: Python SDK Build + Test
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -125,6 +129,7 @@ jobs:
   desktop-build:
     name: Desktop Build
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -144,6 +149,7 @@ jobs:
   web-build:
     name: Web Build
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -170,6 +176,7 @@ jobs:
   security-audit:
     name: Security Audit
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
