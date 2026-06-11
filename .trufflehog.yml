@@ -1,0 +1,56 @@
+# Phenotype-internal TruffleHog configuration
+# Layer 2 #34 — gitleaks + trufflehog secret-scan workflow.
+#
+# Strategy:
+#   * Default detectors remain enabled (TruffleHog v3 auto-enables ~700
+#     detectors when no `detectors:` override is present, so we omit the
+#     `detectors` key intentionally).
+#   * Exclude paths that are known to contain phenotype-internal test
+#     secrets, build artefacts, and lockfiles so the scan focuses on
+#     real source.
+#   * Keep the file format compatible with the existing project convention
+#     (see `AgilePlus/.trufflehog.yml`).
+
+exclude:
+  paths:
+    # VCS / build / lockfile noise
+    - ".git/**"
+    - "target/**"
+    - "node_modules/**"
+    - "dist/**"
+    - "build/**"
+    - "vendor/**"
+    - "coverage/**"
+    - ".cargo/**"
+    - "**/*.sum"
+    - "**/*.lock"
+    - "**/lcov.info"
+    - "**/.DS_Store"
+    - "**/.minisign/**"
+    - "**/.tuf/**"
+
+    # Phenotype-internal test secret fixtures — these intentionally
+    # contain the literal `PhenotypeTestToken123!` and similar patterns
+    # and must not be flagged.
+    - "**/tests/fixtures/**"
+    - "**/tests/**/fixtures/**"
+    - "**/testdata/**"
+    - "**/*.test.*"
+    - "**/*_test.go"
+    - "**/*_test.py"
+    - "**/*_test.rs"
+    - "**/*.spec.*"
+
+include:
+  files:
+    - "**/*"
+
+# Detector configuration:
+#   * `detectors` is intentionally absent. TruffleHog v3 enables all
+#     default (~700) detectors automatically and the user only needs to
+#     list overrides (e.g. to disable a noisy detector). We do not need
+#     any overrides.
+#   * To override (e.g. disable a specific detector), add:
+#       detectors:
+#         - name: <detector-id>
+#           disabled: true
