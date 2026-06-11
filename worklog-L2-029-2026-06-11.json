@@ -4,8 +4,7 @@
   "repo": "nanovms",
   "branch": "chore/l2-29-dependabot-2026-06-11",
   "files": [
-    ".github/dependabot.yml",
-    "worklog-L2-029-2026-06-11.json"
+    ".github/dependabot.yml"
   ],
   "reviewer": "kooshapari",
   "open_pull_requests_limit": 10,
@@ -53,3 +52,4 @@
   "validation": "python3 -c \"import yaml; yaml.safe_load(open('.github/dependabot.yml'))\"",
   "status": "implemented"
 }
+

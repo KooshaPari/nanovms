@@ -1,33 +1,22 @@
-# ============================================================================
-# nanovms — Dependabot configuration
-# ============================================================================
-#
-# L2 #29 (FLEET_100TASK_DAG_V3.md) — canonical dependabot baseline.
-# Ecosystems:
-#   - gomod            (root)
-#   - github-actions   (.github/workflows/)
-#
-# Schedule: weekly, staggered.
-# ============================================================================
+# L2 #29 Dependabot baseline for nanovms.
+# Requested cadence:
+# - cargo: weekly Monday
+# - npm: weekly Tuesday
+# - go-modules: weekly Wednesday (Dependabot ecosystem key: gomod)
+# - github-actions: weekly Thursday
+# - dockerfile: weekly Friday (Dependabot ecosystem key: docker)
 
 version: 2
 
 updates:
-  # --------------------------------------------------------------------------
-  # Go modules (root)
-  # --------------------------------------------------------------------------
-  - package-ecosystem: "gomod"
+  - package-ecosystem: "cargo"
     directory: "/"
     schedule:
       interval: "weekly"
-      day: "tuesday"
-      time: "06:00"
-      timezone: "UTC"
+      day: "monday"
+    reviewers:
+      - "kooshapari"
     open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "go"
-      - "nanovms"
     groups:
       minor-and-patch:
         applies-to: version-updates
@@ -42,29 +31,96 @@ updates:
           - "*"
         update-types:
           - "major"
-    commit-message:
-      prefix: "chore(deps)"
-      include: "scope"
 
-  # --------------------------------------------------------------------------
-  # GitHub Actions (CI)
-  # --------------------------------------------------------------------------
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+    reviewers:
+      - "kooshapari"
+    open-pull-requests-limit: 10
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      major:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - "major"
+
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+    reviewers:
+      - "kooshapari"
+    open-pull-requests-limit: 10
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      major:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - "major"
+
   - package-ecosystem: "github-actions"
-    directory: "/.github/workflows"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "thursday"
+    reviewers:
+      - "kooshapari"
+    open-pull-requests-limit: 10
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      major:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - "major"
+
+  - package-ecosystem: "docker"
+    directory: "/"
     schedule:
       interval: "weekly"
       day: "friday"
-      time: "06:00"
-      timezone: "UTC"
-    open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      - "ci"
-      - "nanovms"
+    reviewers:
+      - "kooshapari"
+    open-pull-requests-limit: 10
     groups:
-      actions:
+      minor-and-patch:
+        applies-to: version-updates
         patterns:
           - "*"
-    commit-message:
-      prefix: "ci(deps)"
-      include: "scope"
+        update-types:
+          - "minor"
+          - "patch"
+      major:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - "major"
+
