@@ -15,7 +15,7 @@ jobs:
       security-events: write
       actions: read
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
       - uses: github/codeql-action/init-action@b0c4fd77f6c559021d78430ec4d0d169ae74a4eb  # v3 (pinned to v3 SHA; in v4 the subpath was renamed to 'init' but v3 init-action still works)
         with:
           languages: [typescript, python, rust, go]
