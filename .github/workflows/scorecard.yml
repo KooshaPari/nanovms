@@ -16,6 +16,7 @@ jobs:
   scorecard:
     name: Scorecard analysis
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       security-events: write
       id-token: write
