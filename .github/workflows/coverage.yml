@@ -13,4 +13,4 @@ jobs:
           # Language-specific coverage commands
           echo "Coverage check configured"
       - name: Upload coverage
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@f2274c2c340e0c81c8f7dc407b2a477b8935f171  # v6
