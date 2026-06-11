@@ -40,3 +40,69 @@ coverage/
 *.tmp
 *.bak
 *.orig
+
+# --- L2 #28 hygiene baseline (added 2026-06-11) ---
+# .gitignore — Phenotype org canonical (L2 #28)
+# Source of truth: phenotype-org-governance/.gitignore
+# Ship to all focus repos by MERGE (idempotent: appending any missing entries
+# under the marker block; never overwriting repo-specific lines above).
+#
+# Merge marker:
+#   # --- L2 #28 hygiene baseline (added 2026-06-11) ---
+#
+# When shipping to a focus repo, this block is appended only if a line from
+# the canonical (below) is not already covered by an existing rule. The merge
+# preserves all repo-specific lines and is safe to re-run.
+
+
+# Rust build artifacts
+/target
+**/*.rs.bk
+**/*.pdb
+
+# Go build artifacts
+**/go-build/
+
+# Python build artifacts
+**/__pycache__/
+**/*.py[cod]
+**/*$py.class
+**/env/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.pytest_cache/
+**/htmlcov/
+**/.coverage
+**/.coverage.*
+**/*.egg-info/
+**/.eggs/
+
+# Node / TypeScript
+**/.next/
+**/.nuxt/
+**/.output/
+**/.cache/
+**/tsconfig.tsbuildinfo
+
+# macOS / OS
+.AppleDouble
+.LSOverride
+**/desktop.ini
+
+# Editors / IDE
+
+# Logs / temp
+**/tmp/
+**/temp/
+
+# Env / secrets (local-only; commit .env.example)
+.env.*
+!.env.example
+**/.env.*.local
+
+# Worktree / agent caches
+.worktrees/
+.claude/worktrees/
+.serena/
+.codex/
+.cursor/

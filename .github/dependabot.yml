@@ -1,7 +1,70 @@
+# ============================================================================
+# nanovms — Dependabot configuration
+# ============================================================================
+#
+# L2 #29 (FLEET_100TASK_DAG_V3.md) — canonical dependabot baseline.
+# Ecosystems:
+#   - gomod            (root)
+#   - github-actions   (.github/workflows/)
+#
+# Schedule: weekly, staggered.
+# ============================================================================
+
 version: 2
+
 updates:
-  - package-ecosystem: "github-actions"
+  # --------------------------------------------------------------------------
+  # Go modules (root)
+  # --------------------------------------------------------------------------
+  - package-ecosystem: "gomod"
     directory: "/"
     schedule:
       interval: "weekly"
-    labels: ["dependencies", "ci"]
+      day: "tuesday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "go"
+      - "nanovms"
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      major:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - "major"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+
+  # --------------------------------------------------------------------------
+  # GitHub Actions (CI)
+  # --------------------------------------------------------------------------
+  - package-ecosystem: "github-actions"
+    directory: "/.github/workflows"
+    schedule:
+      interval: "weekly"
+      day: "friday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "ci"
+      - "nanovms"
+    groups:
+      actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "ci(deps)"
+      include: "scope"
