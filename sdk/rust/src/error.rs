@@ -19,6 +19,10 @@ pub enum NvmsError {
     #[error("deserialization failed: {0}")]
     Deserialize(String),
 
+    /// Failed to load configuration.
+    #[error("configuration failed: {0}")]
+    Config(String),
+
     /// A validation or domain error.
     #[error("domain error: {0}")]
     Domain(String),
