@@ -1,5 +1,21 @@
 version: '3'
 
+# ---------------------------------------------------------------------------
+# nanovms canonical task runner.
+#
+# This file wraps the canonical Go commands documented in AGENTS.md / CLAUDE.md
+# and verified by the L1 audit (STATUS_2026_06_10.md). All Go invocations
+# pin GOCACHE to a stable, repo-scoped location so the build is hermetic and
+# reproducible across local + CI runs.
+#
+# Authored by: L2 subagent #22 (V3 DAG FLEET_100TASK_DAG_V3.md task #22).
+# ---------------------------------------------------------------------------
+
+env:
+  GOCACHE: /private/tmp/nanovms-gocache
+  GOFLAGS: -mod=readonly
+  CGO_ENABLED: "0"
+
 vars:
   PROJECT_LANGUAGES:
     sh: |
@@ -63,33 +79,95 @@ vars:
       fi
 
 tasks:
+  # -------------------------------------------------------------------------
+  # Default
+  # -------------------------------------------------------------------------
   default:
     desc: Show available tasks and detected project languages.
     cmds:
       - task --list
       - 'echo "detected languages: {{.PROJECT_LANGUAGES}}"'
+      - 'echo "GOCACHE=$GOCACHE"'
 
+  # -------------------------------------------------------------------------
+  # L2-22 canonical Go tasks (per V3 DAG task #22)
+  # -------------------------------------------------------------------------
+  build:
+    desc: 'Build all Go packages and binaries (canonical: `go build ./...`).'
+    cmds:
+      - go build ./...
+
+  test:
+    desc: 'Run Go tests with race detection and coverage (canonical: `go test -race -coverprofile=coverage.out ./...`).'
+    cmds:
+      - go test -race -coverprofile=coverage.out -covermode=atomic ./...
+
+  vet:
+    desc: 'Run go vet (canonical: `go vet ./...`).'
+    cmds:
+      - go vet ./...
+
+  lint:
+    desc: Run golangci-lint with the repo config (`.github/golangci.yml`); no-op if the binary is missing.
+    cmds:
+      - |
+        if command -v golangci-lint >/dev/null 2>&1; then
+          golangci-lint run --config=.github/golangci.yml ./...
+        else
+          echo "golangci-lint not installed; skipping (install via 'brew install golangci-lint')"
+          exit 0
+        fi
+
+  cov:
+    desc: Print per-function coverage summary from `coverage.out` (run `task test` first).
+    cmds:
+      - go tool cover -func=coverage.out
+
+  tidy:
+    desc: 'Tidy go.mod / go.sum (canonical: `go mod tidy`).'
+    cmds:
+      - go mod tidy
+
+  ci:
+    desc: 'Full CI gate: vet + test (race + coverage) + lint. Same checks CI runs.'
+    deps: [vet, test, lint]
+
+  # -------------------------------------------------------------------------
+  # Polyglot helpers (preserved from the prior hygiene-round Taskfile.yml).
+  # The L2-22 lane focuses on Go; these remain so the polyglot workflow
+  # is not regressed.
+  # -------------------------------------------------------------------------
   backend:build:
-    desc: Build all Go packages and binaries.
+    desc: Build all Go packages and binaries (alias of `build`).
     cmds:
       - go build ./...
 
   backend:test:
-    desc: Run Go tests with race detection.
+    desc: Run Go tests with race detection (verbose, no coverage; alias of `test`).
     cmds:
       - go test -v -race ./...
 
   backend:lint:
-    desc: Run Go formatting, vet, and golangci-lint.
+    desc: Run gofmt + go vet + golangci-lint.
     cmds:
       - test -z "$(gofmt -l $(find . -name '*.go' -not -path './vendor/*'))"
       - go vet ./...
       - |
         if command -v golangci-lint >/dev/null 2>&1; then
-          golangci-lint run ./...
+          golangci-lint run --config=.github/golangci.yml ./...
         else
           echo "golangci-lint not installed; skipping"
         fi
+
+  fmt:
+    desc: Format Go files in place.
+    cmds:
+      - go fmt ./...
+
+  fmt-check:
+    desc: Verify Go files are gofmt-clean (CI gate).
+    cmds:
+      - test -z "$(gofmt -l $(find . -name '*.go' -not -path './vendor/*'))"
 
   sdk:rs:build:
     desc: Build the Rust SDK.
@@ -141,45 +219,6 @@ tasks:
   all:lint:
     desc: Run all lint checks.
     deps: [backend:lint, sdk:rs:lint, web:lint]
-
-  build:
-    desc: Build Go packages and optional docs assets.
-    cmds:
-      - |
-        if [ -f go.mod ]; then
-          go build ./...
-        fi
-        if [ "{{.HAS_DOCS_BUILD}}" = "true" ]; then
-          {{.NODE_PM}} run docs:build
-        fi
-
-  test:
-    desc: Run Go tests and optional Node test script.
-    cmds:
-      - |
-        if [ -f go.mod ]; then
-          go test ./...
-        fi
-        if [ "{{.HAS_NODE_TEST}}" = "true" ]; then
-          {{.NODE_PM}} test
-        fi
-
-  lint:
-    desc: Run Go formatting/vet checks and optional Node lint script.
-    cmds:
-      - |
-        if [ -f go.mod ]; then
-          test -z "$(gofmt -l $(find . -name '*.go' -not -path './vendor/*'))"
-          go vet ./...
-          if command -v golangci-lint >/dev/null 2>&1; then
-            golangci-lint run ./...
-          else
-            echo "golangci-lint not installed; skipping"
-          fi
-        fi
-        if [ "{{.HAS_NODE_LINT}}" = "true" ]; then
-          {{.NODE_PM}} run lint
-        fi
 
   clean:
     desc: Remove build outputs and test caches.
