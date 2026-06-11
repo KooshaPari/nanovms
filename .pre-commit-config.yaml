@@ -1,15 +1,62 @@
-# Pre-commit hooks for nanovms
+# .pre-commit-config.yaml — nanovms (L2 #33, 2026-06-11)
+# Covers: pre-commit-hooks, Go (gofmt, go vet, golangci-lint),
+#         secret scanning (gitleaks + trufflehog).
 # Install: pre-commit install
-# Run manually: pre-commit run --all-files
+# Run all: pre-commit run --all-files
+#
+# golangci-lint is gated to `manual` stage because it requires tool
+# install (golangci-lint, gitleaks, trufflehog). CI runs the manual
+# stage via:
+#   pre-commit run --all-files --hook-stage manual
 
 repos:
+  # --- Generic hygiene ---------------------------------------------------------
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
-      - id: check-json
-      - id: check-added-large-files
+      - id: check-toml
       - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
       - id: detect-private-key
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+
+  # --- Go toolchain (fast) ----------------------------------------------------
+  - repo: local
+    hooks:
+      - id: go-fmt
+        name: gofmt (Go)
+        entry: gofmt -l -w
+        language: system
+        types: [go]
+      - id: go-vet
+        name: go vet ./...
+        entry: bash -c 'go vet ./...'
+        language: system
+        types: [go]
+        pass_filenames: false
+
+  # --- Go: golangci-lint (manual, slow) --------------------------------------
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v1.61.0
+    hooks:
+      - id: golangci-lint
+        stages: [manual]
+
+  # --- Secret scanning --------------------------------------------------------
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+  - repo: https://github.com/trufflesecurity/trufflehog
+    rev: v3.88.40
+    hooks:
+      - id: trufflehog
+        name: trufflehog (verified secret scan)
+        entry: trufflehog filesystem --no-update --only-verified --fail .
+        language: system
+        pass_filenames: false
