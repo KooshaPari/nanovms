@@ -1,1 +1,12 @@
-github: KooshaPari
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
+# Phenotype-org governance baseline (L2 #30, 2026-06-11)
+github: [KooshaPari]
+patreon: # optional — set your Patreon username to enable
+open_collective: # optional — set your Open Collective username to enable
+ko_fi: # optional — set your Ko-fi username to enable
+tidelift: # optional — set your Tidelift platform-name/project-name to enable
+community_bridge: # optional — set your Community Bridge username to enable
+liberapay: # optional — set your Liberapay username to enable
+issuehunt: # optional — set your IssueHunt username to enable
+otechie: # optional — set your Otechie username to enable
+custom: ["https://phenotype.space/sponsor"]
