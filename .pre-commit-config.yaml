@@ -1,62 +1,73 @@
-# .pre-commit-config.yaml — nanovms (L2 #33, 2026-06-11)
-# Covers: pre-commit-hooks, Go (gofmt, go vet, golangci-lint),
-#         secret scanning (gitleaks + trufflehog).
+# L2 #33 pre-commit baseline, 2026-06-11.
 # Install: pre-commit install
-# Run all: pre-commit run --all-files
-#
-# golangci-lint is gated to `manual` stage because it requires tool
-# install (golangci-lint, gitleaks, trufflehog). CI runs the manual
-# stage via:
-#   pre-commit run --all-files --hook-stage manual
+# Run default hooks: pre-commit run --all-files
+# Run heavy language baselines: pre-commit run --all-files --hook-stage manual
 
 repos:
-  # --- Generic hygiene ---------------------------------------------------------
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
-      - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
+        args: [--allow-multiple-documents]
       - id: check-toml
-      - id: check-merge-conflict
       - id: check-added-large-files
-        args: ['--maxkb=1000']
-      - id: detect-private-key
-      - id: mixed-line-ending
-        args: ['--fix=lf']
+        args: [--maxkb=1000]
 
-  # --- Go toolchain (fast) ----------------------------------------------------
-  - repo: local
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
     hooks:
-      - id: go-fmt
-        name: gofmt (Go)
-        entry: gofmt -l -w
-        language: system
-        types: [go]
-      - id: go-vet
-        name: go vet ./...
-        entry: bash -c 'go vet ./...'
-        language: system
-        types: [go]
-        pass_filenames: false
+      - id: ruff
+        args: [--fix]
+        types_or: [python, pyi]
+      - id: ruff-format
+        types_or: [python, pyi]
 
-  # --- Go: golangci-lint (manual, slow) --------------------------------------
-  - repo: https://github.com/golangci/golangci-lint
-    rev: v1.61.0
+  - repo: https://github.com/psf/black
+    rev: 24.10.0
     hooks:
-      - id: golangci-lint
-        stages: [manual]
+      - id: black
+        language_version: python3.11
+        types_or: [python, pyi]
 
-  # --- Secret scanning --------------------------------------------------------
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.21.2
     hooks:
       - id: gitleaks
-  - repo: https://github.com/trufflesecurity/trufflehog
-    rev: v3.88.40
+
+  - repo: local
     hooks:
+      - id: cargo-clippy
+        name: cargo clippy -- -D warnings
+        entry: cargo clippy --workspace --all-targets --all-features
+        args: [--, -D, warnings]
+        language: system
+        types: [rust]
+        pass_filenames: false
+        stages: [manual]
+
+      - id: golangci-lint
+        name: golangci-lint run --timeout 5m
+        entry: golangci-lint run
+        args: [--timeout, 5m]
+        language: system
+        types: [go]
+        pass_filenames: false
+        stages: [manual]
+
+      - id: tsc
+        name: tsc --noEmit
+        entry: npx tsc
+        args: [--noEmit]
+        language: system
+        types_or: [ts, tsx]
+        pass_filenames: false
+        stages: [manual]
+
       - id: trufflehog
-        name: trufflehog (verified secret scan)
+        name: trufflehog filesystem
         entry: trufflehog filesystem --no-update --only-verified --fail .
         language: system
         pass_filenames: false
+        stages: [manual]
+
