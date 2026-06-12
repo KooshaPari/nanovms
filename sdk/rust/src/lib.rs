@@ -4,10 +4,13 @@
 //! NanoVMS runtimes (WASM, gVisor, Firecracker) via REST or gRPC.
 
 pub mod client;
+pub mod config;
 pub mod error;
 pub mod models;
+pub mod syscalls;
 
 pub use client::NvmsClient;
+pub use config::NvmsConfig;
 pub use error::{NvmsError, Result};
 
 use async_trait::async_trait;
@@ -58,10 +61,21 @@ pub struct RenderFrame {
 /// Discriminated payload for render frames.
 #[derive(Debug, Clone)]
 pub enum FrameData {
-    Audio { samples: Vec<f32> },
-    Video { width: u32, height: u32, raw: Vec<u8> },
-    Metrics { key: String, value: f64 },
-    Text { payload: String },
+    Audio {
+        samples: Vec<f32>,
+    },
+    Video {
+        width: u32,
+        height: u32,
+        raw: Vec<u8>,
+    },
+    Metrics {
+        key: String,
+        value: f64,
+    },
+    Text {
+        payload: String,
+    },
 }
 
 /// Default no-op renderer for testing and placeholders.

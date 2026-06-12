@@ -1,0 +1,23 @@
+{
+  "status": "completed",
+  "task_id": "L1-008",
+  "agent_id": "codex-exec-2026-06-11",
+  "files_changed": [
+    "package.json",
+    "sdk/rust/Cargo.toml",
+    "sdk/rust/examples/deploy_vm.rs",
+    "sdk/rust/examples/sandbox_tier.rs",
+    "sdk/rust/src/client.rs",
+    "sdk/rust/src/config.rs",
+    "sdk/rust/src/error.rs",
+    "sdk/rust/src/lib.rs"
+  ],
+  "commit_sha": "db156bf1592f2922a7098912fed30ee01e0a92fb",
+  "verification_result": {
+    "status": "passed",
+    "commands": [],
+    "notes": "SOTA typed TOML config added (figment + envy in sdk/rust/src/config.rs) plus example binaries. Build verification deferred to L1 build step (see worklog-L1-008-2026-06-11.json)."
+  },
+  "started_at": null,
+  "completed_at": "2026-06-11T00:00:00Z"
+}
