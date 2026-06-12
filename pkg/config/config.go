@@ -12,28 +12,28 @@ import (
 
 // NVMSConfig represents the top-level NVMS configuration file.
 type NVMSConfig struct {
-	Version    string            `yaml:"version" json:"version"`
-	Name       string            `yaml:"name" json:"name"`
-	Tier       int               `yaml:"tier" json:"tier"`
-	Image      string            `yaml:"image" json:"image"`
-	CPU        int               `yaml:"cpu" json:"cpu"`
-	Memory     int               `yaml:"memory" json:"memory"`
-	Disk       int               `yaml:"disk" json:"disk"`
-	Sandbox    SandboxConfig     `yaml:"sandbox" json:"sandbox"`
-	Network    NetworkConfig     `yaml:"network" json:"network"`
-	Mounts     []MountConfig     `yaml:"mounts" json:"mounts"`
-	Env        map[string]string `yaml:"env" json:"env"`
-	Labels     map[string]string `yaml:"labels" json:"labels"`
+	Version string            `yaml:"version" json:"version"`
+	Name    string            `yaml:"name" json:"name"`
+	Tier    int               `yaml:"tier" json:"tier"`
+	Image   string            `yaml:"image" json:"image"`
+	CPU     int               `yaml:"cpu" json:"cpu"`
+	Memory  int               `yaml:"memory" json:"memory"`
+	Disk    int               `yaml:"disk" json:"disk"`
+	Sandbox SandboxConfig     `yaml:"sandbox" json:"sandbox"`
+	Network NetworkConfig     `yaml:"network" json:"network"`
+	Mounts  []MountConfig     `yaml:"mounts" json:"mounts"`
+	Env     map[string]string `yaml:"env" json:"env"`
+	Labels  map[string]string `yaml:"labels" json:"labels"`
 }
 
 // SandboxConfig holds sandbox-specific configuration.
 type SandboxConfig struct {
-	Type        string   `yaml:"type" json:"type"`
-	Layer       string   `yaml:"layer" json:"layer"`
-	Layers      []string `yaml:"layers" json:"layers"`
-	ReadOnly    bool     `yaml:"read_only" json:"read_only"`
-	Seccomp     string   `yaml:"seccomp" json:"seccomp"`
-	Firejail    string   `yaml:"firejail" json:"firejail"`
+	Type     string   `yaml:"type" json:"type"`
+	Layer    string   `yaml:"layer" json:"layer"`
+	Layers   []string `yaml:"layers" json:"layers"`
+	ReadOnly bool     `yaml:"read_only" json:"read_only"`
+	Seccomp  string   `yaml:"seccomp" json:"seccomp"`
+	Firejail string   `yaml:"firejail" json:"firejail"`
 }
 
 // NetworkConfig holds network configuration.
@@ -81,8 +81,8 @@ func (c *NVMSConfig) Validate() error {
 	if c.Tier < 1 || c.Tier > 3 {
 		return fmt.Errorf("config tier must be 1, 2, or 3")
 	}
-	if c.CPU < 1 {
-		return fmt.Errorf("config cpu must be at least 1")
+	if c.CPU < 2 || c.CPU > 64 {
+		return fmt.Errorf("config cpu must be between 2 and 64")
 	}
 	if c.Memory < 64 {
 		return fmt.Errorf("config memory must be at least 64 MB")
@@ -115,15 +115,15 @@ func (c *NVMSConfig) ToDomainConfig() domain.SandboxConfig {
 	}
 
 	return domain.SandboxConfig{
-		Name:        c.Name,
-		Image:       c.Image,
-		VMType:      vmFlavor,
-		SandboxType: domain.SandboxType(c.Sandbox.Type),
-		Mounts:      mounts,
-		Environment: c.Env,
-		Labels:      c.Labels,
-		ReadOnlyRootfs: c.Sandbox.ReadOnly,
-		SeccompProfile: c.Sandbox.Seccomp,
+		Name:            c.Name,
+		Image:           c.Image,
+		VMType:          vmFlavor,
+		SandboxType:     domain.SandboxType(c.Sandbox.Type),
+		Mounts:          mounts,
+		Environment:     c.Env,
+		Labels:          c.Labels,
+		ReadOnlyRootfs:  c.Sandbox.ReadOnly,
+		SeccompProfile:  c.Sandbox.Seccomp,
 		FirejailProfile: c.Sandbox.Firejail,
 	}
 }
