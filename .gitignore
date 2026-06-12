@@ -1,3 +1,6 @@
+# Phenotype-org standard .gitignore — Node
+# Source: https://github.com/KooshaPari/phenotype-tooling/blob/main/templates/gitignore-node
+
 # Build artifacts
 target/
 dist/
@@ -76,3 +79,19 @@ coverage/
 .serena/
 .codex/
 .cursor/
+
+# --- adopted from phenotype-tooling/templates/gitignore-node ---
+.cache/
+.eslintcache
+.npm/
+.parcel-cache/
+.pnp
+.pnp.js
+/build/
+/coverage/
+/dist/
+/out/
+lerna-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
