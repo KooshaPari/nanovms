@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os/exec"
 	"strings"
 )
 
@@ -24,6 +23,7 @@ const (
 type Adapter struct {
 	sandboxType SandboxType
 	rootless    bool
+	syscalls    sandboxSyscalls
 }
 
 // New creates a new Linux adapter with the specified sandbox type.
@@ -31,7 +31,14 @@ func New(sandboxType SandboxType, rootless bool) *Adapter {
 	return &Adapter{
 		sandboxType: sandboxType,
 		rootless:    rootless,
+		syscalls:    execSandboxSyscalls{},
 	}
+}
+
+func newWithSyscalls(sandboxType SandboxType, rootless bool, syscalls sandboxSyscalls) *Adapter {
+	adapter := New(sandboxType, rootless)
+	adapter.syscalls = syscalls
+	return adapter
 }
 
 // Name returns the adapter name.
@@ -68,7 +75,7 @@ func (a *Adapter) initializeNative(ctx context.Context) error {
 	// Check for required tools
 	tools := []string{"ip", "unshare", "mount"}
 	for _, tool := range tools {
-		if err := exec.CommandContext(ctx, "which", tool).Run(); err != nil {
+		if _, err := a.syscalls.LookPath(tool); err != nil {
 			return fmt.Errorf("required tool %s not found: %w", tool, err)
 		}
 	}
@@ -77,8 +84,8 @@ func (a *Adapter) initializeNative(ctx context.Context) error {
 
 func (a *Adapter) initializeMicroVM(ctx context.Context) error {
 	// Check for Firecracker or Cloud Hypervisor
-	firecracker := exec.CommandContext(ctx, "which", "firecracker").Run()
-	cloudhv := exec.CommandContext(ctx, "which", "cloud-hypervisor").Run()
+	_, firecracker := a.syscalls.LookPath("firecracker")
+	_, cloudhv := a.syscalls.LookPath("cloud-hypervisor")
 
 	if firecracker != nil && cloudhv != nil {
 		return fmt.Errorf("neither Firecracker nor Cloud Hypervisor found")
@@ -88,7 +95,7 @@ func (a *Adapter) initializeMicroVM(ctx context.Context) error {
 
 func (a *Adapter) initializeWASM(ctx context.Context) error {
 	// Check for Wasmtime
-	if err := exec.CommandContext(ctx, "which", "wasmtime").Run(); err != nil {
+	if _, err := a.syscalls.LookPath("wasmtime"); err != nil {
 		return fmt.Errorf("Wasmtime not found: %w", err)
 	}
 	return nil
@@ -113,16 +120,26 @@ func (a *Adapter) createNative(ctx context.Context, config interface{}) (string,
 	// Check if running as root for privileged operations
 	if !a.rootless {
 		// For privileged containers, use mount namespaces
-		cmd := exec.CommandContext(ctx, "unshare", "--mount", "--ipc", "--pid", "--fork", "bash", "-c", "sleep infinity")
-		if err := cmd.Start(); err != nil {
+		_, err := a.syscalls.Start(
+			ctx,
+			"unshare",
+			"--mount",
+			"--ipc",
+			"--pid",
+			"--fork",
+			"bash",
+			"-c",
+			"sleep infinity",
+		)
+		if err != nil {
 			return "", fmt.Errorf("failed to create namespace: %w", err)
 		}
 		return name, nil
 	}
 
 	// Rootless: use user namespaces with unshare
-	cmd := exec.CommandContext(ctx, "unshare", "--user", "--map-root-user", "sleep", "infinity")
-	if err := cmd.Start(); err != nil {
+	_, err := a.syscalls.Start(ctx, "unshare", "--user", "--map-root-user", "sleep", "infinity")
+	if err != nil {
 		return "", fmt.Errorf("failed to create user namespace: %w", err)
 	}
 
@@ -133,10 +150,10 @@ func (a *Adapter) createMicroVM(ctx context.Context, config interface{}) (string
 	name := fmt.Sprintf("devenv-microvm-%s", config.(string))
 
 	// Check for Firecracker binary
-	firecrackerPath, err := exec.LookPath("firecracker")
+	firecrackerPath, err := a.syscalls.LookPath("firecracker")
 	if err != nil {
 		// Try cloud-hypervisor
-		firecrackerPath, err = exec.LookPath("cloud-hypervisor")
+		firecrackerPath, err = a.syscalls.LookPath("cloud-hypervisor")
 		if err != nil {
 			return "", fmt.Errorf("no MicroVM hypervisor found")
 		}
@@ -189,8 +206,7 @@ func (a *Adapter) Stop(ctx context.Context, id string) error {
 	switch a.sandboxType {
 	case Native:
 		// Kill the namespace process
-		cmd := exec.CommandContext(ctx, "pkill", "-f", id)
-		return cmd.Run()
+		return a.syscalls.Run(ctx, "pkill", []string{"-f", id}, nil, nil, nil)
 	case MicroVM:
 		return a.stopMicroVM(ctx, id)
 	case WASM:
@@ -201,8 +217,7 @@ func (a *Adapter) Stop(ctx context.Context, id string) error {
 
 func (a *Adapter) stopMicroVM(ctx context.Context, id string) error {
 	// Send stop signal to VM
-	cmd := exec.CommandContext(ctx, "pkill", "-f", id)
-	return cmd.Run()
+	return a.syscalls.Run(ctx, "pkill", []string{"-f", id}, nil, nil, nil)
 }
 
 // Delete deletes a sandbox.
@@ -224,8 +239,6 @@ func (a *Adapter) Exec(ctx context.Context, id string, cmd []string, stdin io.Re
 }
 
 func (a *Adapter) execNative(ctx context.Context, id string, cmd []string, stdin io.Reader, stdout, stderr io.Writer) error {
-	var execCmd *exec.Cmd
-
 	if strings.HasPrefix(id, "devenv-wasm-") {
 		// WASM execution via wasmtime
 		if len(cmd) == 0 {
@@ -233,38 +246,26 @@ func (a *Adapter) execNative(ctx context.Context, id string, cmd []string, stdin
 		}
 		args := []string{"wasmtime", "--dir", "/"}
 		args = append(args, cmd...)
-		execCmd = exec.CommandContext(ctx, args[0], args[1:]...)
+		return a.syscalls.Run(ctx, args[0], args[1:], stdin, stdout, stderr)
 	} else if strings.Contains(id, "devenv-") {
 		// Execute in namespace
-		execCmd = exec.CommandContext(ctx, "unshare", "--user", "--map-root-user", "--mount", "--ipc", "--pid", "--fork", "bash", "-c", strings.Join(cmd, " "))
+		args := []string{"--user", "--map-root-user", "--mount", "--ipc", "--pid", "--fork", "bash", "-c", strings.Join(cmd, " ")}
+		return a.syscalls.Run(ctx, "unshare", args, stdin, stdout, stderr)
 	} else {
-		execCmd = exec.CommandContext(ctx, "bash", "-c", strings.Join(cmd, " "))
+		return a.syscalls.Run(ctx, "bash", []string{"-c", strings.Join(cmd, " ")}, stdin, stdout, stderr)
 	}
-
-	execCmd.Stdin = stdin
-	execCmd.Stdout = stdout
-	execCmd.Stderr = stderr
-	return execCmd.Run()
 }
 
 func (a *Adapter) execMicroVM(ctx context.Context, id string, cmd []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	// Execute via VM's vsock or console
-	execCmd := exec.CommandContext(ctx, "bash", "-c", strings.Join(cmd, " "))
-	execCmd.Stdin = stdin
-	execCmd.Stdout = stdout
-	execCmd.Stderr = stderr
-	return execCmd.Run()
+	return a.syscalls.Run(ctx, "bash", []string{"-c", strings.Join(cmd, " ")}, stdin, stdout, stderr)
 }
 
 func (a *Adapter) execWASM(ctx context.Context, id string, cmd []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	// Execute WASM module via wasmtime
 	wasmCmd := []string{"wasmtime"}
 	wasmCmd = append(wasmCmd, cmd...)
-	execCmd := exec.CommandContext(ctx, wasmCmd[0], wasmCmd[1:]...)
-	execCmd.Stdin = stdin
-	execCmd.Stdout = stdout
-	execCmd.Stderr = stderr
-	return execCmd.Run()
+	return a.syscalls.Run(ctx, wasmCmd[0], wasmCmd[1:], stdin, stdout, stderr)
 }
 
 // Pull pulls an image (NOP for local filesystems).
@@ -280,7 +281,12 @@ func (a *Adapter) ListImages(ctx context.Context) ([]string, error) {
 // ApplySandboxProfile applies a sandbox security profile (seccomp/landlock).
 func (a *Adapter) ApplySandboxProfile(ctx context.Context, id string, profile string) error {
 	// Apply seccomp profile
-	seccompCmd := exec.CommandContext(ctx, "ip", "netns", "exec", id, "bash", "-c",
-		fmt.Sprintf("echo %s > /proc/self/status", profile))
-	return seccompCmd.Run()
+	return a.syscalls.Run(
+		ctx,
+		"ip",
+		[]string{"netns", "exec", id, "bash", "-c", fmt.Sprintf("echo %s > /proc/self/status", profile)},
+		nil,
+		nil,
+		nil,
+	)
 }

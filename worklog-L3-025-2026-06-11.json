@@ -1,0 +1,29 @@
+{
+  "task_id": "V3 DAG L3 #25",
+  "dag": "FLEET_100TASK_DAG_V3",
+  "title": "Add syscall mocking smoke tests for the Linux VM runner path",
+  "date": "2026-06-11",
+  "repo": "nanovms",
+  "branch": "chore/L3-025-mockall-syscalls-2026-06-11",
+  "status": "complete",
+  "implementation_path": "go",
+  "rationale": [
+    "This repository is Go-first and the relevant runner path lives under internal/adapters/linux rather than a Rust integration crate.",
+    "The namespace runner shells out to unshare/pkill/which, so that command-execution layer was treated as the syscall equivalent and abstracted behind an interface for mocking."
+  ],
+  "files_changed": [
+    "go.mod",
+    "internal/adapters/linux/linux.go",
+    "internal/adapters/linux/syscalls.go",
+    "internal/adapters/linux/syscall_smoke_test.go",
+    "third_party/go.uber.org/mock",
+    "worklog-L3-025-2026-06-11.json"
+  ],
+  "verification": [
+    "go test ./internal/adapters/linux -run TestSyscallSmoke -count=1"
+  ],
+  "notes": [
+    "Added go.uber.org/mock via a local replace to a vendored copy from the existing module cache because the sandbox has no DNS access for proxy.golang.org.",
+    "Smoke tests verify ordered LookPath -> Start -> Run behavior and propagate ENOSYS and EPERM failures through the namespace runner path."
+  ]
+}
