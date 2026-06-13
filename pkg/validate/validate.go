@@ -32,7 +32,7 @@ func DefaultSchema() Schema {
 	return Schema{
 		RequiredFields: []string{"name", "image", "tier"},
 		AllowedTiers:   []int{1, 2, 3},
-		MinCPU:         1,
+		MinCPU:         2,
 		MaxCPU:         64,
 		MinMemory:      64,
 		MaxMemory:      65536,
@@ -53,8 +53,8 @@ func NewValidatorWithSchema(schema Schema) *Validator {
 
 // Result holds the outcome of a validation run.
 type Result struct {
-	Valid   bool
-	Errors  []string
+	Valid    bool
+	Errors   []string
 	Warnings []string
 }
 

@@ -3,10 +3,9 @@ version: '3'
 # ---------------------------------------------------------------------------
 # nanovms canonical task runner.
 #
-# This file wraps the canonical Go commands documented in AGENTS.md / CLAUDE.md
-# and verified by the L1 audit (STATUS_2026_06_10.md). All Go invocations
-# pin GOCACHE to a stable, repo-scoped location so the build is hermetic and
-# reproducible across local + CI runs.
+# This file wraps the canonical Go commands documented in AGENTS.md / CLAUDE.md.
+# All Go invocations pin GOCACHE to a stable, repo-scoped location so the
+# build is hermetic and reproducible across local + CI runs.
 #
 # Authored by: L2 subagent #22 (V3 DAG FLEET_100TASK_DAG_V3.md task #22).
 # ---------------------------------------------------------------------------
