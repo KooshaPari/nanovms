@@ -39,6 +39,11 @@ build:
 test:
     go test -race -coverprofile=coverage.out -covermode=atomic ./...
 
+# Coverage report (SSOT for how to measure coverage).
+coverage:
+    go test -coverprofile=coverage.out -covermode=atomic ./...
+    go tool cover -func=coverage.out
+
 # Run `go vet ./...`.
 vet:
     go vet ./...

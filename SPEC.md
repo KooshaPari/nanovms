@@ -16,6 +16,38 @@ NanoVMS provides **state-of-the-art cloud infrastructure** optimized for **consu
 - **Edge Computing**: Distributed workloads on commodity hardware
 - **Research HPC**: GPU-accelerated workloads on consumer GPUs
 
+## Stack
+
+| Layer | Technology | Notes |
+|-------|-----------|-------|
+| Core Runtime | Go 1.23 | NVMS CLI, sandbox, and microVM orchestration |
+| Isolation Tier 1 | WASM | ~1ms startup, fast tools, trusted code |
+| Isolation Tier 2 | gVisor | ~90ms startup, browser automation, semi-trusted |
+| Isolation Tier 3 | Firecracker | ~125ms startup, full isolation, untrusted code |
+| Task Runner | just | Canonical task runner with GOCACHE pinning |
+| Testing | go test | Race detection + coverage profiling |
+
+## Key Commands
+
+| Command | Description |
+|---------|-------------|
+| `go build ./...` | Build all Go packages and binaries |
+| `go test -race -coverprofile=coverage.out ./...` | Run tests with race detection and coverage |
+| `go vet ./...` | Static analysis on all Go packages |
+| `just build` | Build all Go packages |
+| `just test` | Run tests with race detection and coverage |
+| `just ci` | Full CI gate: vet + test + lint |
+
+## Design Decisions
+
+- **3-tier isolation for different trust/performance needs**: WASM for <1ms startup trusted code, gVisor for ~90ms semi-trusted browser automation, Firecracker for ~125ms full isolation untrusted workloads.
+- **Consumer hardware optimization**: Targets commodity GPUs and edge devices rather than enterprise data centers, enabling hobbyists and small teams to run cloud workloads.
+- **Go for fast startup and small binary size**: Go's fast compile times and small static binaries align with NVMS's goal of rapid ephemeral deployments.
+
+## Integration Points
+
+- `pheno-go-ctxkit` — Go context kit for shared context propagation, logging, and tracing primitives across NVMS services
+
 ---
 
 ## Part I: SOTA Cloud Computing Landscape (2024-2026)
