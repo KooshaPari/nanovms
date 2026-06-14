@@ -80,6 +80,12 @@ coverage/
 .codex/
 .cursor/
 
+# Go test binaries
+*.test
+
+# Worklog artifacts
+worklog-*.json
+worklogs/
 # --- adopted from phenotype-tooling/templates/gitignore-node ---
 .cache/
 .eslintcache
