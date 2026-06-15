@@ -1,35 +1,82 @@
+# /Users/kooshapari/CodeProjects/Phenotype/repos/nanovms/.github/workflows/ci.yml
 name: CI
-
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
-  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  ci:
-    name: TypeScript CI
-    uses: KooshaPari/template-commons/.github/workflows/reusable-typescript-ci.yml@main
-    with:
-      node-version: "20"
-      package-manager: npm
+  changes:
+    runs-on: ubuntu-latest
+    permissions: { pull-requests: read }
+    outputs:
+      go: ${{ steps.filter.outputs.go }}
+      any: ${{ steps.filter.outputs.any }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 50 }
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            go: ['**/*.go', 'go.mod', 'go.sum', '.github/workflows/ci.yml']
+            any: ['**']
+
+  test:
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        go: ['1.22', '1.23', '1.24']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          cache: true
+      - run: go vet ./...
+      - run: go test -race -shuffle=on ./...
+      - name: Build all binaries
+        run: |
+          go build -o /tmp/nanovms ./cmd/nanovms
+          go build -o /tmp/nvms ./cmd/nvms
+          go build -o /tmp/nvms-cgo ./cmd/nvms-cgo
+
+  lint:
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.59
 
   security:
-    name: Security Audit
-    uses: KooshaPari/template-commons/.github/workflows/reusable-security-scan.yml@main
-    with:
-      language: typescript
-    secrets:
-      SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
-
-  phenotype-validate:
-    name: Governance Validation
-    uses: KooshaPari/phenotypeActions/.github/workflows/validate-governance.yml@main
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.24' }
+      - run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          gosec ./...
+      - run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...

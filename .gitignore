@@ -101,3 +101,29 @@ lerna-debug.log*
 pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# ===== Phenotype-org standard hygiene (do not edit) =====
+# Audit artifacts
+.audit/
+*.audit.json
+audit_scorecard.json
+AUDIT_SCORECARD.md
+
+# Test artifacts
+*.test
+*.test.rs
+*.test.py
+
+# Worklog files (canonical home is phenotype-worklog-schema)
+worklog-*.json
+worklogs/
+
+# Coverage/profiling artifacts
+*.profraw
+*.profdata
+llvm-cov-*
+
+# Tooling draft files
+*.proposed
+.draft/
+# ===== End standard hygiene =====
