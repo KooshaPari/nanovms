@@ -8,9 +8,8 @@ repository = "https://github.com/KooshaPari/nanovms"
 keywords = ["nanovms", "virtualization", "wasm", "firecracker", "gvisor"]
 categories = ["virtualization", "api-bindings"]
 rust-version = "1.78"
-authors = ["kooshapari", "NanoVMS Contributors"]
 documentation = "https://docs.rs/nvms-sdk"
-authors = ["kooshapari", "NanoVMS Contributors"]
+authors = ["kooshapari"]
 
 [dependencies]
 figment = { version = "0.10", features = ["env", "toml"] }
