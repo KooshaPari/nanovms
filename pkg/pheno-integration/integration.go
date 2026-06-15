@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Package phenointegration wires the canonical Pheno Go context kit
 // (github.com/kooshapari/pheno-go-ctxkit) into nanovms so every HTTP
 // handler automatically receives request-scoped identifiers and logging.

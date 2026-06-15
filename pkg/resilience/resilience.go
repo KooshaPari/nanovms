@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Package resilience provides hand-rolled retry and circuit-breaker primitives
 // using only the Go standard library.
 package resilience

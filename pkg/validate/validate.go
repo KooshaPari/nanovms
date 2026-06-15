@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Package validate provides configuration validation with schema checks for NVMS.
 package validate
 
