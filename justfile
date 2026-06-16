@@ -64,9 +64,43 @@ cov:
 tidy:
     go mod tidy
 
-# Full CI gate: vet + test (race + coverage) + lint.
-ci: vet test lint
+# Full CI gate: vet + test (race + coverage) + lint + audit + deny.
+ci: vet test lint audit deny
     @echo "ci: all gates passed"
+
+# Security advisories (govulncheck for Go; cargo-audit for Rust SDK).
+audit:
+    @if command -v govulncheck >/dev/null 2>&1; then \
+        govulncheck ./...; \
+    else \
+        echo "govulncheck not installed; skip (install via 'go install golang.org/x/vuln/cmd/govulncheck@latest')"; \
+    fi
+    @if [ -d {{rust_dir}} ] && command -v cargo-audit >/dev/null 2>&1; then \
+        (cd {{rust_dir}} && cargo audit); \
+    fi
+
+# License + advisory + ban + source checks (cargo-deny for the Rust SDK only).
+deny:
+    @if [ -d {{rust_dir}} ] && command -v cargo-deny >/dev/null 2>&1; then \
+        (cd {{rust_dir}} && cargo deny check); \
+    elif [ -d {{rust_dir}} ]; then \
+        echo "cargo-deny not installed; skip (install via 'cargo install cargo-deny --locked')"; \
+    else \
+        echo "deny: no Rust SDK present; skip"; \
+    fi
+
+# Fleet-wide grading gate (uses vendored or central grade.sh).
+grade:
+    @if [ -f grade.sh ]; then ./grade.sh; \
+    elif [ -f ../grade.sh ]; then bash ../grade.sh; \
+    else echo "no grade.sh found (vendored or central)"; exit 1; \
+    fi
+
+grade-fast:
+    @if [ -f grade.sh ]; then ./grade.sh --fast; \
+    elif [ -f ../grade.sh ]; then bash ../grade.sh --fast; \
+    else echo "no grade.sh found"; exit 1; \
+    fi
 
 # ---------------------------------------------------------------------------
 # Polyglot helpers (mirrors Taskfile.yml's polyglot section).

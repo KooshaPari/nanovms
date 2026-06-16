@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! Generated FFI bindings for the NanoVMS syscall ABI.
 
 use std::ffi::c_char;

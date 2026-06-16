@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Package config provides the NVMS configuration parser with YAML support.
 package config
 
