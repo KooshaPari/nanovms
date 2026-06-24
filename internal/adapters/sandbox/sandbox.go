@@ -202,8 +202,40 @@ func (a *landlockAdapter) Create(ctx context.Context, config domain.SandboxConfi
 }
 
 // Start implements ports.SandboxPort for landlockAdapter.
+//
+// On Linux kernels with landlock (>= 5.13), this installs a minimal
+// ruleset and restricts the calling thread to it (see landlock_linux.go
+// for the actual syscall sequence). After landlock_restrict_self the
+// thread and all descendants are confined to the allowed paths for
+// the lifetime of the process — there is no way to escape the ruleset
+// from user-space.
+//
+// On kernels without landlock, or on non-Linux platforms, Start returns
+// an error and the caller is expected to refuse to run the workload
+// (see T-NV.2.7).
 func (a *landlockAdapter) Start(ctx context.Context, id string) error {
-	// Landlock is enforced at the kernel level via syscalls
+	if !kernelSupportsLandlockWrapper() {
+		return fmt.Errorf("landlock: kernel does not support landlock (need Linux >= 5.13); refusing to start sandbox %q", id)
+	}
+
+	readOnlyPaths := []string{
+		"/usr", "/usr/lib", "/usr/lib64", "/usr/share",
+		"/lib", "/lib64",
+		"/etc", "/etc/ssl", "/etc/resolv.conf",
+		"/bin", "/sbin",
+		"/var/lib/dpkg", "/var/lib/rpm",
+	}
+	readWritePaths := []string{
+		"/tmp",
+	}
+
+	rulesetFd, err := buildLandlockRulesetStub(readOnlyPaths, readWritePaths)
+	if err != nil {
+		return fmt.Errorf("landlock: build ruleset: %w", err)
+	}
+	if err := landlockRestrictSelfStub(rulesetFd); err != nil {
+		return fmt.Errorf("landlock: restrict_self: %w", err)
+	}
 	return nil
 }
 
@@ -278,51 +310,37 @@ func (a *wasmtimeAdapter) Delete(ctx context.Context, id string) error {
 // checkLandlockSupport checks if the kernel supports landlock.
 // Landlock requires kernel >= 5.13 (released 2021-06-27).
 //
-// The kernel exposes landlock support through two independent mechanisms:
-//   1. The `landlock_create_ruleset` syscall (preferred; cheapest probe).
-//   2. The `/sys/kernel/landlock_restrict_self` ABI file (newer kernels).
+// The kernel exposes landlock support through three independent mechanisms,
+// probed in order from cheapest+most-authoritative to most-permissive:
 //
-// The legacy `/sys/kernel/security/landlock` path that some older guides
-// reference is no longer present on modern kernels (moved to
-// `/sys/kernel/landlock_restrict_self` as of ~5.15). We probe both,
-// preferring the syscall, then fall back to the ABI file.
+//  1. The `landlock_create_ruleset` syscall (preferred). If the syscall
+//     exists in the running kernel, this call will return a real fd (or
+//     ENOSYS on kernels <5.13). ENOSYS is unambiguous "no support".
+//  2. The `/sys/kernel/landlock_restrict_self` ABI file (newer kernels).
+//  3. The legacy `/sys/kernel/security/landlock` ABI file (kernels 5.13-5.14).
+//
+// The previous version of this function fell through to "optimistic true"
+// when the kernel was >=5.13 but the ABI files were missing. That is a
+// false-positive on hardened kernels that strip the sysfs entries while
+// keeping the syscall disabled. The syscall probe closes that gap
+// (closes T-NV.2.3 from plans/2026-06-22-compute-infra-dag-v1.md).
 func (a *Adapter) checkLandlockSupport() bool {
-	// 1. Kernel version check first: landlock requires >= 5.13.
-	data, err := os.ReadFile("/proc/sys/kernel/osrelease")
-	if err != nil {
-		return false
-	}
-	version := strings.TrimSpace(string(data))
-	parts := strings.Split(version, ".")
-	if len(parts) < 2 {
-		return false
-	}
-	var major, minor int
-	if _, err := fmt.Sscanf(parts[0], "%d", &major); err != nil {
-		return false
-	}
-	if _, err := fmt.Sscanf(parts[1], "%d", &minor); err != nil {
-		return false
-	}
-	if !(major > 5 || (major == 5 && minor >= 13)) {
-		return false
+	// 1. Authoritative: ask the kernel directly via the probe wrapper.
+	//    The wrapper does the syscall + ABI fallback chain.
+	if kernelSupportsLandlockWrapper() {
+		return true
 	}
 
-	// 2. ABI file check. Prefer the new path; fall back to the old one
-	//    for kernels 5.13-5.14 which still had it at the legacy location.
+	// 2. Last resort: ABI file checks (some kernels have the ABI files
+	//    but not the syscall — extremely rare but documented).
 	if _, err := os.Stat("/sys/kernel/landlock_restrict_self"); err == nil {
 		return true
 	}
 	if _, err := os.Stat("/sys/kernel/security/landlock"); err == nil {
 		return true
 	}
-	// 3. Last resort: if the kernel is >= 5.13 and we're running as
-	//    non-root, landlock *should* be available even if the ABI file
-	//    is missing (some hardened kernels strip the sysfs entry but
-	//    keep the syscall). We optimistically report true; the actual
-	//    `landlock_create_ruleset` call in user code will fail and be
-	//    caught at the caller.
-	return true
+
+	return false
 }
 
 // getVersion returns the version of a runtime.
