@@ -1,0 +1,13 @@
+{
+  "project": "nanovms",
+  "stack": "node",
+  "mode": "fast",
+  "score": 0,
+  "max": 13,
+  "percentage": 0,
+  "grade": "F",
+  "checks": [
+    {"name":"install","status":"fail","score":0,"max":1,"detail":"/mnt/c/Users/koosh/phenotype-registry/grade.sh: line 66: npm: command not found "},{"name":"build","status":"fail","score":0,"max":2,"detail":"/mnt/c/Users/koosh/phenotype-registry/grade.sh: line 66: npm: command not found "},{"name":"test-unit","status":"fail","score":0,"max":3,"detail":"/mnt/c/Users/koosh/phenotype-registry/grade.sh: line 66: npm: command not found "},{"name":"lint","status":"fail","score":0,"max":2,"detail":"/mnt/c/Users/koosh/phenotype-registry/grade.sh: line 66: npx: command not found "},{"name":"fmt","status":"fail","score":0,"max":2,"detail":"/mnt/c/Users/koosh/phenotype-registry/grade.sh: line 66: npx: command not found "},{"name":"typecheck","status":"fail","score":0,"max":2,"detail":"/mnt/c/Users/koosh/phenotype-registry/grade.sh: line 66: npx: command not found "},{"name":"test-e2e","status":"skipped","score":0,"max":2,"detail":"skipped in fast mode"},{"name":"test-perf","status":"skipped","score":0,"max":1,"detail":"skipped in fast mode"},{"name":"test-mutation","status":"skipped","score":0,"max":1,"detail":"skipped in fast mode"},{"name":"coverage","status":"skipped","score":0,"max":2,"detail":"skipped in fast mode"},{"name":"audit","status":"fail","score":0,"max":1,"detail":"/mnt/c/Users/koosh/phenotype-registry/grade.sh: line 66: npm: command not found "}
+  ],
+  "timestamp": "2026-06-25T05:18:06Z"
+}
