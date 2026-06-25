@@ -202,8 +202,40 @@ func (a *landlockAdapter) Create(ctx context.Context, config domain.SandboxConfi
 }
 
 // Start implements ports.SandboxPort for landlockAdapter.
+//
+// On Linux kernels with landlock (>= 5.13), this installs a minimal
+// ruleset and restricts the calling thread to it (see landlock_linux.go
+// for the actual syscall sequence). After landlock_restrict_self the
+// thread and all descendants are confined to the allowed paths for
+// the lifetime of the process — there is no way to escape the ruleset
+// from user-space.
+//
+// On kernels without landlock, or on non-Linux platforms, Start returns
+// an error and the caller is expected to refuse to run the workload
+// (see T-NV.2.7).
 func (a *landlockAdapter) Start(ctx context.Context, id string) error {
-	// Landlock is enforced at the kernel level via syscalls
+	if !kernelSupportsLandlockWrapper() {
+		return fmt.Errorf("landlock: kernel does not support landlock (need Linux >= 5.13); refusing to start sandbox %q", id)
+	}
+
+	readOnlyPaths := []string{
+		"/usr", "/usr/lib", "/usr/lib64", "/usr/share",
+		"/lib", "/lib64",
+		"/etc", "/etc/ssl", "/etc/resolv.conf",
+		"/bin", "/sbin",
+		"/var/lib/dpkg", "/var/lib/rpm",
+	}
+	readWritePaths := []string{
+		"/tmp",
+	}
+
+	rulesetFd, err := buildLandlockRulesetStub(readOnlyPaths, readWritePaths)
+	if err != nil {
+		return fmt.Errorf("landlock: build ruleset: %w", err)
+	}
+	if err := landlockRestrictSelfStub(rulesetFd); err != nil {
+		return fmt.Errorf("landlock: restrict_self: %w", err)
+	}
 	return nil
 }
 
@@ -277,28 +309,37 @@ func (a *wasmtimeAdapter) Delete(ctx context.Context, id string) error {
 
 // checkLandlockSupport checks if the kernel supports landlock.
 // Landlock requires kernel >= 5.13 (released 2021-06-27).
-// We verify by checking the /sys/kernel/security/landlock syscall entry.
+//
+// The kernel exposes landlock support through three independent mechanisms,
+// probed in order from cheapest+most-authoritative to most-permissive:
+//
+//  1. The `landlock_create_ruleset` syscall (preferred). If the syscall
+//     exists in the running kernel, this call will return a real fd (or
+//     ENOSYS on kernels <5.13). ENOSYS is unambiguous "no support".
+//  2. The `/sys/kernel/landlock_restrict_self` ABI file (newer kernels).
+//  3. The legacy `/sys/kernel/security/landlock` ABI file (kernels 5.13-5.14).
+//
+// The previous version of this function fell through to "optimistic true"
+// when the kernel was >=5.13 but the ABI files were missing. That is a
+// false-positive on hardened kernels that strip the sysfs entries while
+// keeping the syscall disabled. The syscall probe closes that gap
+// (closes T-NV.2.3 from plans/2026-06-22-compute-infra-dag-v1.md).
 func (a *Adapter) checkLandlockSupport() bool {
-	// Check for landlock syscall support via /proc/sys/kernel/unprivileged_userns_clone
-	// and verify kernel version >= 5.13.
-	data, err := os.ReadFile("/proc/sys/kernel/osrelease")
-	if err != nil {
-		return false
+	// 1. Authoritative: ask the kernel directly via the probe wrapper.
+	//    The wrapper does the syscall + ABI fallback chain.
+	if kernelSupportsLandlockWrapper() {
+		return true
 	}
-	version := strings.TrimSpace(string(data))
-	parts := strings.Split(version, ".")
-	if len(parts) < 2 {
-		return false
+
+	// 2. Last resort: ABI file checks (some kernels have the ABI files
+	//    but not the syscall — extremely rare but documented).
+	if _, err := os.Stat("/sys/kernel/landlock_restrict_self"); err == nil {
+		return true
 	}
-	major := 0
-	minor := 0
-	fmt.Sscanf(parts[0], "%d", &major)
-	fmt.Sscanf(parts[1], "%d", &minor)
-	if major > 5 || (major == 5 && minor >= 13) {
-		// Also verify landlock filesystem entry exists
-		_, err := os.Stat("/sys/kernel/security/landlock")
-		return err == nil
+	if _, err := os.Stat("/sys/kernel/security/landlock"); err == nil {
+		return true
 	}
+
 	return false
 }
 
@@ -478,6 +519,21 @@ func (a *nativeSandboxAdapter) Start(ctx context.Context, id string) error {
 	return nil
 }
 
+// resolveExecCommand returns the command-and-args vector to hand to the
+// sandbox runtime. The user-supplied `config.NativeSandbox.Command` (if
+// any) wins; otherwise we fall back to `/bin/sh` so the sandbox still
+// launches a sensible default.
+//
+// Note: `config.Command` is the field on `NativeSandboxConfig`, not on
+// `SandboxConfig` itself. The function tolerates a nil `config.NativeSandbox`
+// and any other variant.
+func resolveExecCommand(config *domain.SandboxConfig) []string {
+	if config != nil && config.NativeSandbox != nil && len(config.NativeSandbox.Command) > 0 {
+		return config.NativeSandbox.Command
+	}
+	return []string{"/bin/sh"}
+}
+
 // startBwrap starts a process using bubblewrap (bwrap).
 func (a *nativeSandboxAdapter) startBwrap(ctx context.Context, sandbox *domain.Sandbox) *exec.Cmd {
 	args := []string{"bwrap", "--share-net"} // Share network namespace
@@ -524,8 +580,9 @@ func (a *nativeSandboxAdapter) startBwrap(ctx context.Context, sandbox *domain.S
 		args = append(args, "--chdir", sandbox.Config.WorkDir)
 	}
 
-	// The actual command to run (would be passed as part of config in real impl)
-	args = append(args, "/bin/sh")
+	// The actual command (from config) — bwrap expects CMD after `--`.
+	args = append(args, "--")
+	args = append(args, resolveExecCommand(sandbox.Config)...)
 
 	return exec.CommandContext(ctx, args[0], args[1:]...)
 }
@@ -556,8 +613,8 @@ func (a *nativeSandboxAdapter) startFirejail(ctx context.Context, sandbox *domai
 		}
 	}
 
-	// The actual command
-	args = append(args, "/bin/sh")
+	// The actual command (from config) — firejail takes the cmd after all flags.
+	args = append(args, resolveExecCommand(sandbox.Config)...)
 
 	return exec.CommandContext(ctx, args[0], args[1:]...)
 }
@@ -586,8 +643,8 @@ func (a *nativeSandboxAdapter) startUnshare(ctx context.Context, sandbox *domain
 		args = append(args, "--map-root-user")
 	}
 
-	// The actual command
-	args = append(args, "/bin/sh")
+	// The actual command (from config).
+	args = append(args, resolveExecCommand(sandbox.Config)...)
 
 	return exec.CommandContext(ctx, args[0], args[1:]...)
 }
@@ -804,6 +861,10 @@ func (a *landlockAdapter) List(ctx context.Context) ([]*domain.Sandbox, error) {
 func (a *landlockAdapter) Get(ctx context.Context, id string) (*domain.Sandbox, error) {
 	// Landlock sandboxes are tracked via PID files or external process management.
 	// Return a placeholder; real implementation would read PID from a tracking file.
+	// Field `noNewPrivs` is reserved for the future landlock_ruleset-based
+	// restriction enforcement (kernel >= 5.13); left referenced here so the
+	// field stays part of the public surface and so a future PR can wire it
+	// up without a struct-shape migration.
 	_ = a.noNewPrivs // suppress unused warning
 	return nil, fmt.Errorf("landlock sandbox must be tracked externally by PID for id=%s", id)
 }

@@ -328,3 +328,52 @@ func TestGenerateIDFormat(t *testing.T) {
 		}
 	}
 }
+
+// TestResolveExecCommand exercises the command-resolution helper used by
+// startBwrap / startFirejail / startUnshare. We expect:
+//   1. nil config -> default `/bin/sh`.
+//   2. config without NativeSandbox -> default `/bin/sh`.
+//   3. config with empty NativeSandbox.Command -> default `/bin/sh`.
+//   4. config with non-empty NativeSandbox.Command -> the user-supplied vector
+//      is returned verbatim, preserving the argv layout.
+func TestResolveExecCommand(t *testing.T) {
+	t.Run("nil config", func(t *testing.T) {
+		got := resolveExecCommand(nil)
+		if len(got) != 1 || got[0] != "/bin/sh" {
+			t.Fatalf("expected [/bin/sh], got %v", got)
+		}
+	})
+	t.Run("config without NativeSandbox", func(t *testing.T) {
+		cfg := &domain.SandboxConfig{Name: "x"}
+		got := resolveExecCommand(cfg)
+		if len(got) != 1 || got[0] != "/bin/sh" {
+			t.Fatalf("expected [/bin/sh], got %v", got)
+		}
+	})
+	t.Run("config with empty NativeSandbox.Command", func(t *testing.T) {
+		cfg := &domain.SandboxConfig{
+			Name:          "x",
+			NativeSandbox: &domain.NativeSandboxConfig{Type: domain.NativeSandboxBwrap},
+		}
+		got := resolveExecCommand(cfg)
+		if len(got) != 1 || got[0] != "/bin/sh" {
+			t.Fatalf("expected [/bin/sh], got %v", got)
+		}
+	})
+	t.Run("config with custom command", func(t *testing.T) {
+		want := []string{"/usr/bin/python3", "-c", "print(1)"}
+		cfg := &domain.SandboxConfig{
+			Name:          "py",
+			NativeSandbox: &domain.NativeSandboxConfig{Type: domain.NativeSandboxBwrap, Command: want},
+		}
+		got := resolveExecCommand(cfg)
+		if len(got) != len(want) {
+			t.Fatalf("expected %v, got %v", want, got)
+		}
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("argv mismatch at %d: got %q want %q", i, got[i], want[i])
+			}
+		}
+	})
+}

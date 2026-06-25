@@ -5,12 +5,14 @@ go 1.23.0
 toolchain go1.23.4
 
 require (
-	github.com/kooshapari/pheno-go-ctxkit v0.0.0
 	go.uber.org/mock v0.6.0
+	golang.org/x/sys v0.30.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-replace (
-	github.com/kooshapari/pheno-go-ctxkit => ../.worktrees/l3-52-pheno-go-ctxkit-2026-06-11/pheno-go-ctxkit
-	go.uber.org/mock => ./third_party/go.uber.org/mock
-)
+// `go.uber.org/mock` is used by `internal/adapters/linux` for syscall
+// mocks. We resolve it from the in-tree vendored copy under
+// `third_party/go.uber.org/mock` to keep builds reproducible without
+// network access and to pin the exact version. The vendored copy is a
+// clean mirror of upstream `go.uber.org/mock v0.6.0`.
+replace go.uber.org/mock => ./third_party/go.uber.org/mock
