@@ -1,0 +1,38 @@
+{
+  "project": "nanovms",
+  "stack": "node",
+  "dag_unit": "B36",
+  "tier": "Tier-1",
+  "mode": "fast",
+  "score": 1,
+  "max": 13,
+  "percentage": 7,
+  "grade": "F",
+  "checks": [
+    {"name":"install","status":"pass","score":1,"max":1,"detail":""},
+    {"name":"build","status":"fail","score":0,"max":2,"detail":"vitepress build docs failed"},
+    {"name":"test-unit","status":"fail","score":0,"max":3,"detail":"npm test script missing"},
+    {"name":"lint","status":"fail","score":0,"max":2,"detail":"ESLint configuration error"},
+    {"name":"fmt","status":"fail","score":0,"max":2,"detail":"Prettier formatting issues in 3 files"},
+    {"name":"typecheck","status":"fail","score":0,"max":2,"detail":"tsc type checking failed"},
+    {"name":"test-e2e","status":"skipped","score":0,"max":2,"detail":"skipped in fast mode"},
+    {"name":"test-perf","status":"skipped","score":0,"max":1,"detail":"skipped in fast mode"},
+    {"name":"test-mutation","status":"skipped","score":0,"max":1,"detail":"skipped in fast mode"},
+    {"name":"coverage","status":"skipped","score":0,"max":2,"detail":"skipped in fast mode"},
+    {"name":"audit","status":"fail","score":0,"max":1,"detail":"esbuild moderate advisory found"}
+  ],
+  "tier1_audit": {
+    "govulncheck": "ENFORCED on PR",
+    "trivy": "ENFORCED on PR",
+    "golangci_lint": "ENFORCED on PR",
+    "go_build_test": "ENFORCED on PR",
+    "cargo_audit": "NOT ENFORCED",
+    "npm_audit": "NOT ENFORCED",
+    "gitleaks": "NOT ENFORCED (config exists, no workflow)",
+    "trufflehog": "NOT ENFORCED (config exists, no workflow)",
+    "sbom": "NOT ENFORCED",
+    "license_check_ci": "NOT ENFORCED (file exists only)",
+    "changelog_check": "NOT ENFORCED"
+  },
+  "timestamp": "2026-06-25T20:22:28Z"
+}

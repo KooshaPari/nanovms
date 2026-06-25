@@ -1,0 +1,75 @@
+================================================================================
+DAG UNIT: B42 — Tier-2 coverage gate (nanovms)
+================================================================================
+Repo:      nanovms
+Path:      C:\Users\koosh\nanovms
+Date:      2026-06-25
+Status:    Read-only audit (no modifications made)
+
+--------------------------------------------------------------------------------
+TIER-2 COVERAGE GATE AUDIT
+Thresholds per ADR-040: lib >= 71%, framework >= 70%, service >= 60%
+Checks: coverage thresholds enforced, cargo-llvm-cov or equivalent configured,
+        CI coverage enforcement step
+--------------------------------------------------------------------------------
+
+1. COVERAGE CONFIGURATION
+   - Config file: codecov.yml at repo root
+   - Project coverage target: 70% with 1% threshold
+   - Patch coverage target: 80% with 1% threshold
+   - Excludes: tests, docs, .github, examples, scripts
+   - Codecov flags: unit, integration
+
+2. COVERAGE ENFORCEMENT IN CI
+   - CI workflow (ci.yml) runs:
+     - go test -race -shuffle=on (tests)
+     - go vet (static analysis)
+     - golangci-lint (linter)
+     - gosec + govulncheck (security)
+   - No coverage measurement step:
+     - No -coverprofile flag in go test
+     - No Codecov upload action
+     - No cargo-llvm-cov for the Rust SDK
+     - No .grade-reports coverage output (coverage not run)
+   - The Makefile has "test-cover" target but it's not called in CI
+
+3. COVERAGE THRESHOLD ANALYSIS (per ADR-040)
+   - codecov.yml target: 70% project, 80% patch
+   - ADR-040 requires: lib >= 71%, framework >= 70%, service >= 60%
+   - nanovms is primarily Go infrastructure (service tier) — should target >= 60%
+   - The 70% project target exceeds ADR-040 service minimum
+   - But none of this is enforced since coverage is not collected in CI
+
+4. GRADE.SH ANALYSIS
+   - nanovms grade.sh is a stack DETECTION script, NOT a grading engine
+   - It only detects which stacks are present (go, rust, node, npm)
+   - The grade.sh at phenotype-tooling is the actual grading engine
+   - nanovms grade.sh does NOT run coverage checks
+   - Previous .grade-reports/grade.json shows stack: "node" — incorrect
+     detection, only npm build/install checks ran
+
+5. TEST COVERAGE MATRIX
+   - File: TEST_COVERAGE_MATRIX.md present
+   - Coverage target documented: 80%
+   - Many fields marked "TBD"
+   - Not kept up-to-date
+
+================================================================================
+SUMMARY — TIER-2 COVERAGE GATE (nanovms)
+================================================================================
+
+Check                    | Status
+-------------------------|---------------------------------------------------
+codecov.yml present      | YES (target 70% project, 80% patch)
+go -coverprofile in CI   | NO — go test runs without -coverprofile flag
+Codecov upload in CI     | NO — no Codecov action step
+cargo-llvm-cov in CI     | NO — Rust SDK has no coverage
+CI coverage step         | NO — no coverage collection at all
+Thresholds per ADR-040   | YES — 70% exceeds 60% service minimum (but UNENFORCED)
+TEST_COVERAGE_MATRIX     | YES (present but contains TBD entries)
+grade.sh coverage        | NO — nanovms grade.sh is stack detection only
+
+OVERALL: TIER-2 COVERAGE GATE IS NOT ENFORCED
+codecov.yml is configured but no coverage is collected or uploaded in CI.
+No threshold enforcement blocks PRs on coverage.
+================================================================================

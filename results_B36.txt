@@ -1,0 +1,94 @@
+================================================================================
+DAG UNIT: B36 — Tier-1 enforcement on PR (nanovms)
+================================================================================
+Repo:      nanovms
+Path:      C:\Users\koosh\nanovms
+Date:      2026-06-25
+Status:    Read-only audit (no modifications made)
+
+--------------------------------------------------------------------------------
+TIER-1 ENFORCEMENT AUDIT
+Checks: cargo audit / npm audit / govulncheck, trufflehog/gitleaks, SBOM,
+        LICENSE, CHANGELOG
+--------------------------------------------------------------------------------
+
+1. GOVULNCHECK (Go vulnerability checker)
+   - Workflow: ci.yml job "security"
+   - Runs gosec + govulncheck
+   - Trigger: PR to main + push to main (conditional on Go file changes)
+   - Result: ENFORCED on PR
+
+2. CARGO AUDIT (Rust SDK dependency audit)
+   - No cargo-audit workflow
+   - Rust SDK exists at sdk/rust/ but no dedicated audit step
+   - Result: NOT ENFORCED in CI
+
+3. NPM AUDIT (Node dependency audit)
+   - No npm-audit workflow
+   - package.json exists but no audit workflow configured
+   - Result: NOT ENFORCED in CI
+
+4. TRUFFLEHOG / GITLEAKS (Secret scanning)
+   - gitleaks.toml config present with extensive rules
+   - trufflehog.yml config present at repo root
+   - However, no secret-scan workflow exists in .github/workflows
+   - Workflows present: audit.yml (Trivy only), ci.yml, release.yml, scorecard.yml
+   - Result: NOT ENFORCED on PR — no gitleaks or trufflehog workflow
+
+5. SBOM (Software Bill of Materials)
+   - No SBOM generation workflow
+   - Result: NOT ENFORCED in CI
+
+6. LICENSE CHECK
+   - LICENSE (MIT) present at repo root
+   - No dedicated license check in CI
+   - Result: NOT ENFORCED in CI
+
+7. CHANGELOG CHECK
+   - CHANGELOG.md present (Keep a Changelog format)
+   - No CI workflow enforces CHANGELOG update on PRs
+   - Result: NOT ENFORCED in CI
+
+8. ADDITIONAL — Trivy vulnerability scanner
+   - Workflow: .github/workflows/audit.yml — "Security Guard"
+   - Runs aquasecurity/trivy-action filesystem scan (CRITICAL+HIGH)
+   - Trigger: push (main, master) + pull_request (any branch)
+   - Result: ENFORCED on PR
+
+9. ADDITIONAL — golangci-lint
+   - Workflow: ci.yml job "lint"
+   - Trigger: PR to main + push to main
+   - Conditional on Go file changes
+   - Result: ENFORCED on PR
+
+10. ADDITIONAL — OpenSSF Scorecard
+    - Workflow: .github/workflows/scorecard.yml
+    - Trigger: push (main, master) + weekly schedule
+    - Result: NOT enforced on PR
+
+11. ADDITIONAL — Go tests + build
+    - Workflow: ci.yml jobs "test" and "lint"
+    - Runs go test -race, go vet, go build
+    - Result: ENFORCED on PR
+
+================================================================================
+SUMMARY — TIER-1 ENFORCEMENT ON PR (nanovms)
+================================================================================
+
+Check                 | Enforced on PR? | Workflow
+----------------------|-----------------|-------------------------------
+govulncheck (Go vuln) | YES             | ci.yml (security job)
+cargo audit           | NO              | Not configured
+npm audit             | NO              | Not configured
+gitleaks              | NO              | Config exists but no workflow
+trufflehog            | NO              | Config exists but no workflow
+SBOM                  | NO              | Not configured
+LICENSE (CI check)    | NO              | File exists only
+CHANGELOG enforcement | NO              | Not configured
+Trivy                 | YES             | audit.yml
+golangci-lint         | YES             | ci.yml (lint job)
+Go build + test       | YES             | ci.yml (test + lint jobs)
+
+OVERALL: 4/11 checks enforced (govulncheck, Trivy, golangci-lint, Go build/test)
+TIER-1 GATE: SIGNIFICANT GAPS — 7 missing enforcement items
+================================================================================

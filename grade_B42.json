@@ -1,0 +1,33 @@
+{
+  "project": "nanovms",
+  "stack": "node",
+  "dag_unit": "B42",
+  "tier": "Tier-2",
+  "mode": "fast",
+  "score": 1,
+  "max": 13,
+  "percentage": 7,
+  "grade": "F",
+  "checks": [
+    {"name":"install","status":"pass","score":1,"max":1,"detail":""},
+    {"name":"build","status":"fail","score":0,"max":2,"detail":"vitepress build failed"},
+    {"name":"test-unit","status":"fail","score":0,"max":3,"detail":"npm test missing"},
+    {"name":"lint","status":"fail","score":0,"max":2,"detail":"ESLint error"},
+    {"name":"fmt","status":"fail","score":0,"max":2,"detail":"Prettier issues in 3 files"},
+    {"name":"typecheck","status":"fail","score":0,"max":2,"detail":"tsc error"},
+    {"name":"coverage","status":"skipped","score":0,"max":2,"detail":"skipped in fast mode"},
+    {"name":"audit","status":"fail","score":0,"max":1,"detail":"esbuild advisory"}
+  ],
+  "tier2_coverage_audit": {
+    "codecov_yml": "PRESENT (target 70% project, 80% patch)",
+    "go_coverprofile_in_ci": "NOT CONFIGURED — go test runs without -coverprofile",
+    "codecov_upload_in_ci": "NOT CONFIGURED",
+    "cargo_llvm_cov_for_rust_sdk": "NOT CONFIGURED",
+    "ci_coverage_step": "NOT PRESENT — no coverage collection at all",
+    "adr040_thresholds": "70% target > 60% service minimum (but UNENFORCED)",
+    "test_coverage_matrix": "PRESENT (TBD entries)",
+    "coverage_enforcement": "NOT ENFORCED — no coverage gate blocks PRs",
+    "makefile_coverage_target": "PRESENT (test-cover) but not called in CI"
+  },
+  "timestamp": "2026-06-25T20:22:28Z"
+}
