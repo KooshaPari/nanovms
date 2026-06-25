@@ -1,1 +1,12 @@
-/mnt/c/Users/koosh/phenotype-registry/grade.sh: line 66: npm: command not found
+
+added 127 packages, and audited 128 packages in 19s
+
+38 packages are looking for funding
+  run `npm fund` for details
+
+3 vulnerabilities (2 moderate, 1 high)
+
+Some issues need review, and may require choosing
+a different dependency.
+
+Run `npm audit` for details.

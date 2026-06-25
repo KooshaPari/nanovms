@@ -1,1 +1,40 @@
-/mnt/c/Users/koosh/phenotype-registry/grade.sh: line 66: npm: command not found
+
+> nanovms-docs@0.1.0 build
+> vitepress build docs
+
+C:\Users\koosh\nanovms\node_modules\rollup\dist\native.js:115
+		throw new Error(
+		      ^
+
+Error: Cannot find module @rollup/rollup-win32-x64-msvc. npm has a bug related to optional dependencies (https://github.com/npm/cli/issues/4828). Please try `npm i` again after removing both package-lock.json and node_modules directory.
+    at requireWithFriendlyError [90m(C:\Users\koosh\nanovms\[39mnode_modules\[4mrollup[24m\dist\native.js:115:9[90m)[39m
+    at Object.<anonymous> [90m(C:\Users\koosh\nanovms\[39mnode_modules\[4mrollup[24m\dist\native.js:124:76[90m)[39m
+[90m    at Module._compile (node:internal/modules/cjs/loader:1873:14)[39m
+[90m    at Object..js (node:internal/modules/cjs/loader:2013:10)[39m
+[90m    at Module.load (node:internal/modules/cjs/loader:1596:32)[39m
+[90m    at Module._load (node:internal/modules/cjs/loader:1398:12)[39m
+[90m    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)[39m
+[90m    at loadCJSModuleWithModuleLoad (node:internal/modules/esm/translators:373:15)[39m
+[90m    at ModuleWrap.<anonymous> (node:internal/modules/esm/translators:245:9)[39m
+[90m    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)[39m {
+  [cause]: Error: Cannot find module '@rollup/rollup-win32-x64-msvc'
+  Require stack:
+  - C:\Users\koosh\nanovms\node_modules\rollup\dist\native.js
+  [90m    at Module._resolveFilename (node:internal/modules/cjs/loader:1519:15)[39m
+  [90m    at wrapResolveFilename (node:internal/modules/cjs/loader:1073:27)[39m
+  [90m    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1097:10)[39m
+  [90m    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1124:12)[39m
+  [90m    at Module._load (node:internal/modules/cjs/loader:1296:5)[39m
+  [90m    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)[39m
+  [90m    at Module.require (node:internal/modules/cjs/loader:1619:12)[39m
+  [90m    at require (node:internal/modules/helpers:191:16)[39m
+      at requireWithFriendlyError [90m(C:\Users\koosh\nanovms\[39mnode_modules\[4mrollup[24m\dist\native.js:97:10[90m)[39m
+      at Object.<anonymous> [90m(C:\Users\koosh\nanovms\[39mnode_modules\[4mrollup[24m\dist\native.js:124:76[90m)[39m {
+    code: [32m'MODULE_NOT_FOUND'[39m,
+    requireStack: [
+      [32m'C:\\Users\\koosh\\nanovms\\node_modules\\rollup\\dist\\native.js'[39m
+    ]
+  }
+}
+
+Node.js v26.3.0

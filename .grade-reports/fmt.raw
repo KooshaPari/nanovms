@@ -1,1 +1,5 @@
-/mnt/c/Users/koosh/phenotype-registry/grade.sh: line 66: npx: command not found
+Checking formatting...
+[[33mwarn[39m] playwright.config.ts
+[[33mwarn[39m] tests/playwright/src/index.ts
+[[33mwarn[39m] vitest.config.ts
+[[33mwarn[39m] Code style issues found in 3 files. Run Prettier with --write to fix.

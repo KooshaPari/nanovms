@@ -1,1 +1,19 @@
-/mnt/c/Users/koosh/phenotype-registry/grade.sh: line 66: npm: command not found
+# npm audit report
+
+esbuild  <=0.24.2
+Severity: moderate
+esbuild enables any website to send any requests to the development server and read the response - https://github.com/advisories/GHSA-67mh-4wv8-2f99
+No fix available
+node_modules/esbuild
+  vite  <=6.4.2
+  Depends on vulnerable versions of esbuild
+  node_modules/vite
+    vitepress  <=1.6.4
+    Depends on vulnerable versions of vite
+    node_modules/vitepress
+
+
+3 vulnerabilities (2 moderate, 1 high)
+
+Some issues need review, and may require choosing
+a different dependency.
