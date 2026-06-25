@@ -1,7 +1,7 @@
 # Go Testing Makefile
 # Modern Go testing tooling
 
-.PHONY: test test-cover test-race test-bench test-fuzz test-lint test-all test-ci
+.PHONY: test test-cover test-race test-bench test-fuzz test-lint test-all test-ci tidy mod-hygiene mod-verify
 
 # Go commands
 GO := go
@@ -41,7 +41,27 @@ test-lint-fix:
 	$(GOLANGCI_LINT) run --fix ./...
 
 # CI targets (for GitHub Actions)
-test-ci: test-lint test-cover test-race
+test-ci: test-lint test-cover test-race tidy mod-hygiene mod-verify
+
+# Module hygiene (DAG-T3-008: rolled out from phenodag P25)
+tidy:
+	$(GO) mod tidy
+
+mod-hygiene:
+	@if [ ! -f go.mod ]; then echo "no go.mod; skipping mod-hygiene"; exit 0; fi
+	@bad=0; \
+	if grep -E '^[[:space:]]+github\.com/mattn/go-sqlite3' go.mod >/dev/null 2>&1; then \
+	  if grep -E '^[[:space:]]+modernc\.org/sqlite' go.mod >/dev/null 2>&1; then \
+	    echo "ERROR: go.mod has direct github.com/mattn/go-sqlite3 alongside modernc.org/sqlite"; \
+	    echo "       nanovms uses pure-Go SQLite (CGO_ENABLED=0); the mattn driver is CGO and would break the build"; \
+	    bad=1; \
+	  fi; \
+	fi; \
+	if [ $$bad -ne 0 ]; then exit 1; fi; \
+	echo "mod-hygiene: OK"
+
+mod-verify:
+	$(GO) mod verify
 
 # gotestsum targets
 gotestsum:

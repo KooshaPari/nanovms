@@ -127,9 +127,36 @@ tasks:
     cmds:
       - go mod tidy
 
+  mod-hygiene:
+    desc: 'P23 mod-hygiene guard: forbid mattn/go-sqlite3 alongside modernc.org/sqlite (and any banned CGO driver that breaks the pure-Go build). Direct deps must be limited to the allowlist (uuid, yaml.v3, modernc.org/sqlite, golang.org/x/sys, golang.org/x/exp).'
+    cmds:
+      - |
+        if [ ! -f go.mod ]; then
+          echo "no go.mod; skipping mod-hygiene"
+          exit 0
+        fi
+        bad=0
+        # P23 invariant: no mattn/go-sqlite3 as a direct dep when modernc.org/sqlite is used
+        if grep -E '^[[:space:]]+github\.com/mattn/go-sqlite3' go.mod >/dev/null 2>&1; then
+          if grep -E '^[[:space:]]+modernc\.org/sqlite' go.mod >/dev/null 2>&1; then
+            echo "ERROR: go.mod has direct github.com/mattn/go-sqlite3 alongside modernc.org/sqlite"
+            echo "       nanovms uses pure-Go SQLite (CGO_ENABLED=0); the mattn driver is CGO and would break the build"
+            bad=1
+          fi
+        fi
+        if [ $bad -ne 0 ]; then
+          exit 1
+        fi
+        echo "mod-hygiene: OK (no banned CGO drivers, no mattn/go-sqlite3 alongside modernc.org/sqlite)"
+
+  mod-verify:
+    desc: 'Verify go.sum is consistent with go.mod (canonical: `go mod verify`).'
+    cmds:
+      - go mod verify
+
   ci:
-    desc: 'Full CI gate: vet + test (race + coverage) + lint. Same checks CI runs.'
-    deps: [vet, test, lint]
+    desc: 'Full CI gate: vet + test (race + coverage) + lint + mod-hygiene + fmt-check. Same checks CI runs.'
+    deps: [vet, test, lint, mod-hygiene, fmt-check]
 
   # -------------------------------------------------------------------------
   # Polyglot helpers (preserved from the prior hygiene-round Taskfile.yml).
