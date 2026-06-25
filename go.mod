@@ -1,12 +1,10 @@
 module github.com/kooshapari/nanovms
 
-go 1.23.0
-
-toolchain go1.23.4
+go 1.25.0
 
 require (
 	go.uber.org/mock v0.6.0
-	golang.org/x/sys v0.30.0
+	golang.org/x/sys v0.46.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 

@@ -39,7 +39,7 @@ jobs:
           toolchain: stable
 
       - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+        uses: Swatinem/rust-cache@baf1a810e98b6a3001d0d7234864ed75a17c42fb
         with:
           workspaces: sdk/rust
           cache-on-failure: true
@@ -52,7 +52,7 @@ jobs:
         run: go test -v ./...
 
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a
+        uses: goreleaser/goreleaser-action@d2d17a6c5d53a4728825071e3335a7fd4e6e2efd
         with:
           distribution: goreleaser
           version: "~> v2"
