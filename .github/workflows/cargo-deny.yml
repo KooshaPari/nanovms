@@ -1,0 +1,78 @@
+# cargo-deny.yml — nanovms supply-chain governance
+#
+# Drop-in workflow for deny.toml + Cargo.toml at repo root.
+# Enforces cargo-deny block-release per phenotype-org governance ADR.
+#
+# Triggers: PR/merge to main, weekly schedule, manual dispatch.
+# Concurrency: one in-flight run per ref; new commits cancel old runs.
+
+name: cargo-deny
+
+on:
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'deny.toml'
+  push:
+    branches: [main, master]
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'deny.toml'
+    tags: ['v*']
+  schedule:
+    - cron: '0 7 * * 1'  # Mondays 07:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deny:
+    name: cargo-deny
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@1d1d528c25b5c4ba9c5b6f4f4d9ea5e2c0e8a8c7 # stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-deny-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-deny-
+
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+
+      - name: Run cargo-deny check (block-release)
+        run: cargo deny check --all-features
+
+      - name: Run cargo-deny check (advisories only, log-only)
+        if: github.event_name == 'pull_request'
+        run: |
+          cargo deny check advisories --all-features 2>&1 | tee deny-advisories.txt || true
+          if [ -s deny-advisories.txt ]; then
+            echo "## cargo-deny advisories" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat deny-advisories.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
