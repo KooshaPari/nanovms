@@ -34,7 +34,7 @@ jobs:
         run: go mod download
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@43963465005b11c4f4a3438f95bf2356e57faf6 # stable
         with:
           toolchain: stable
 

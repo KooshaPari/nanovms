@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -45,17 +46,62 @@ func TestHealthzReturns200(t *testing.T) {
 	}
 }
 
-// TestInitServerHealthzEndpointReturns200 asserts that the /healthz
-// endpoint served by the handler returned by InitServer returns HTTP 200.
-func TestInitServerHealthzEndpointReturns200(t *testing.T) {
+// TestHealthEndpointReturns200 asserts that the /health endpoint returns
+// HTTP 200, matching the documented API surface (audit report L5/L27).
+func TestHealthEndpointReturns200(t *testing.T) {
 	ctx := context.Background()
 	handler := InitServer(ctx)
 
-	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusOK {
-		t.Fatalf("/healthz status = %d, want %d", rr.Code, http.StatusOK)
+		t.Fatalf("/health status = %d, want %d", rr.Code, http.StatusOK)
+	}
+}
+
+// TestMetricsEndpointReturns200 asserts that the /metrics endpoint
+// returns HTTP 200 with the correct content type.
+func TestMetricsEndpointReturns200(t *testing.T) {
+	ctx := context.Background()
+	handler := InitServer(ctx)
+
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("/metrics status = %d, want %d", rr.Code, http.StatusOK)
+	}
+	ct := rr.Header().Get("Content-Type")
+	if !strings.Contains(ct, "text/plain") {
+		t.Fatalf("Content-Type = %q, want text/plain", ct)
+	}
+	body := rr.Body.String()
+	if !strings.Contains(body, "nanovms_http_requests_total") || !strings.Contains(body, "nanovms_uptime_seconds") {
+		t.Fatalf("/metrics body missing expected metrics:\n%s", body)
+	}
+}
+
+// TestMetricsCountsRequests asserts that requests served through InitServer
+// are counted in the /metrics output.
+func TestMetricsCountsRequests(t *testing.T) {
+	// Reset metrics for clean test
+	globalMetrics = newMetricsCollector()
+	ctx := context.Background()
+	handler := InitServer(ctx)
+
+	// Make a request through the handler
+	req1 := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	handler.ServeHTTP(httptest.NewRecorder(), req1)
+
+	// Check metrics
+	reqM := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, reqM)
+	body := rr.Body.String()
+	if !strings.Contains(body, "nanovms_http_requests_total 2") {
+		t.Fatalf("expected 2 requests counted (healthz + metrics read), got:\n%s", body)
 	}
 }
