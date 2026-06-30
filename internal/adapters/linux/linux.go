@@ -88,7 +88,7 @@ func (a *Adapter) initializeMicroVM(ctx context.Context) error {
 	_, cloudhv := a.syscalls.LookPath("cloud-hypervisor")
 
 	if firecracker != nil && cloudhv != nil {
-		return fmt.Errorf("neither Firecracker nor Cloud Hypervisor found")
+		return fmt.Errorf("neither firecracker nor cloud-hypervisor found")
 	}
 	return nil
 }
@@ -96,7 +96,7 @@ func (a *Adapter) initializeMicroVM(ctx context.Context) error {
 func (a *Adapter) initializeWASM(ctx context.Context) error {
 	// Check for Wasmtime
 	if _, err := a.syscalls.LookPath("wasmtime"); err != nil {
-		return fmt.Errorf("Wasmtime not found: %w", err)
+		return fmt.Errorf("wasmtime not found: %w", err)
 	}
 	return nil
 }

@@ -62,13 +62,13 @@ const (
 type CircuitBreaker struct {
 	mu sync.Mutex
 
-	state           State
-	failureCount    int
+	state            State
+	failureCount     int
 	failureThreshold int
-	successCount    int
+	successCount     int
 	successThreshold int
-	resetTimeout    time.Duration
-	lastFailureTime time.Time
+	resetTimeout     time.Duration
+	lastFailureTime  time.Time
 }
 
 // NewCircuitBreaker creates a CircuitBreaker with sensible defaults.

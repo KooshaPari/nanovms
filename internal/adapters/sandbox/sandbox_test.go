@@ -331,11 +331,11 @@ func TestGenerateIDFormat(t *testing.T) {
 
 // TestResolveExecCommand exercises the command-resolution helper used by
 // startBwrap / startFirejail / startUnshare. We expect:
-//   1. nil config -> default `/bin/sh`.
-//   2. config without NativeSandbox -> default `/bin/sh`.
-//   3. config with empty NativeSandbox.Command -> default `/bin/sh`.
-//   4. config with non-empty NativeSandbox.Command -> the user-supplied vector
-//      is returned verbatim, preserving the argv layout.
+//  1. nil config -> default `/bin/sh`.
+//  2. config without NativeSandbox -> default `/bin/sh`.
+//  3. config with empty NativeSandbox.Command -> default `/bin/sh`.
+//  4. config with non-empty NativeSandbox.Command -> the user-supplied vector
+//     is returned verbatim, preserving the argv layout.
 func TestResolveExecCommand(t *testing.T) {
 	t.Run("nil config", func(t *testing.T) {
 		got := resolveExecCommand(nil)
