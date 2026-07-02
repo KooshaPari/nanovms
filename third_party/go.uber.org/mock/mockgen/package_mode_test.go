@@ -316,7 +316,7 @@ func Test_packageModeParser_parsePackage(t *testing.T) {
 									{
 										Type: &model.NamedType{
 											Package: "go.uber.org/mock/mockgen/internal/tests/package_mode",
-											Type: "HumansCount",
+											Type:    "HumansCount",
 										},
 									},
 								},
@@ -338,7 +338,7 @@ func Test_packageModeParser_parsePackage(t *testing.T) {
 									{
 										Type: &model.NamedType{
 											Package: "go.uber.org/mock/mockgen/internal/tests/package_mode",
-											Type: "HumansCount",
+											Type:    "HumansCount",
 										},
 									},
 								},

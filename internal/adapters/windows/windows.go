@@ -43,7 +43,7 @@ func New() (*Adapter, error) {
 	}
 
 	if adapter.wslPath == "" && adapter.hyperVPath == "" && adapter.microVMPath == "" {
-		return nil, fmt.Errorf("no Windows virtualization found (WSL2, Hyper-V, or Cloud Hypervisor)")
+		return nil, fmt.Errorf("no Windows virtualization found (wsl2, hyper-v, or cloud hypervisor)")
 	}
 
 	return adapter, nil
@@ -59,15 +59,15 @@ func NewWithTier(tier WindowsTier) (*Adapter, error) {
 	switch tier {
 	case WindowsTierNative:
 		if adapter.hyperVPath == "" {
-			return nil, fmt.Errorf("Hyper-V not available on this Windows installation")
+			return nil, fmt.Errorf("hyper-v not available on this Windows installation")
 		}
 	case WindowsTierWSL:
 		if adapter.wslPath == "" {
-			return nil, fmt.Errorf("WSL2 not installed: https://docs.microsoft.com/en-us/windows/wsl/")
+			return nil, fmt.Errorf("wsl2 not installed: https://docs.microsoft.com/en-us/windows/wsl/")
 		}
 	case WindowsTierMicroVM:
 		if adapter.microVMPath == "" {
-			return nil, fmt.Errorf("Cloud Hypervisor not installed")
+			return nil, fmt.Errorf("cloud hypervisor not installed")
 		}
 	}
 
@@ -129,7 +129,7 @@ func (a *Adapter) createNativeSandbox(ctx context.Context, name string, config *
 
 	// For Hyper-V VMs, use PowerShell to create and manage
 	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-Command",
-		fmt.Sprintf(`New-VM -Name '%s' -MemoryStartupBytes 4GB -BootDevice VHD -Generation 2; Start-VM -Name '%s'`, sandboxName, sandboxName))
+		`New-VM -Name '`+sandboxName+`' -MemoryStartupBytes 4GB -BootDevice VHD -Generation 2; Start-VM -Name '`+sandboxName+`'`)
 
 	if err := cmd.Run(); err != nil {
 		// Fallback to Windows Sandbox if Hyper-V is not available
@@ -277,7 +277,7 @@ func (a *Adapter) ApplySandbox(ctx context.Context, name, sandboxType string) er
 	case "gvisor", "runsc":
 		// Configure gVisor as the runtime for a specific container/pod
 		cmd := exec.CommandContext(ctx, a.wslPath, "-d", name, "--", "bash", "-c",
-			fmt.Sprintf("echo 'runtime: runsc' >> /etc/containerd/config.toml && systemctl restart containerd"))
+			"echo 'runtime: runsc' >> /etc/containerd/config.toml && systemctl restart containerd")
 		return cmd.Run()
 	case "landlock":
 		// Landlock is a Linux kernel feature - enabled via sysctl

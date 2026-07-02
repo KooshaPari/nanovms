@@ -35,12 +35,12 @@ func (a *FirecrackerAdapter) Deploy(ctx context.Context, config domain.SandboxCo
 
 	id := fmt.Sprintf("fc-%s", domain.GenerateID())
 	sandbox := &domain.Sandbox{
-		ID:       id,
-		Name:     config.Name,
-		Status:   domain.SandboxStatusRunning,
-		Type:     domain.SandboxTypeVM,
-		VMFlavor: domain.VMFlavorMicroVM,
-		Config:   &config,
+		ID:        id,
+		Name:      config.Name,
+		Status:    domain.SandboxStatusRunning,
+		Type:      domain.SandboxTypeVM,
+		VMFlavor:  domain.VMFlavorMicroVM,
+		Config:    &config,
 		CreatedAt: time.Now(),
 	}
 	return sandbox, nil
