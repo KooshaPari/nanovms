@@ -155,7 +155,7 @@ func (a *Adapter) createMicroVM(ctx context.Context, config interface{}) (string
 		// Try cloud-hypervisor
 		firecrackerPath, err = a.syscalls.LookPath("cloud-hypervisor")
 		if err != nil {
-			return "", fmt.Errorf("no MicroVM hypervisor found")
+			return "", fmt.Errorf("no microVM hypervisor found")
 		}
 	}
 
