@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SPDX-License-Identifier: MIT OR Apache-2.0
+
+  nvms-android-companion — AndroidManifest stub.
+
+  This is a placeholder. The real manifest will declare:
+    - <uses-permission android:name="android.permission.INTERNET" />
+        (so the companion can reach the local nvms-cli gRPC endpoint)
+    - <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+        (Android 13+ runtime permission for the telemetry channel)
+    - <service android:name=".TelemetryService" /> backed by an NDK
+      foreground notification (channel id: "nvms.telemetry")
+
+  The Kotlin `MainActivity` will JNI into `nvms_android_companion_stub` (see
+  src/jni_bridge.rs) for the telemetry handshake. Application id is pinned
+  here to match the constant in src/lib.rs::COMPANION_CLASS.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          package="io.kooshapari.nanovms.companion">
+    <application
+        android:label="nvms Companion"
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
