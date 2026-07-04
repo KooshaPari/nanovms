@@ -9,6 +9,7 @@ resolver = "2"
 members = [
     "mobile/macos-tray",
     "mobile/android-companion",
+    "windows/scm-host",
 ]
 
 # Workspace-level metadata so downstream `cargo metadata` consumers see the
