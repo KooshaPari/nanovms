@@ -1,0 +1,10 @@
+[package]
+name = "nanovms-i18n"
+version = "0.1.0"
+edition = "2021"
+description = "i18n runtime for nanovms. Reads locales/<lang>.json at compile time."
+license = "MIT OR Apache-2.0"
+publish = false
+
+[lib]
+path = "src/lib.rs"
