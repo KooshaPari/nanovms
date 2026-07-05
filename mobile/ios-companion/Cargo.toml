@@ -1,0 +1,26 @@
+[package]
+name = "nvms-ios-companion"
+version = "0.1.0"
+edition = "2021"
+description = "iOS observability companion for nanovms via swift-rs + UIKit"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/KooshaPari/nanovms"
+keywords = ["nanovms", "ios", "uikit", "swift", "ffi"]
+categories = ["api-bindings", "os::macos-apis"]
+rust-version = "1.78"
+publish = false
+
+[features]
+# Default off -- the Swift bridge requires `swiftc` on the host.
+# Build with: cargo check -p nvms-ios-companion --features native-bridge
+default = []
+native-bridge = ["swift-rs"]
+
+[dependencies]
+swift-rs = { version = "0.1", optional = true }
+
+[lib]
+crate-type = ["staticlib", "lib"]
+name = "nvms_ios_companion"
+
+# Workspace member registered in /Users/kooshapari/CodeProjects/Phenotype/repos/nanovms/Cargo.toml

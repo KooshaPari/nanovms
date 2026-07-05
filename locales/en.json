@@ -1,0 +1,17 @@
+{
+  "app.name": "nanovms",
+  "app.tagline": "Cloud-runtime, microkernel-grade, anywhere.",
+  "menu.file": "File",
+  "menu.edit": "Edit",
+  "menu.view": "View",
+  "menu.help": "Help",
+  "status.active": "Active",
+  "status.idle": "Idle",
+  "status.stale": "Stale",
+  "status.disconnected": "Disconnected",
+  "error.network": "Network unavailable.",
+  "error.permission": "Permission denied.",
+  "error.not_found": "Resource not found.",
+  "ok.saved": "Saved successfully.",
+  "ok.connected": "Connected."
+}
