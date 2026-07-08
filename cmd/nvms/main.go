@@ -158,9 +158,12 @@ func serveCmd(args []string) {
 	tokenFile := serveSet.String("token-file", "", "Path to token file (default: $XDG_CONFIG_DIR/nanovms/tokens)")
 	runBase := serveSet.String("run-base", "", "Runtime base dir (default: /run/user/<uid> or /tmp)")
 	tier := serveSet.Int("tier", 3, "Sandbox tier (1=WASM, 2=gVisor, 3=Firecracker)")
-	listenAddr := serveSet.String("listen", "", "TCP listen address (e.g. :8443); when set, --tls-cert/--tls-key required")
+	listenAddr := serveSet.String("listen", "", "TCP listen address (e.g. :8443)")
 	tlsCert := serveSet.String("tls-cert", "", "Path to TLS cert PEM (required with --listen)")
 	tlsKey := serveSet.String("tls-key", "", "Path to TLS key PEM (required with --listen)")
+	oidcIssuer := serveSet.String("oidc-issuer", "", "OIDC issuer URL for JWT auth")
+	oidcAudience := serveSet.String("oidc-audience", "", "Expected JWT audience claim")
+	oidcJWKS := serveSet.String("oidc-jwks", "", "Path to JWKS JSON file (PEM key for local verification)")
 	_ = serveSet.Parse(args)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -192,6 +195,20 @@ func serveCmd(args []string) {
 	tm, err := token.NewManager(*tokenFile)
 	if err != nil {
 		log.Fatalf("token manager: %v", err)
+	}
+
+	// Phase 3: OIDC JWT verifier (optional, overrides static token auth)
+	var jv *token.JWTVerifier
+	if *oidcIssuer != "" && *oidcJWKS != "" {
+		pemKey, readErr := os.ReadFile(*oidcJWKS)
+		if readErr != nil {
+			log.Fatalf("oidc jwks: %v", readErr)
+		}
+		jv, err = token.NewJWTVerifier(*oidcIssuer, *oidcAudience, pemKey)
+		if err != nil {
+			log.Fatalf("oidc verifier: %v", err)
+		}
+		log.Printf("OIDC JWT auth enabled: issuer=%s audience=%s", *oidcIssuer, *oidcAudience)
 	}
 
 	// Create listener: TCP (with optional TLS) or UDS
@@ -240,9 +257,10 @@ func serveCmd(args []string) {
 	}
 	log.Printf("NVMS daemon starting on %s (tokens from %s)", listenDesc, *tokenFile)
 	if err := api.Serve(ctx, ln, api.Handlers{
-		Port:     adapter,
-		Token:    tm,
-		AuditLog: auditLog,
+		Port:        adapter,
+		Token:       tm,
+		JWTVerifier: jv,
+		AuditLog:    auditLog,
 	}); err != nil {
 		log.Fatalf("server: %v", err)
 	}

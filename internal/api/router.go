@@ -29,9 +29,10 @@ import (
 
 // Handlers bundles the port implementations and auth manager.
 type Handlers struct {
-	Port     ports.SandboxPort
-	Token    *token.Manager
-	AuditLog *AuditLogger
+	Port        ports.SandboxPort
+	Token       *token.Manager
+	JWTVerifier *token.JWTVerifier
+	AuditLog    *AuditLogger
 }
 
 // NewRouter builds the daemon's HTTP handler.
@@ -54,15 +55,15 @@ func NewRouter(h Handlers) http.Handler {
 
 	mux.HandleFunc("/healthz", h.handleHealthz)
 	mux.HandleFunc("/readyz", h.handleReadyz)
-	mux.HandleFunc("/v1/models", auth(h.Token, h.handleModels))
-	mux.HandleFunc("/v1/proxy/dispatch", auth(h.Token, h.handleProxyDispatch))
-	mux.HandleFunc("/v1/deploy", auth(h.Token, h.handleDeploy))
-	mux.HandleFunc("/v1/stop", auth(h.Token, h.handleStop))
-	mux.HandleFunc("/v1/sandboxes", auth(h.Token, h.handleListSandboxes))
-	mux.HandleFunc("/v1/metrics", auth(h.Token, h.handleMetrics))
+	mux.HandleFunc("/v1/models", auth(h.Token, h.JWTVerifier, h.handleModels))
+	mux.HandleFunc("/v1/proxy/dispatch", auth(h.Token, h.JWTVerifier, h.handleProxyDispatch))
+	mux.HandleFunc("/v1/deploy", auth(h.Token, h.JWTVerifier, h.handleDeploy))
+	mux.HandleFunc("/v1/stop", auth(h.Token, h.JWTVerifier, h.handleStop))
+	mux.HandleFunc("/v1/sandboxes", auth(h.Token, h.JWTVerifier, h.handleListSandboxes))
+	mux.HandleFunc("/v1/metrics", auth(h.Token, h.JWTVerifier, h.handleMetrics))
 
 	// ID-scoped sandbox routes (exact match before wildcard).
-	mux.HandleFunc("/v1/sandboxes/", auth(h.Token, h.handleSandboxByID))
+	mux.HandleFunc("/v1/sandboxes/", auth(h.Token, h.JWTVerifier, h.handleSandboxByID))
 
 	// Sub-routes on sandboxes: /v1/sandboxes/{id}/exec, /logs, /port-forward
 	// These are handled within handleSandboxByID by checking path suffix.
@@ -70,7 +71,7 @@ func NewRouter(h Handlers) http.Handler {
 
 	// Phase 2: audit-log query endpoint (auth-protected).
 	if h.AuditLog != nil {
-		mux.HandleFunc("/v1/audit", auth(h.Token, h.handleAudit))
+		mux.HandleFunc("/v1/audit", auth(h.Token, h.JWTVerifier, h.handleAudit))
 	}
 
 	// ── middleware chain ────────────────────────────────────────────
@@ -372,24 +373,48 @@ func auditMiddleware(al *AuditLogger, next http.Handler) http.Handler {
 	})
 }
 
-// auth wraps a handler with bearer-token auth.
-func auth(tm *token.Manager, next http.HandlerFunc) http.HandlerFunc {
+// auth wraps a handler with bearer-token auth, preferring JWT when configured.
+func auth(tm *token.Manager, jv *token.JWTVerifier, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if tm == nil {
-			// Unconfigured: deny by default.
-			http.Error(w, "auth required", http.StatusUnauthorized)
-			return
-		}
 		authz := r.Header.Get("Authorization")
 		const prefix = "Bearer "
 		if len(authz) <= len(prefix) || authz[:len(prefix)] != prefix {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
-		if err := tm.Check(authz[len(prefix):]); err != nil {
+		tokenStr := authz[len(prefix):]
+
+		// JWT verifier takes priority when configured.
+		if jv != nil {
+			claims, err := jv.Verify(tokenStr)
+			if err != nil {
+				http.Error(w, "forbidden: "+err.Error(), http.StatusForbidden)
+				return
+			}
+			// Inject JWT claims into context for downstream handlers.
+			ctx := context.WithValue(r.Context(), ctxKeyClaims, claims)
+			next(w, r.WithContext(ctx))
+			return
+		}
+
+		// Fallback: static token manager.
+		if tm == nil {
+			http.Error(w, "auth required", http.StatusUnauthorized)
+			return
+		}
+		if err := tm.Check(tokenStr); err != nil {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
 		next(w, r)
 	}
+}
+
+type ctxKey string
+const ctxKeyClaims ctxKey = "jwt_claims"
+
+// ClaimsFromContext extracts JWT claims from a request context, returning nil if absent.
+func ClaimsFromContext(ctx context.Context) *token.JWTClaims {
+	v, _ := ctx.Value(ctxKeyClaims).(*token.JWTClaims)
+	return v
 }
