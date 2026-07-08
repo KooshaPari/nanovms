@@ -1,0 +1,144 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nvms
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nvms-daemon
+  namespace: nvms
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: nvms-daemon
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: nvms-daemon
+subjects:
+  - kind: ServiceAccount
+    name: nvms-daemon
+    namespace: nvms
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: nvms-daemon
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/exec", "pods/log"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nvms-config
+  namespace: nvms
+data:
+  NVMS_SOCKET_PATH: /run/nvms/routed.sock
+  NVMS_LOG_LEVEL: info
+  NVMS_FIRECRACKER_KERNEL: /opt/nvms/vmlinux.bin
+  NVMS_FIRECRACKER_ROOTFS: /opt/nvms/rootfs.ext4
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nvms-daemon
+  namespace: nvms
+  labels:
+    app.kubernetes.io/name: nvms
+    app.kubernetes.io/component: daemon
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nvms
+      app.kubernetes.io/component: daemon
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nvms
+        app.kubernetes.io/component: daemon
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+    spec:
+      serviceAccountName: nvms-daemon
+      hostPID: true
+      containers:
+        - name: nvms
+          image: ghcr.io/kooshapari/nvms-daemon:latest
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true
+            capabilities:
+              add: ["NET_ADMIN", "SYS_ADMIN", "SYS_PTRACE"]
+          ports:
+            - containerPort: 9090
+              name: metrics
+          env:
+            - name: NVMS_SOCKET_PATH
+              valueFrom:
+                configMapKeyRef:
+                  name: nvms-config
+                  key: NVMS_SOCKET_PATH
+            - name: NVMS_LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: nvms-config
+                  key: NVMS_LOG_LEVEL
+            - name: NVMS_FIRECRACKER_KERNEL
+              valueFrom:
+                configMapKeyRef:
+                  name: nvms-config
+                  key: NVMS_FIRECRACKER_KERNEL
+            - name: NVMS_FIRECRACKER_ROOTFS
+              valueFrom:
+                configMapKeyRef:
+                  name: nvms-config
+                  key: NVMS_FIRECRACKER_ROOTFS
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /run/nvms
+            - name: kernel
+              mountPath: /opt/nvms/vmlinux.bin
+              readOnly: true
+            - name: rootfs
+              mountPath: /opt/nvms/rootfs.ext4
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 9090
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 9090
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: 2000m
+              memory: 4Gi
+      volumes:
+        - name: socket-dir
+          hostPath:
+            path: /run/nvms
+            type: DirectoryOrCreate
+        - name: kernel
+          hostPath:
+            path: /opt/nvms/vmlinux.bin
+            type: File
+        - name: rootfs
+          hostPath:
+            path: /opt/nvms/rootfs.ext4
+            type: File

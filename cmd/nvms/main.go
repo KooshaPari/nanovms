@@ -204,9 +204,20 @@ func serveCmd(args []string) {
 	}
 	log.Printf("Using sandbox adapter: tier=%d", *tier)
 
+	// Phase 2: audit logger (writes to nvms-audit.jsonl in temp dir)
+	auditDir := os.TempDir()
+	if p := os.Getenv("NVMS_AUDIT_PATH"); p != "" {
+		auditDir = p
+	}
+	auditLog := api.NewAuditLogger(auditDir)
+
 	// Start server
 	log.Printf("NVMS daemon starting on %s (tokens from %s)", *socketPath, *tokenFile)
-	if err := api.Serve(ctx, ln, api.Handlers{Port: adapter, Token: tm}); err != nil {
+	if err := api.Serve(ctx, ln, api.Handlers{
+		Port:     adapter,
+		Token:    tm,
+		AuditLog: auditLog,
+	}); err != nil {
 		log.Fatalf("server: %v", err)
 	}
 }

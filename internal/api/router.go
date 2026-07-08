@@ -4,6 +4,12 @@
 // for auth. All handlers are wired into a single http.Handler returned by
 // NewRouter. The daemon is consumed over a Unix domain socket by the
 // byteport-engine NVMS adapter (T2 UDS RPC binding tier).
+//
+// Phase 2 additions:
+//   - AuditLogger middleware (records every request)
+//   - Rate-limit middleware (100 req/s token bucket)
+//   - GET /v1/audit endpoint (filtered audit-log query)
+//   - 429 Too Many Requests on rate-limit exceed
 package api
 
 import (
@@ -11,7 +17,9 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/kooshapari/nanovms/internal/domain"
 	"github.com/kooshapari/nanovms/internal/listen"
@@ -21,8 +29,9 @@ import (
 
 // Handlers bundles the port implementations and auth manager.
 type Handlers struct {
-	Port  ports.SandboxPort
-	Token *token.Manager
+	Port     ports.SandboxPort
+	Token    *token.Manager
+	AuditLog *AuditLogger
 }
 
 // NewRouter builds the daemon's HTTP handler.
@@ -59,7 +68,23 @@ func NewRouter(h Handlers) http.Handler {
 	// These are handled within handleSandboxByID by checking path suffix.
 	// handlePortForward delegates to the adapter's PortForward method when available.
 
-	return mux
+	// Phase 2: audit-log query endpoint (auth-protected).
+	if h.AuditLog != nil {
+		mux.HandleFunc("/v1/audit", auth(h.Token, h.handleAudit))
+	}
+
+	// ── middleware chain ────────────────────────────────────────────
+	var hdl http.Handler = mux
+
+	// Audit-log: wraps every request to record it.
+	if h.AuditLog != nil {
+		hdl = auditMiddleware(h.AuditLog, hdl)
+	}
+
+	// Rate-limit: outermost (reject before any work).
+	hdl = RateLimitMiddleware(hdl)
+
+	return hdl
 }
 
 // Serve starts the HTTP server on the provided UDS listener.
@@ -292,6 +317,59 @@ func (h Handlers) handlePortForward(w http.ResponseWriter, r *http.Request, id s
 func (h Handlers) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 	_, _ = w.Write([]byte("# HELP nvms_up NVMS daemon is up\nnvms_up 1\n"))
+}
+
+// handleAudit returns filtered audit-log entries.
+func (h Handlers) handleAudit(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if h.AuditLog == nil {
+		http.Error(w, "audit log not configured", http.StatusNotFound)
+		return
+	}
+
+	q := r.URL.Query()
+	limit := 50
+	offset := 0
+	if v, err := strconv.Atoi(q.Get("limit")); err == nil && v > 0 && v <= 500 {
+		limit = v
+	}
+	if v, err := strconv.Atoi(q.Get("offset")); err == nil && v >= 0 {
+		offset = v
+	}
+
+	entries := h.AuditLog.Query(
+		q.Get("from"), q.Get("to"),
+		q.Get("provider"), q.Get("isolation"),
+		limit, offset,
+	)
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"object":      "list",
+		"object_type": "audit_log",
+		"total":       len(entries),
+		"limit":       limit,
+		"offset":      offset,
+		"entries":     entries,
+	})
+}
+
+// auditMiddleware records every request through the audit logger.
+func auditMiddleware(al *AuditLogger, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		next.ServeHTTP(w, r)
+		al.Append(AuditEntry{
+			Timestamp:  time.Now().UTC().Format(time.RFC3339),
+			Method:     r.Method,
+			Path:       r.URL.Path,
+			StatusCode: 0,
+			DurationMs: time.Since(start).Milliseconds(),
+		})
+	})
 }
 
 // auth wraps a handler with bearer-token auth.
