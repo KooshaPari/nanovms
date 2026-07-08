@@ -27,8 +27,12 @@ type AuditEntry struct {
 const (
 	// MaxInMemoryEntries controls how many entries the ring buffer retains.
 	MaxInMemoryEntries = 10000
+)
+
+var (
 	// MaxJSONLLenBytes triggers rotation at this JSONL file size.
-	MaxJSONLLenBytes = 100 * 1024 * 1024 // 100 MB
+	// Exported as var to allow test overrides.
+	MaxJSONLLenBytes int64 = 100 * 1024 * 1024 // 100 MB
 )
 
 // AuditLogger maintains an in-memory ring buffer of audit entries and
