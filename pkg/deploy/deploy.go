@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/kooshapari/nanovms/internal/adapters/firecracker"
 	"github.com/kooshapari/nanovms/internal/domain"
 	"github.com/kooshapari/nanovms/pkg/tier"
 )
@@ -56,6 +57,18 @@ func deployTier2(ctx context.Context, configPath string) error {
 	return err
 }
 
-func deployTier3(_ context.Context, _ string) error {
-	return fmt.Errorf("tier3 (Firecracker) not yet implemented")
+func deployTier3(ctx context.Context, configPath string) error {
+	adapter := firecracker.NewAdapter()
+	sb, err := adapter.Create(ctx, domain.SandboxConfig{
+		Name:  "fc-workload",
+		Image: configPath,
+	})
+	if err != nil {
+		return fmt.Errorf("firecracker create: %w", err)
+	}
+	if err := adapter.Start(ctx, sb.ID); err != nil {
+		return fmt.Errorf("firecracker start: %w", err)
+	}
+	fmt.Printf("Firecracker microVM deployed: %s\n", sb.ID)
+	return nil
 }

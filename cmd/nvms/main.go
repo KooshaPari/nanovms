@@ -12,6 +12,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/kooshapari/nanovms/internal/adapters"
 	"github.com/kooshapari/nanovms/internal/api"
 	"github.com/kooshapari/nanovms/internal/listen"
 	"github.com/kooshapari/nanovms/internal/sandbox"
@@ -155,6 +156,7 @@ func serveCmd(args []string) {
 	socketPath := serveSet.String("socket", "", "UDS socket path (default: $XDG_RUNTIME_DIR/nanovms/routed.sock)")
 	tokenFile := serveSet.String("token-file", "", "Path to token file (default: $XDG_CONFIG_DIR/nanovms/tokens)")
 	runBase := serveSet.String("run-base", "", "Runtime base dir (default: /run/user/<uid> or /tmp)")
+	tier := serveSet.Int("tier", 3, "Sandbox tier (1=WASM, 2=gVisor, 3=Firecracker)")
 	_ = serveSet.Parse(args)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -195,9 +197,16 @@ func serveCmd(args []string) {
 	}
 	defer ln.Close()
 
+	// Create sandbox adapter for the requested tier
+	adapter, err := adapters.NewSandboxPort(*tier)
+	if err != nil {
+		log.Fatalf("adapter (tier %d): %v", *tier, err)
+	}
+	log.Printf("Using sandbox adapter: tier=%d", *tier)
+
 	// Start server
 	log.Printf("NVMS daemon starting on %s (tokens from %s)", *socketPath, *tokenFile)
-	if err := api.Serve(ctx, ln, api.Handlers{Token: tm}); err != nil {
+	if err := api.Serve(ctx, ln, api.Handlers{Port: adapter, Token: tm}); err != nil {
 		log.Fatalf("server: %v", err)
 	}
 }

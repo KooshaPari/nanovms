@@ -9,7 +9,6 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -58,6 +57,7 @@ func NewRouter(h Handlers) http.Handler {
 
 	// Sub-routes on sandboxes: /v1/sandboxes/{id}/exec, /logs, /port-forward
 	// These are handled within handleSandboxByID by checking path suffix.
+	// handlePortForward delegates to the adapter's PortForward method when available.
 
 	return mux
 }
@@ -256,6 +256,11 @@ func (h Handlers) handleLogs(w http.ResponseWriter, r *http.Request, id string) 
 	out.Close()
 }
 
+// portForwarder is implemented by adapters that support port-forwarding.
+type portForwarder interface {
+	PortForward(ctx context.Context, id string, localPort, remotePort int) (string, error)
+}
+
 func (h Handlers) handlePortForward(w http.ResponseWriter, r *http.Request, id string) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -269,13 +274,19 @@ func (h Handlers) handlePortForward(w http.ResponseWriter, r *http.Request, id s
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	// Phase 2b stub: acknowledge port-forward request.
-	// Real implementation tunnels via the sandbox port.
-	addr := fmt.Sprintf("127.0.0.1:%d", req.LocalPort)
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{
-		"local_address": addr,
-	})
+	// Delegate to the adapter if it supports port-forwarding.
+	if pf, ok := h.Port.(portForwarder); ok {
+		addr, err := pf.PortForward(r.Context(), id, req.LocalPort, req.RemotePort)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{"local_address": addr})
+		return
+	}
+	// Fallback: adapter does not support port-forwarding.
+	http.Error(w, "port-forward not supported by this adapter", http.StatusNotImplemented)
 }
 
 func (h Handlers) handleMetrics(w http.ResponseWriter, r *http.Request) {

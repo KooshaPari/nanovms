@@ -1,0 +1,27 @@
+// Package adapters provides the factory that returns the correct SandboxPort
+// implementation based on the deployment tier.
+package adapters
+
+import (
+	"fmt"
+
+	"github.com/kooshapari/nanovms/internal/adapters/firecracker"
+	"github.com/kooshapari/nanovms/internal/adapters/gvisor"
+	"github.com/kooshapari/nanovms/internal/ports"
+)
+
+// NewSandboxPort returns the appropriate SandboxPort implementation for the
+// given tier: 1 = WASM (not yet migrated to SandboxPort), 2 = gVisor, 3 = Firecracker.
+// For tier 1, it returns an error until a WASM SandboxPort adapter is created.
+func NewSandboxPort(tier int) (ports.SandboxPort, error) {
+	switch tier {
+	case 1:
+		return nil, fmt.Errorf("tier 1 (WASM) SandboxPort adapter not yet implemented")
+	case 2:
+		return gvisor.NewAdapter(), nil
+	case 3:
+		return firecracker.NewAdapter(), nil
+	default:
+		return nil, fmt.Errorf("unsupported tier: %d", tier)
+	}
+}
