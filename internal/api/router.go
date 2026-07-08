@@ -9,7 +9,10 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
+	"strings"
 
 	"github.com/kooshapari/nanovms/internal/domain"
 	"github.com/kooshapari/nanovms/internal/listen"
@@ -50,8 +53,11 @@ func NewRouter(h Handlers) http.Handler {
 	mux.HandleFunc("/v1/sandboxes", auth(h.Token, h.handleListSandboxes))
 	mux.HandleFunc("/v1/metrics", auth(h.Token, h.handleMetrics))
 
-	// ID-scoped sandbox routes.
+	// ID-scoped sandbox routes (exact match before wildcard).
 	mux.HandleFunc("/v1/sandboxes/", auth(h.Token, h.handleSandboxByID))
+
+	// Sub-routes on sandboxes: /v1/sandboxes/{id}/exec, /logs, /port-forward
+	// These are handled within handleSandboxByID by checking path suffix.
 
 	return mux
 }
@@ -164,11 +170,31 @@ func (h Handlers) handleListSandboxes(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h Handlers) handleSandboxByID(w http.ResponseWriter, r *http.Request) {
-	id := r.URL.Path[len("/v1/sandboxes/"):]
+	path := r.URL.Path[len("/v1/sandboxes/"):]
+	id, sub, _ := strings.Cut(path, "/")
 	if id == "" {
 		http.Error(w, "missing id", http.StatusBadRequest)
 		return
 	}
+
+	// Sub-resource dispatch (exec / logs / port-forward).
+	if sub != "" {
+		switch sub {
+		case "exec":
+			h.handleExec(w, r, id)
+			return
+		case "logs":
+			h.handleLogs(w, r, id)
+			return
+		case "port-forward":
+			h.handlePortForward(w, r, id)
+			return
+		default:
+			http.Error(w, "unknown sub-resource", http.StatusNotFound)
+			return
+		}
+	}
+
 	switch r.Method {
 	case http.MethodGet:
 		sb, err := h.Port.Get(r.Context(), id)
@@ -188,6 +214,68 @@ func (h Handlers) handleSandboxByID(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func (h Handlers) handleExec(w http.ResponseWriter, r *http.Request, id string) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		Command []string `json:"command"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	out, err := h.Port.Exec(r.Context(), id, req.Command)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/x-ndjson")
+	w.WriteHeader(http.StatusOK)
+	_, _ = io.Copy(w, out)
+	out.Close()
+}
+
+func (h Handlers) handleLogs(w http.ResponseWriter, r *http.Request, id string) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	follow := r.URL.Query().Get("follow") == "true"
+	out, err := h.Port.Logs(r.Context(), id, follow)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain")
+	w.WriteHeader(http.StatusOK)
+	_, _ = io.Copy(w, out)
+	out.Close()
+}
+
+func (h Handlers) handlePortForward(w http.ResponseWriter, r *http.Request, id string) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		LocalPort  int `json:"local_port"`
+		RemotePort int `json:"remote_port"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	// Phase 2b stub: acknowledge port-forward request.
+	// Real implementation tunnels via the sandbox port.
+	addr := fmt.Sprintf("127.0.0.1:%d", req.LocalPort)
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"local_address": addr,
+	})
 }
 
 func (h Handlers) handleMetrics(w http.ResponseWriter, r *http.Request) {

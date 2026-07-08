@@ -4,13 +4,17 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/kooshapari/nanovms/internal/api"
 	"github.com/kooshapari/nanovms/internal/listen"
+	"github.com/kooshapari/nanovms/internal/sandbox"
 	"github.com/kooshapari/nanovms/internal/token"
 	"github.com/kooshapari/nanovms/pkg/deploy"
 )
@@ -28,11 +32,96 @@ func main() {
 		serveCmd(os.Args[2:])
 	case "token":
 		tokenCmd(os.Args[2:])
+	case "vm":
+		vmCmd(os.Args[2:])
 	case "help", "--help", "-h":
 		printUsage()
 	default:
 		fmt.Fprintf(os.Stderr, "nvms: unknown command %q\n", os.Args[1])
 		printUsage()
+		os.Exit(1)
+	}
+}
+
+
+func vmCmd(args []string) {
+	vmSet := flag.NewFlagSet("vm", flag.ExitOnError)
+	socketPath := vmSet.String("socket", "", "UDS socket path")
+	_ = vmSet.Parse(args)
+
+	if vmSet.NArg() == 0 || vmSet.Arg(0) == "help" {
+		fmt.Println(`Usage: nvms vm [--socket <path>] <subcommand> [args]
+
+Subcommands:
+  list                   List all sandboxes
+  exec <id> <cmd...>     Execute a command in a sandbox
+  logs <id>              Stream logs from a sandbox
+  port-forward <id> <local-port>:<remote-port>  Create a port-forward tunnel`)
+		return
+	}
+
+	cl := sandbox.NewClient(*socketPath)
+
+	switch vmSet.Arg(0) {
+	case "list":
+		sandboxes, err := cl.ListSandboxes(context.Background())
+		if err != nil {
+			log.Fatal(err)
+		}
+		for _, sb := range sandboxes {
+			fmt.Printf("%s\t%s\t%s\n", sb.ID, sb.Name, sb.Status)
+		}
+	case "exec":
+		if vmSet.NArg() < 3 {
+			log.Fatal("usage: nvms vm exec <id> <cmd...>")
+		}
+		id := vmSet.Arg(1)
+		cmd := vmSet.Args()[2:]
+		out, err := cl.Exec(context.Background(), id, cmd)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer out.Close()
+		if _, err := io.Copy(os.Stdout, out); err != nil {
+			log.Fatal(err)
+		}
+	case "logs":
+		if vmSet.NArg() < 2 {
+			log.Fatal("usage: nvms vm logs <id>")
+		}
+		id := vmSet.Arg(1)
+		out, err := cl.Logs(context.Background(), id, false)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer out.Close()
+		if _, err := io.Copy(os.Stdout, out); err != nil {
+			log.Fatal(err)
+		}
+	case "port-forward":
+		if vmSet.NArg() != 3 {
+			log.Fatal("usage: nvms vm port-forward <id> <local-port>:<remote-port>")
+		}
+		id := vmSet.Arg(1)
+		ports := strings.SplitN(vmSet.Arg(2), ":", 2)
+		if len(ports) != 2 {
+			log.Fatal("invalid port spec, use <local>:<remote>")
+		}
+		local, err := strconv.Atoi(ports[0])
+		if err != nil {
+			log.Fatalf("invalid local port: %v", err)
+		}
+		remote, err := strconv.Atoi(ports[1])
+		if err != nil {
+			log.Fatalf("invalid remote port: %v", err)
+		}
+		addr, err := cl.PortForward(context.Background(), id, local, remote)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("Port-forward active: %s\n", addr)
+	default:
+		fmt.Fprintf(os.Stderr, "nvms vm: unknown subcommand %q\n", vmSet.Arg(0))
 		os.Exit(1)
 	}
 }
@@ -44,6 +133,7 @@ Commands:
   deploy              Deploy a workload to the specified tier
   serve               Start the NVMS daemon (HTTP over UDS)
   token               Manage bearer tokens (mint, list, remove)
+  vm                  Manage VMs/sandboxes (exec, logs, port-forward)
   help                Show this help`)
 }
 
@@ -133,6 +223,11 @@ Subcommands:
 			log.Fatalf("mint: %v", err)
 		}
 		fmt.Println(tok)
+	case "list":
+		fmt.Println("token list: not yet implemented (manager does not expose enumeration)",
+			" — use 'nvms token mint' to generate a new token,",
+			" check: cat /etc/nanovms/tokens",
+		)
 	default:
 		fmt.Fprintf(os.Stderr, "nvms token: unknown subcommand %q\n", tokenSet.Arg(0))
 		os.Exit(1)
