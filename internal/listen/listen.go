@@ -2,6 +2,7 @@ package listen
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
@@ -55,6 +56,38 @@ func NewUDS(ctx context.Context, socketPath, runBase string) (*Listener, error) 
 		closedCh: make(chan struct{}),
 	}
 	listener.cleanup = func() error { return os.Remove(socketPath) }
+	go func() {
+		<-ctx.Done()
+		_ = listener.Close()
+	}()
+	return listener, nil
+}
+
+// NewTCP creates a TCP listener on addr.
+//
+// If tlsCfg is nil, the listener is plain TCP.
+// addr defaults to ":8443" if empty.
+func NewTCP(ctx context.Context, addr string, tlsCfg *tls.Config) (*Listener, error) {
+	if addr == "" {
+		addr = ":8443"
+	}
+
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, fmt.Errorf("listen: tcp bind %q failed: %w", addr, err)
+	}
+
+	var tlsLn net.Listener = ln
+	if tlsCfg != nil {
+		tlsLn = tls.NewListener(ln, tlsCfg)
+	}
+
+	listener := &Listener{
+		ln:       tlsLn,
+		errCh:    make(chan error, 1),
+		closedCh: make(chan struct{}),
+	}
+	listener.cleanup = func() error { return nil } // no file to remove
 	go func() {
 		<-ctx.Done()
 		_ = listener.Close()

@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"crypto/tls"
 	"log"
 	"os"
 	"os/signal"
@@ -157,13 +158,16 @@ func serveCmd(args []string) {
 	tokenFile := serveSet.String("token-file", "", "Path to token file (default: $XDG_CONFIG_DIR/nanovms/tokens)")
 	runBase := serveSet.String("run-base", "", "Runtime base dir (default: /run/user/<uid> or /tmp)")
 	tier := serveSet.Int("tier", 3, "Sandbox tier (1=WASM, 2=gVisor, 3=Firecracker)")
+	listenAddr := serveSet.String("listen", "", "TCP listen address (e.g. :8443); when set, --tls-cert/--tls-key required")
+	tlsCert := serveSet.String("tls-cert", "", "Path to TLS cert PEM (required with --listen)")
+	tlsKey := serveSet.String("tls-key", "", "Path to TLS key PEM (required with --listen)")
 	_ = serveSet.Parse(args)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	// Resolve defaults
-	if *socketPath == "" {
+	if *socketPath == "" && *listenAddr == "" {
 		runDir := os.Getenv("XDG_RUNTIME_DIR")
 		if runDir == "" {
 			runDir = "/tmp"
@@ -190,10 +194,28 @@ func serveCmd(args []string) {
 		log.Fatalf("token manager: %v", err)
 	}
 
-	// Create UDS listener
-	ln, err := listen.NewUDS(ctx, *socketPath, *runBase)
-	if err != nil {
-		log.Fatalf("uds listener: %v", err)
+	// Create listener: TCP (with optional TLS) or UDS
+	var ln *listen.Listener
+	if *listenAddr != "" {
+		var tlsCfg *tls.Config
+		if *tlsCert != "" && *tlsKey != "" {
+			cert, loadErr := tls.LoadX509KeyPair(*tlsCert, *tlsKey)
+			if loadErr != nil {
+				log.Fatalf("failed to load TLS cert/key: %v", loadErr)
+			}
+			tlsCfg = &tls.Config{Certificates: []tls.Certificate{cert}}
+		}
+		ln, err = listen.NewTCP(ctx, *listenAddr, tlsCfg)
+		if err != nil {
+			log.Fatalf("tcp listener: %v", err)
+		}
+		log.Printf("Listening on TCP %s", *listenAddr)
+	} else {
+		ln, err = listen.NewUDS(ctx, *socketPath, *runBase)
+		if err != nil {
+			log.Fatalf("uds listener: %v", err)
+		}
+		log.Printf("Listening on UDS %s", *socketPath)
 	}
 	defer ln.Close()
 
@@ -212,7 +234,11 @@ func serveCmd(args []string) {
 	auditLog := api.NewAuditLogger(auditDir)
 
 	// Start server
-	log.Printf("NVMS daemon starting on %s (tokens from %s)", *socketPath, *tokenFile)
+	listenDesc := *socketPath
+	if *listenAddr != "" {
+		listenDesc = *listenAddr
+	}
+	log.Printf("NVMS daemon starting on %s (tokens from %s)", listenDesc, *tokenFile)
 	if err := api.Serve(ctx, ln, api.Handlers{
 		Port:     adapter,
 		Token:    tm,
