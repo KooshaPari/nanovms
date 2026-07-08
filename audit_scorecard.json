@@ -1,0 +1,57 @@
+{
+  "repo": "nanovms",
+  "overall": 69.5,
+  "grade": "D",
+  "scores": {
+    "L1 Architecture": 75,
+    "L2 Dev Loop": 65,
+    "L3 Agent Loop": 60,
+    "L4 Observability": 70,
+    "L5 Security": 100,
+    "L6 Performance": 50,
+    "L7 Extensibility": 75,
+    "L8 Compliance": 60,
+    "L9 Complexity": 80,
+    "L10 Type Safety": 85,
+    "L11 Dependencies": 85,
+    "L12 Error Handling": 70,
+    "L13 Logging": 65,
+    "L14 Data Layer": 70,
+    "L15 API Surface": 80,
+    "L16 Frontend": 50,
+    "L17 I18n/A11y": 65,
+    "L18 Concurrency": 65,
+    "L19 Memory": 50,
+    "L20 Config": 75,
+    "L21 Testing Depth": 70,
+    "L22 Fuzzing": 65,
+    "L23 Release": 80,
+    "L24 Migration": 65,
+    "L25 Vendor Lockin": 100,
+    "L26 Event Driven": 60,
+    "L27 Infrastructure": 70,
+    "L28 Cost Efficiency": 70,
+    "L29 Monitoring": 50,
+    "L30 Onboarding": 60
+  },
+  "_meta": {
+    "last_updated": "2026-07-08T03:23Z",
+    "refreshed_against": "origin/main @ d3cf90f (post #85 mac decompose)",
+    "previous_overall": "unknown (file did not exist)",
+    "previous_grade": "unknown",
+    "lift_summary": "Post-P3 R-A: 8-file sandbox split + 4-file mac split + daemon serve+token + i18n/fuzz/release"
+  },
+  "raw": {
+    "source": {
+      "total": 0,
+      "over_500": 0,
+      "over_350": 0,
+      "oversized_files": []
+    },
+    "tests": {
+      "total": 0,
+      "passing": 0,
+      "failing": 0
+    }
+  }
+}
