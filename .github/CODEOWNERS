@@ -13,3 +13,9 @@ docs/       @KooshaPari
 # CI/CD
 .github/workflows/  @KooshaPari
 .github/*.yml      @KooshaPari
+
+# P5 Batch One additions
+/internal/adapters/sandbox/ @kooshapari
+/internal/adapters/mac/ @kooshapari
+/crates/ @kooshapari
+/docs/adr/ @kooshapari
