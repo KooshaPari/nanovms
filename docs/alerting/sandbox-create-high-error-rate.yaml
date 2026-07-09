@@ -1,0 +1,15 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: sandbox-create-high-error-rate
+  labels:
+    severity: warning
+spec:
+  groups:
+  - name: nanovms
+    rules:
+    - alert: sandbox-create-high-error-rate
+      expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
+      for: 5m
+      annotations:
+        summary: "nanovms sandbox-create-high-error-rate firing"
