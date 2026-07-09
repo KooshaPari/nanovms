@@ -1,0 +1,17 @@
+{
+  "name": "nanovms",
+  "image": "mcr.microsoft.com/devcontainers/go:1.21-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/rust:1": {
+      "version": "1.75"
+    }
+  },
+  "postCreateCommand": "go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest",
+  "customizations": {
+    "vscode": {
+      "extensions": ["golang.go", "rust-lang.rust-analyzer"]
+    }
+  },
+  "forwardPorts": [8080],
+  "remoteUser": "vscode"
+}
