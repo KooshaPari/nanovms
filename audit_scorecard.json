@@ -1,10 +1,10 @@
 {
   "repo": "nanovms",
-  "overall": 82.2,
-  "grade": "B",
+  "overall": 85.7,
+  "grade": "B+",
   "scores": {
     "L1 Architecture": 100,
-    "L2 Dev Loop": 70,
+    "L2 Dev Loop": 100,
     "L3 Agent Loop": 100,
     "L4 Observability": 70,
     "L5 Security": 100,
@@ -17,7 +17,7 @@
     "L12 Error Handling": 70,
     "L13 Logging": 65,
     "L14 Data Layer": 70,
-    "L15 API Surface": 80,
+    "L15 API Surface": 100,
     "L16 Frontend": 50,
     "L17 I18n/A11y": 65,
     "L18 Concurrency": 65,
@@ -25,8 +25,8 @@
     "L20 Config": 75,
     "L21 Testing Depth": 70,
     "L22 Fuzzing": 65,
-    "L23 Release": 80,
-    "L24 Migration": 65,
+    "L23 Release": 100,
+    "L24 Migration": 100,
     "L25 Vendor Lockin": 100,
     "L26 Event Driven": 60,
     "L27 Infrastructure": 100,
@@ -35,11 +35,11 @@
     "L30 Onboarding": 100
   },
   "_meta": {
-    "last_updated": "2026-07-09T19:30Z",
-    "refreshed_against": "origin/main (post #92 batch three)",
-    "previous_overall": 77.5,
-    "previous_grade": "C+",
-    "lift_summary": "P5 Batch One (#89): L1/L9/L10/L11. Batch Two (#90): L29/L27/L8/L30. Batch Three (#92): L6/L19/L3. 11 pillars at 100."
+    "last_updated": "2026-07-09T19:40Z",
+    "refreshed_against": "origin/main (post #94 batch four)",
+    "previous_overall": 82.2,
+    "previous_grade": "B",
+    "lift_summary": "P5 Batch 1+2+3+4 done: 15 pillars at 100 (L1/L2/L3/L5/L6/L8/L9/L10/L11/L15/L19/L23/L24/L25/L27/L29/L30)."
   },
   "raw": {
     "source": {
