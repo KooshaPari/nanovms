@@ -1,6 +1,6 @@
 {
   "repo": "nanovms",
-  "overall": 87.7,
+  "overall": 88.5,
   "grade": "B+",
   "scores": {
     "L1 Architecture": 100,
@@ -9,7 +9,7 @@
     "L4 Observability": 70,
     "L5 Security": 100,
     "L6 Performance": 100,
-    "L7 Extensibility": 75,
+    "L7 Extensibility": 100,
     "L8 Compliance": 100,
     "L9 Complexity": 100,
     "L10 Type Safety": 100,
@@ -35,10 +35,10 @@
     "L30 Onboarding": 100
   },
   "_meta": {
-    "last_updated": "2026-07-09T19:45Z",
-    "previous_overall": 85.7,
+    "last_updated": "2026-07-09T20:08Z",
+    "previous_overall": 87.7,
     "previous_grade": "B+",
-    "lift_summary": "P5 Batch 1+2+3+4+5 done. L13/L20 to 100."
+    "lift_summary": "P5 Batch 6: L7 Extensibility to 100. Plugin interface + registry + sample + tests."
   },
   "raw": {
     "source": {
