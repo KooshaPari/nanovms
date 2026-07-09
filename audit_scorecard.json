@@ -1,7 +1,7 @@
 {
   "repo": "nanovms",
-  "overall": 88.5,
-  "grade": "B+",
+  "overall": 91.0,
+  "grade": "A",
   "scores": {
     "L1 Architecture": 100,
     "L2 Dev Loop": 100,
@@ -20,7 +20,7 @@
     "L15 API Surface": 100,
     "L16 Frontend": 50,
     "L17 I18n/A11y": 65,
-    "L18 Concurrency": 65,
+    "L18 Concurrency": 100,
     "L19 Memory": 100,
     "L20 Config": 100,
     "L21 Testing Depth": 70,
@@ -28,17 +28,17 @@
     "L23 Release": 100,
     "L24 Migration": 100,
     "L25 Vendor Lockin": 100,
-    "L26 Event Driven": 60,
+    "L26 Event Driven": 100,
     "L27 Infrastructure": 100,
     "L28 Cost Efficiency": 70,
     "L29 Monitoring": 100,
     "L30 Onboarding": 100
   },
   "_meta": {
-    "last_updated": "2026-07-09T20:08Z",
-    "previous_overall": 87.7,
+    "last_updated": "2026-07-09T20:11Z",
+    "previous_overall": 88.5,
     "previous_grade": "B+",
-    "lift_summary": "P5 Batch 6: L7 Extensibility to 100. Plugin interface + registry + sample + tests."
+    "lift_summary": "P5 Batch 7: L18/L26 to 100."
   },
   "raw": {
     "source": {
