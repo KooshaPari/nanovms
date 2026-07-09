@@ -1,0 +1,120 @@
+openapi: 3.1.0
+info:
+  title: nanovms API
+  version: 0.1.0
+  description: |
+    Public HTTP API for nanovms daemon. All endpoints accept/return
+    `application/json`. Errors use `{error: string, code: string}`.
+
+servers:
+  - url: http://localhost:8080/v1
+    description: Local daemon
+  - url: https://api.nanovms.phenotype.local/v1
+    description: Production
+
+paths:
+  /sandbox:
+    get:
+      summary: List sandboxes
+      operationId: sandboxList
+      responses:
+        '200':
+          description: List of sandboxes
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Sandbox' }
+    post:
+      summary: Create a sandbox
+      operationId: sandboxCreate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SandboxConfig' }
+      responses:
+        '200':
+          description: Created sandbox
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sandbox' }
+
+  /sandbox/{id}:
+    get:
+      summary: Get a sandbox
+      operationId: sandboxGet
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: The sandbox
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sandbox' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Delete a sandbox
+      operationId: sandboxDelete
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '204':
+          description: Deleted
+
+  /sandbox/{id}/start:
+    post:
+      summary: Start a sandbox
+      operationId: sandboxStart
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Started
+
+components:
+  schemas:
+    Sandbox:
+      type: object
+      required: [id, name, status]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        status:
+          type: string
+          enum: [pending, running, exited, paused, not_found]
+        vmFlavor: { type: string }
+        createdAt: { type: string, format: 'date-time' }
+
+    SandboxConfig:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        image: { type: string }
+        vmType: { type: string }
+        sandboxType:
+          type: string
+          enum: [vm, container, wasm, process, native]
+
+  responses:
+    NotFound:
+      description: Sandbox not found
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error]
+            properties:
+              error: { type: string }
+              code: { type: string, enum: [SANDBOX_NOT_FOUND] }
