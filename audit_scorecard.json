@@ -1,6 +1,6 @@
 {
   "repo": "nanovms",
-  "overall": 85.7,
+  "overall": 87.7,
   "grade": "B+",
   "scores": {
     "L1 Architecture": 100,
@@ -15,14 +15,14 @@
     "L10 Type Safety": 100,
     "L11 Dependencies": 100,
     "L12 Error Handling": 70,
-    "L13 Logging": 65,
+    "L13 Logging": 100,
     "L14 Data Layer": 70,
     "L15 API Surface": 100,
     "L16 Frontend": 50,
     "L17 I18n/A11y": 65,
     "L18 Concurrency": 65,
     "L19 Memory": 100,
-    "L20 Config": 75,
+    "L20 Config": 100,
     "L21 Testing Depth": 70,
     "L22 Fuzzing": 65,
     "L23 Release": 100,
@@ -35,11 +35,10 @@
     "L30 Onboarding": 100
   },
   "_meta": {
-    "last_updated": "2026-07-09T19:40Z",
-    "refreshed_against": "origin/main (post #94 batch four)",
-    "previous_overall": 82.2,
-    "previous_grade": "B",
-    "lift_summary": "P5 Batch 1+2+3+4 done: 15 pillars at 100 (L1/L2/L3/L5/L6/L8/L9/L10/L11/L15/L19/L23/L24/L25/L27/L29/L30)."
+    "last_updated": "2026-07-09T19:45Z",
+    "previous_overall": 85.7,
+    "previous_grade": "B+",
+    "lift_summary": "P5 Batch 1+2+3+4+5 done. L13/L20 to 100."
   },
   "raw": {
     "source": {
