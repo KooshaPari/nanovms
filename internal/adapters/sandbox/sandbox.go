@@ -11,7 +11,6 @@ import (
 	"io"
 	"os/exec"
 	"github.com/kooshapari/nanovms/internal/domain"
-	"github.com/kooshapari/nanovms/internal/ports"
 )
 
 
@@ -35,16 +34,6 @@ func NewAdapter() *Adapter {
 	}
 }
 
-// gvisorAdapter implements sandboxing using gVisor (runsc).
-
-
-// ports.SandboxPort interface asserts (compile-time checks).
-var _ ports.SandboxPort = (*Adapter)(nil)
-var _ ports.SandboxPort = (*gvisorAdapter)(nil)
-var _ ports.SandboxPort = (*landlockAdapter)(nil)
-var _ ports.SandboxPort = (*seccompAdapter)(nil)
-var _ ports.SandboxPort = (*wasmtimeAdapter)(nil)
-var _ ports.SandboxPort = (*nativeSandboxAdapter)(nil)
 
 // List implements ports.SandboxPort for Adapter.
 func (a *Adapter) List(ctx context.Context) ([]*domain.Sandbox, error) {
