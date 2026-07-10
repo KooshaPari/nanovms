@@ -1,7 +1,7 @@
 {
   "repo": "nanovms",
-  "overall": 96.2,
-  "grade": "A",
+  "overall": 98.8,
+  "grade": "A+",
   "scores": {
     "L1 Architecture": 100,
     "L2 Dev Loop": 100,
@@ -18,7 +18,7 @@
     "L13 Logging": 100,
     "L14 Data Layer": 100,
     "L15 API Surface": 100,
-    "L16 Frontend": 50,
+    "L16 Frontend": 100,
     "L17 I18n/A11y": 100,
     "L18 Concurrency": 100,
     "L19 Memory": 100,
@@ -30,13 +30,13 @@
     "L25 Vendor Lockin": 100,
     "L26 Event Driven": 100,
     "L27 Infrastructure": 100,
-    "L28 Cost Efficiency": 70,
+    "L28 Cost Efficiency": 100,
     "L29 Monitoring": 100,
     "L30 Onboarding": 100
   },
   "_meta": {
-    "last_updated": "2026-07-10T18:08Z",
-    "lift_summary": "P5 Batch 9: L17/L21 to 100."
+    "last_updated": "2026-07-10T18:10Z",
+    "lift_summary": "P5 Batch 10: L28/L16 to 100."
   },
   "raw": {
     "source": {
