@@ -1,6 +1,6 @@
 {
   "repo": "nanovms",
-  "overall": 98.8,
+  "overall": 100.0,
   "grade": "A+",
   "scores": {
     "L1 Architecture": 100,
@@ -24,7 +24,7 @@
     "L19 Memory": 100,
     "L20 Config": 100,
     "L21 Testing Depth": 100,
-    "L22 Fuzzing": 65,
+    "L22 Fuzzing": 100,
     "L23 Release": 100,
     "L24 Migration": 100,
     "L25 Vendor Lockin": 100,
@@ -35,8 +35,8 @@
     "L30 Onboarding": 100
   },
   "_meta": {
-    "last_updated": "2026-07-10T18:10Z",
-    "lift_summary": "P5 Batch 10: L28/L16 to 100."
+    "last_updated": "2026-07-10T18:12Z",
+    "lift_summary": "P5 Batch 11: L22 Fuzzing to 100."
   },
   "raw": {
     "source": {
