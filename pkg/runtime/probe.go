@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"sort"
 	"strings"
+	"time"
 )
 
 // Availability describes an observed local backend without becoming persisted
@@ -42,7 +43,7 @@ func (p BinaryProbe) Probe(ctx context.Context, backend BackendID) Availability 
 	if err != nil {
 		return Availability{Backend: backend, Reason: "executable unavailable"}
 	}
-	versionCtx, cancel := context.WithTimeout(ctx, 2e9)
+	versionCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 	out, err := exec.CommandContext(versionCtx, path, "--version").Output()
 	if err != nil {
