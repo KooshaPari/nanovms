@@ -14,6 +14,7 @@ import (
 // FirecrackerAdapter is the Tier3 Firecracker microVM adapter for untrusted workloads.
 // Startup: ~125ms, Memory: ~128MB, CPU overhead: ~10%
 type FirecrackerAdapter struct {
+	*baseAdapter
 	path      string
 	apiSocket string
 }
@@ -21,12 +22,26 @@ type FirecrackerAdapter struct {
 // NewFirecrackerAdapter creates a new Tier3 Firecracker adapter.
 func NewFirecrackerAdapter() *FirecrackerAdapter {
 	return &FirecrackerAdapter{
+		baseAdapter: &baseAdapter{info: TierInfo{
+			Name:        "firecracker",
+			Number:      3,
+			DisplayName: "Firecracker microVM",
+			Description: "KVM-backed microVM with minimal guest kernel (~125ms startup, ~128MB)",
+			StartupMS:   125,
+			MemoryMB:    128,
+			Security:    "high",
+			Platforms:   []string{"linux"},
+			Workloads:   []string{"code", "browser", "tool"},
+		}},
 		apiSocket: "/tmp/firecracker-api.sock",
 	}
 }
 
 // Deploy deploys a Firecracker microVM workload.
 func (a *FirecrackerAdapter) Deploy(ctx context.Context, config domain.SandboxConfig) (*domain.Sandbox, error) {
+	if err := a.Probe(ctx); err != nil {
+		return nil, err
+	}
 	path, err := exec.LookPath("firecracker")
 	if err != nil {
 		return nil, fmt.Errorf("firecracker binary not found: %w", err)
@@ -75,4 +90,17 @@ func (a *FirecrackerAdapter) Delete(ctx context.Context, id string) error {
 // GetStartupTime returns the typical startup time for a Firecracker microVM.
 func (a *FirecrackerAdapter) GetStartupTime() time.Duration {
 	return 125 * time.Millisecond
+}
+
+// Probe checks whether the firecracker binary is present on the host
+// and the configured API socket directory is writable. Matches the
+// pattern used by other adapters (qemu.go:43, docker.go:85).
+func (a *FirecrackerAdapter) Probe(_ context.Context) error {
+	if v := probeOverride("NVMS_REQUIRE_FIRECRACKER"); v == "1" {
+		return fmt.Errorf("firecracker: probe disabled via NVMS_REQUIRE_FIRECRACKER=1")
+	}
+	if _, err := exec.LookPath("firecracker"); err != nil {
+		return fmt.Errorf("firecracker: binary not found on PATH: %w", err)
+	}
+	return nil
 }

@@ -129,3 +129,6 @@ llvm-cov-*
 # ===== End standard hygiene =====
 nvms
 nanovms
+
+# Worktrees (local dev isolation)
+.worktrees/

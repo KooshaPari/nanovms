@@ -36,6 +36,8 @@ func main() {
 		tokenCmd(os.Args[2:])
 	case "vm":
 		vmCmd(os.Args[2:])
+	case "tier":
+		tierCmd(os.Args[2:])
 	case "help", "--help", "-h":
 		printUsage()
 	default:
@@ -136,6 +138,7 @@ Commands:
   serve               Start the NVMS daemon (HTTP over UDS)
   token               Manage bearer tokens (mint, list, remove)
   vm                  Manage VMs/sandboxes (exec, logs, port-forward)
+  tier                 List, inspect, and probe sandbox tiers
   help                Show this help`)
 }
 
