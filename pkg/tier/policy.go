@@ -186,11 +186,11 @@ func defaultCandidates(security SecurityLevel, platform Platform, workload Workl
 	case PlatformMacOS:
 		switch security {
 		case SecurityLow:
-			order = []string{"native", "applevz", "qemu"}
+			order = []string{"native", "sandboxexec", "applevz", "qemu"}
 		case SecurityMedium:
-			order = []string{"applevz", "gvisor", "lima", "qemu"}
+			order = []string{"applevz", "gvisor", "lima", "qemu", "gvisordocker", "distroless"}
 		case SecurityHigh:
-			order = []string{"applevz", "lima", "qemu"}
+			order = []string{"applevz", "lima", "qemu", "distroless"}
 		case SecurityUntrusted:
 			order = []string{"applevz", "qemu", "lima"}
 		}
@@ -199,22 +199,22 @@ func defaultCandidates(security SecurityLevel, platform Platform, workload Workl
 		case SecurityLow:
 			order = []string{"native", "qemu"}
 		case SecurityMedium:
-			order = []string{"qemu", "gvisor"}
+			order = []string{"qemu", "gvisor", "distroless"}
 		case SecurityHigh:
-			order = []string{"qemu"}
+			order = []string{"qemu", "distroless"}
 		case SecurityUntrusted:
 			order = []string{"qemu"}
 		}
 	default: // linux
 		switch security {
 		case SecurityLow:
-			order = []string{"native", "landlock", "seccomp", "wasm"}
+			order = []string{"native", "landlock", "seccomp", "userns", "wasm"}
 		case SecurityMedium:
-			order = []string{"gvisor", "seccomp", "wasm", "docker", "podman"}
+			order = []string{"landlock", "seccomp", "userns", "gvisor", "youki", "systemdnspawn", "wolfi", "wasm", "docker", "podman", "gvisordocker"}
 		case SecurityHigh:
-			order = []string{"firecracker", "kvm", "cloudhv", "crosvm", "qemu"}
+			order = []string{"firecracker", "kvm", "cloudhv", "crosvm", "qemu", "kata", "kubevirt", "distroless", "virtcontainers"}
 		case SecurityUntrusted:
-			order = []string{"firecracker", "qemu", "kvm", "cloudhv"}
+			order = []string{"firecracker", "qemu", "kvm", "cloudhv", "sev", "tdx", "nitrorekf", "kubevirt"}
 		}
 	}
 
@@ -254,6 +254,31 @@ func allTiers() []TierInfo {
 		{Name: "qemu", StartupMS: 2000, MemoryMB: 256, Security: "high", Platforms: []string{"linux", "macos", "windows"}, Workloads: []string{"code", "browser", "tool"}},
 		{Name: "cloudhv", StartupMS: 180, MemoryMB: 128, Security: "high", Platforms: []string{"linux"}, Workloads: []string{"code", "browser", "tool"}},
 		{Name: "crosvm", StartupMS: 200, MemoryMB: 128, Security: "high", Platforms: []string{"linux"}, Workloads: []string{"code", "tool"}},
+
+		// Tier 16-18: container / runtime alternatives.
+		{Name: "kata", StartupMS: 250, MemoryMB: 256, Security: "high", Platforms: []string{"linux"}, Workloads: []string{"code", "tool", "browser"}},
+		{Name: "youki", StartupMS: 30, MemoryMB: 30, Security: "medium", Platforms: []string{"linux"}, Workloads: []string{"code", "tool", "cli"}},
+		{Name: "systemdnspawn", StartupMS: 100, MemoryMB: 40, Security: "medium", Platforms: []string{"linux"}, Workloads: []string{"code", "tool", "cli"}},
+
+		// Tier 19-21: hardware-isolated VMs.
+		{Name: "nitrorekf", StartupMS: 5000, MemoryMB: 64, Security: "untrusted", Platforms: []string{"linux"}, Workloads: []string{"code", "tool"}},
+		{Name: "sev", StartupMS: 500, MemoryMB: 256, Security: "untrusted", Platforms: []string{"linux"}, Workloads: []string{"code", "tool"}},
+		{Name: "tdx", StartupMS: 600, MemoryMB: 256, Security: "untrusted", Platforms: []string{"linux"}, Workloads: []string{"code", "tool"}},
+
+		// Tier 22-23: KubeVirt + legacy Clear Containers.
+		{Name: "kubevirt", StartupMS: 2000, MemoryMB: 512, Security: "high", Platforms: []string{"linux"}, Workloads: []string{"code", "tool", "browser"}},
+		{Name: "virtcontainers", StartupMS: 200, MemoryMB: 128, Security: "medium", Platforms: []string{"linux"}, Workloads: []string{"code", "tool"}},
+
+		// Tier 24-26: OS-specific primitives.
+		{Name: "jail", StartupMS: 50, MemoryMB: 16, Security: "medium", Platforms: []string{"freebsd"}, Workloads: []string{"code", "tool", "cli"}},
+		{Name: "pledge", StartupMS: 1, MemoryMB: 1, Security: "low", Platforms: []string{"openbsd"}, Workloads: []string{"tool", "cli"}},
+		{Name: "sandboxexec", StartupMS: 5, MemoryMB: 2, Security: "low", Platforms: []string{"macos"}, Workloads: []string{"tool", "cli"}},
+
+		// Tier 27-30: gVisor over Docker, distroless OS, distroless images, Linux userns.
+		{Name: "gvisordocker", StartupMS: 600, MemoryMB: 50, Security: "medium", Platforms: []string{"linux", "macos"}, Workloads: []string{"code", "tool", "browser"}},
+		{Name: "wolfi", StartupMS: 50, MemoryMB: 10, Security: "medium", Platforms: []string{"linux"}, Workloads: []string{"code", "tool", "cli"}},
+		{Name: "distroless", StartupMS: 80, MemoryMB: 20, Security: "high", Platforms: []string{"linux", "macos", "windows"}, Workloads: []string{"code", "tool", "cli"}},
+		{Name: "userns", StartupMS: 1, MemoryMB: 1, Security: "low", Platforms: []string{"linux"}, Workloads: []string{"tool", "cli"}},
 	}
 }
 
@@ -400,6 +425,20 @@ const (
 	// with a 10s startup budget so heavier tests still pass.
 	ProfileCI Profile = "ci"
 
+	// ProfileCISecure is a CI-tuned profile that emphasizes isolation
+	// parity with prod (security=medium) and accepts a 10s startup
+	// budget. The candidate order at this security level on Linux is
+	// landlock / seccomp / userns / gvisor — so this profile
+	// naturally picks the cheapest of those, which on Linux is
+	// landlock (1ms) after sort.
+	ProfileCISecure Profile = "ci-secure"
+
+	// ProfileCIFast is a CI-tuned profile that emphasizes startup
+	// latency (security=low, 2s budget). The candidate order at this
+	// security level on Linux is native / landlock / seccomp /
+	// userns — sort picks native (0ms).
+	ProfileCIFast Profile = "ci-fast"
+
 	// ProfileProdSecure is a high-isolation profile for production. It
 	// requires Security=Untrusted and rejects any tier whose Security
 	// is below "high". No startup budget (production VMs are larger).
@@ -422,6 +461,8 @@ func KnownProfiles() []string {
 	return []string{
 		string(ProfileDev),
 		string(ProfileCI),
+		string(ProfileCISecure),
+		string(ProfileCIFast),
 		string(ProfileProdSecure),
 		string(ProfileProdFast),
 		string(ProfileAirgapped),
@@ -470,6 +511,26 @@ func profileSelection(p Profile) SelectionConfig {
 			Security:      SecurityMedium,
 			Platform:      PlatformLinux,
 			StartupBudget: 10000,
+		}
+	case ProfileCISecure:
+		// ci-secure: prefers landlock/seccomp/gvisor/userns. We map
+		// this to SecurityMedium; the candidate order at medium-linux
+		// already begins with [landlock, seccomp, userns, gvisor], so
+		// the deterministic startup-budget sort picks landlock (1ms).
+		return SelectionConfig{
+			Security:      SecurityMedium,
+			Platform:      PlatformLinux,
+			StartupBudget: 10000,
+		}
+	case ProfileCIFast:
+		// ci-fast: prefers native/seccomp/userns. Maps to
+		// SecurityLow; the candidate order at low-linux begins with
+		// [native, landlock, seccomp, userns], so the deterministic
+		// sort picks native (0ms).
+		return SelectionConfig{
+			Security:      SecurityLow,
+			Platform:      PlatformLinux,
+			StartupBudget: 2000,
 		}
 	case ProfileProdSecure:
 		return SelectionConfig{
