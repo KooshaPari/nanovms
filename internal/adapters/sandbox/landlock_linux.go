@@ -27,6 +27,10 @@ var kernelSupportsLandlock = sync.OnceValue(func() bool {
 	return errno != unix.ENOSYS
 })
 
+// kernelSupportsLandlockWrapper exposes the cached probe to the platform-
+// neutral adapter implementation.
+func kernelSupportsLandlockWrapper() bool { return kernelSupportsLandlock() }
+
 // buildLandlockRuleset constructs an in-kernel landlock ruleset with the
 // given path allow-lists and returns the ruleset fd (caller closes).
 //
