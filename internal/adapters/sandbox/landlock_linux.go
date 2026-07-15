@@ -127,8 +127,6 @@ func landlockRestrictSelf(rulesetFd int) error {
 // The adapter calls these platform-neutral wrappers so the same landlock
 // lifecycle compiles on non-Linux targets. Keep the real implementation here
 // and expose it through the *_Stub names used by landlock.go.
-func kernelSupportsLandlockWrapper() bool { return kernelSupportsLandlock() }
-
 func buildLandlockRulesetStub(readOnlyPaths, readWritePaths []string) (int, error) {
 	return buildLandlockRuleset(readOnlyPaths, readWritePaths)
 }
