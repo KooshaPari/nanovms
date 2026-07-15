@@ -68,8 +68,12 @@ func sortStrings(in []string) []string {
 	return out
 }
 
-// registerDefaultTiers populates r with the canonical set of 15 tiers.
+// registerDefaultTiers populates r with the canonical set of 30 tiers.
 // Order is preserved within Info() but not relevant for the registry map.
+//
+// Tiers 16-30 (added in feat(tier): tier expansion 30) — Linux-only and
+// OS-gated variants are still registered; their Probe() rejects non-
+// matching hosts at runtime so DefaultRegistry stays platform-agnostic.
 func registerDefaultTiers(r *Registry) {
 	// Tier 1-3 (original trio, preserved as-is).
 	r.MustRegister("wasm", NewWASMAdapter())
@@ -95,4 +99,42 @@ func registerDefaultTiers(r *Registry) {
 	r.MustRegister("qemu", NewQEMUAdapter())
 	r.MustRegister("cloudhv", NewCloudHypervisorAdapter())
 	r.MustRegister("crosvm", NewCrosvmAdapter())
+
+	// Tier 16-18: container / runtime alternatives.
+	r.MustRegister("kata", NewKataAdapter())
+	r.MustRegister("youki", NewYoukiAdapter())
+	r.MustRegister("systemdnspawn", NewSystemdNspawnAdapter())
+
+	// Tier 19-21: hardware-isolated VMs (untrusted).
+	r.MustRegister("nitrorekf", NewNitroEnclavesAdapter())
+	r.MustRegister("sev", NewSEVAdapter())
+	r.MustRegister("tdx", NewTDXAdapter())
+
+	// Tier 22-23: Kubernetes-managed VM, legacy Clear Containers.
+	r.MustRegister("kubevirt", NewKubeVirtAdapter())
+	r.MustRegister("virtcontainers", NewVirtContainersAdapter())
+
+	// Tier 24-26: OS-specific primitives.
+	registerDefaultOSGatedTiers(r)
+
+	// Tier 27-30: container/gVisor/Distroless/Linux user-namespace.
+	r.MustRegister("gvisordocker", NewGVisorDockerAdapter())
+	r.MustRegister("wolfi", NewWolfiAdapter())
+	r.MustRegister("distroless", NewDistrolessAdapter())
+	r.MustRegister("userns", NewUserNSAdapter())
+}
+
+// registerDefaultOSGatedTiers wires up tiers whose Probe implementation
+// is meaningful only on a single host OS. Each tier's build tag still
+// gates the file from non-matching platforms; on the matching host we
+// register normally.
+func registerDefaultOSGatedTiers(r *Registry) {
+	// Tier 24: jail — FreeBSD-only.
+	registerJail(r)
+
+	// Tier 25: pledge — OpenBSD-only.
+	registerPledge(r)
+
+	// Tier 26: sandboxexec — macOS-only.
+	registerSandboxExec(r)
 }

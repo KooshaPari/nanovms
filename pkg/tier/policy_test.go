@@ -7,8 +7,10 @@ import (
 )
 
 // TestPolicy_DefaultLinuxMedium verifies linux + security=medium.
-// The candidate list is sorted by (StartupMS asc, Name asc), so the
-// 1ms tiers (seccomp, wasm) beat gvisor (90ms).
+// After tier expansion the linux+medium candidate order begins with
+// [landlock, seccomp, userns, gvisor, ...]; deterministic (StartupMS
+// asc, Name asc) sort picks landlock (1ms, alphabetical first among
+// 1ms tiers).
 func TestPolicy_DefaultLinuxMedium(t *testing.T) {
 	got, err := DefaultPolicy{}.Select(SelectionConfig{
 		Security: SecurityMedium,
@@ -17,13 +19,15 @@ func TestPolicy_DefaultLinuxMedium(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Select: %v", err)
 	}
-	if got != "seccomp" {
-		t.Fatalf("linux+medium = %q, want seccomp (cheapest startup)", got)
+	if got != "landlock" {
+		t.Fatalf("linux+medium = %q, want landlock (cheapest startup among preferred tiers)", got)
 	}
 }
 
 // TestPolicy_DefaultLinuxHigh verifies linux + security=high.
-// firecracker (125ms) is the fastest high-security Linux tier.
+// After tier expansion the high-security Linux candidate list includes
+// distroless (80ms), which now beats firecracker (125ms) and is the
+// fastest high-security Linux tier.
 func TestPolicy_DefaultLinuxHigh(t *testing.T) {
 	got, err := DefaultPolicy{}.Select(SelectionConfig{
 		Security: SecurityHigh,
@@ -32,13 +36,14 @@ func TestPolicy_DefaultLinuxHigh(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Select: %v", err)
 	}
-	if got != "firecracker" {
-		t.Fatalf("linux+high = %q, want firecracker", got)
+	if got != "distroless" {
+		t.Fatalf("linux+high = %q, want distroless (cheapest high-security Linux tier)", got)
 	}
 }
 
 // TestPolicy_DefaultMacOSMedium verifies macos + security=medium.
-// gvisor (90ms) is the fastest medium-security macOS tier.
+// The macos+medium candidate list now includes distroless (80ms) ahead
+// of gvisor (90ms), so distroless wins.
 func TestPolicy_DefaultMacOSMedium(t *testing.T) {
 	got, err := DefaultPolicy{}.Select(SelectionConfig{
 		Security: SecurityMedium,
@@ -47,14 +52,14 @@ func TestPolicy_DefaultMacOSMedium(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Select: %v", err)
 	}
-	if got != "gvisor" {
-		t.Fatalf("macos+medium = %q, want gvisor", got)
+	if got != "distroless" {
+		t.Fatalf("macos+medium = %q, want distroless", got)
 	}
 }
 
 // TestPolicy_DefaultWindowsMedium verifies windows + security=medium.
-// gvisor does NOT advertise windows support, so qemu is the only
-// remaining medium-security candidate.
+// The windows+medium candidate list now includes distroless (80ms)
+// ahead of qemu (2000ms), so distroless wins.
 func TestPolicy_DefaultWindowsMedium(t *testing.T) {
 	got, err := DefaultPolicy{}.Select(SelectionConfig{
 		Security: SecurityMedium,
@@ -63,30 +68,34 @@ func TestPolicy_DefaultWindowsMedium(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Select: %v", err)
 	}
-	if got != "qemu" {
-		t.Fatalf("windows+medium = %q, want qemu", got)
+	if got != "distroless" {
+		t.Fatalf("windows+medium = %q, want distroless", got)
 	}
 }
 
 // TestPolicy_StartupBudget_FailsWhenUnsatisfiable verifies that a
 // tight budget that excludes every candidate returns a clear error
-// mentioning the budget value.
+// mentioning the budget value. Note: with the new tiers the linux+high
+// candidate list now includes distroless (80ms) and virtcontainers
+// (200ms), so we drop the budget to 50ms to truly exclude everything.
 func TestPolicy_StartupBudget_FailsWhenUnsatisfiable(t *testing.T) {
 	_, err := DefaultPolicy{}.Select(SelectionConfig{
 		Security:      SecurityHigh,
 		Platform:      PlatformLinux,
-		StartupBudget: 100,
+		StartupBudget: 50,
 	}, DefaultRegistry())
 	if err == nil {
 		t.Fatalf("expected budget-exceeded error, got nil")
 	}
-	if !strings.Contains(err.Error(), "100ms") {
-		t.Fatalf("error should mention 100ms budget: %v", err)
+	if !strings.Contains(err.Error(), "50ms") {
+		t.Fatalf("error should mention 50ms budget: %v", err)
 	}
 }
 
 // TestPolicy_StartupBudget_PicksFastEnough verifies that a 200ms
-// budget on linux/medium is satisfiable (seccomp=1ms is the winner).
+// budget on linux/medium is satisfiable. The candidate order begins
+// [landlock, seccomp, userns, ...] and deterministic sort picks
+// landlock (1ms, alphabetically first among 1ms tiers).
 func TestPolicy_StartupBudget_PicksFastEnough(t *testing.T) {
 	got, err := DefaultPolicy{}.Select(SelectionConfig{
 		Security:      SecurityMedium,
@@ -96,8 +105,8 @@ func TestPolicy_StartupBudget_PicksFastEnough(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Select: %v", err)
 	}
-	if got != "seccomp" {
-		t.Fatalf("linux+medium+budget200 = %q, want seccomp", got)
+	if got != "landlock" {
+		t.Fatalf("linux+medium+budget200 = %q, want landlock", got)
 	}
 }
 
@@ -182,7 +191,8 @@ func TestPolicy_AutoEnvUnknown(t *testing.T) {
 }
 
 // TestPolicy_AutoAutoDefersToDefault verifies that when NVMS_TIER=auto
-// (or unset), AutoPolicy falls back to DefaultPolicy.
+// (or unset), AutoPolicy falls back to DefaultPolicy. After tier
+// expansion, linux+medium picks landlock.
 func TestPolicy_AutoAutoDefersToDefault(t *testing.T) {
 	prev := osGetenv
 	defer func() { osGetenv = prev }()
@@ -195,8 +205,8 @@ func TestPolicy_AutoAutoDefersToDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AutoPolicy: %v", err)
 	}
-	if got != "seccomp" {
-		t.Fatalf("default policy = %q, want seccomp (linux+medium pick)", got)
+	if got != "landlock" {
+		t.Fatalf("default policy = %q, want landlock (linux+medium pick after expansion)", got)
 	}
 }
 
@@ -242,8 +252,8 @@ func TestPolicy_ProfilePolicy_ProdSecure(t *testing.T) {
 }
 
 // TestPolicy_ProfilePolicy_ProdFast exercises NVMS_PROFILE=prod-fast.
-// prod-fast implies SecurityHigh, StartupBudget=1000ms; firecracker (125ms)
-// fits and is the cheapest high-security Linux tier.
+// prod-fast implies SecurityHigh, StartupBudget=1000ms; the cheapest
+// high-security Linux tier after tier expansion is distroless (80ms).
 func TestPolicy_ProfilePolicy_ProdFast(t *testing.T) {
 	prev := osGetenv
 	defer func() { osGetenv = prev }()
@@ -257,13 +267,15 @@ func TestPolicy_ProfilePolicy_ProdFast(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProfilePolicy(prod-fast): %v", err)
 	}
-	if got != "firecracker" {
-		t.Fatalf("ProfilePolicy(prod-fast) = %q, want firecracker", got)
+	if got != "distroless" {
+		t.Fatalf("ProfilePolicy(prod-fast) = %q, want distroless", got)
 	}
 }
 
 // TestPolicy_ProfilePolicy_CI exercises NVMS_PROFILE=ci.
-// ci implies SecurityMedium, StartupBudget=10000ms; seccomp wins.
+// ci implies SecurityMedium, StartupBudget=10000ms; the cheapest
+// medium-security Linux tier after tier expansion is landlock (1ms,
+// alphabetically first among 1ms tiers).
 func TestPolicy_ProfilePolicy_CI(t *testing.T) {
 	prev := osGetenv
 	defer func() { osGetenv = prev }()
@@ -277,13 +289,15 @@ func TestPolicy_ProfilePolicy_CI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProfilePolicy(ci): %v", err)
 	}
-	if got != "seccomp" {
-		t.Fatalf("ProfilePolicy(ci) = %q, want seccomp", got)
+	if got != "landlock" {
+		t.Fatalf("ProfilePolicy(ci) = %q, want landlock", got)
 	}
 }
 
 // TestPolicy_ProfilePolicy_Airgapped exercises NVMS_PROFILE=airgapped.
-// airgapped implies SecurityHigh on Linux, no budget; firecracker wins.
+// airgapped implies SecurityHigh on Linux, no budget. After tier
+// expansion the linux+high candidate list includes distroless (80ms),
+// which now wins.
 func TestPolicy_ProfilePolicy_Airgapped(t *testing.T) {
 	prev := osGetenv
 	defer func() { osGetenv = prev }()
@@ -297,16 +311,17 @@ func TestPolicy_ProfilePolicy_Airgapped(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProfilePolicy(airgapped): %v", err)
 	}
-	if got != "firecracker" {
-		t.Fatalf("ProfilePolicy(airgapped) = %q, want firecracker", got)
+	if got != "distroless" {
+		t.Fatalf("ProfilePolicy(airgapped) = %q, want distroless", got)
 	}
 }
 
 // TestPolicy_KnownProfiles verifies KnownProfiles() returns the named
-// profiles in stable order for use in help text.
+// profiles in stable order for use in help text. After expansion we
+// include the new ci-secure / ci-fast profiles.
 func TestPolicy_KnownProfiles(t *testing.T) {
 	got := KnownProfiles()
-	want := []string{"dev", "ci", "prod-secure", "prod-fast", "airgapped"}
+	want := []string{"dev", "ci", "ci-secure", "ci-fast", "prod-secure", "prod-fast", "airgapped"}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("KnownProfiles() = %v, want %v", got, want)
 	}
