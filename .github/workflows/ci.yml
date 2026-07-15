@@ -37,7 +37,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: ['1.22', '1.23', '1.24']
+        # go.mod requires Go 1.25; older toolchains reject the module before tests run.
+        go: ['1.25']
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
@@ -60,9 +61,9 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
         with:
-          go-version: '1.24'
+          go-version: '1.25'
           cache: true
-      - uses: golangci/golangci-lint-action@aa6339a8b9e0e1c4b5e7c4e6f8d7c3a2b1e0d9f8
+      - uses: golangci/golangci-lint-action@aaa42aa0628b4ae2578232a66b541047968fac86
         with:
           version: v1.59
 
@@ -73,9 +74,9 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
-        with: { go-version: '1.24' }
+        with: { go-version: '1.25' }
       - run: |
-          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          go install github.com/securego/gosec/v2/cmd/gosec@v2.28.0
           gosec ./...
       - run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
