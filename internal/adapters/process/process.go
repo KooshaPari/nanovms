@@ -24,9 +24,10 @@ type Adapter struct {
 }
 
 type processSandbox struct {
-	sandbox *domain.Sandbox
-	cmd     *exec.Cmd
-	logPath string
+	sandbox  *domain.Sandbox
+	cmd      *exec.Cmd
+	logPath  string
+	waitDone chan struct{}
 }
 
 // NewAdapter creates a new process adapter.
@@ -95,6 +96,7 @@ func (a *Adapter) Start(ctx context.Context, id string) error {
 	}
 
 	entry.cmd = cmd
+	entry.waitDone = make(chan struct{})
 	entry.logPath = logFile.Name()
 	entry.sandbox.PID = cmd.Process.Pid
 	now := time.Now()
@@ -105,6 +107,7 @@ func (a *Adapter) Start(ctx context.Context, id string) error {
 	go func() {
 		_ = cmd.Wait()
 		_ = logFile.Close()
+		close(entry.waitDone)
 		a.mu.Lock()
 		if entry, ok := a.sandboxes[id]; ok && entry.sandbox.Status == domain.SandboxStatusRunning {
 			entry.sandbox.Status = domain.SandboxStatusStopped
@@ -148,7 +151,9 @@ func (a *Adapter) Stop(ctx context.Context, id string, force bool) error {
 		}
 	}
 
-	_ = cmd.Wait()
+	// The reaper goroutine owns cmd.Wait. Waiting here for its completion avoids
+	// concurrent Wait calls, which race in os/exec under -race.
+	<-entry.waitDone
 
 	a.mu.Lock()
 	entry.sandbox.Status = domain.SandboxStatusStopped
