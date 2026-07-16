@@ -51,7 +51,6 @@ jobs:
         run: |
           go build -o /tmp/nanovms ./cmd/nanovms
           go build -o /tmp/nvms ./cmd/nvms
-          go build -o /tmp/nvms-cgo ./cmd/nvms-cgo
 
   lint:
     needs: changes
