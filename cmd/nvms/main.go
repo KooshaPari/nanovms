@@ -2,301 +2,280 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
-	"crypto/tls"
-	"log"
 	"os"
-	"os/signal"
-	"strconv"
-	"strings"
-	"syscall"
+	"time"
 
-	"github.com/kooshapari/nanovms/internal/adapters"
-	"github.com/kooshapari/nanovms/internal/api"
-	"github.com/kooshapari/nanovms/internal/listen"
-	"github.com/kooshapari/nanovms/internal/sandbox"
-	"github.com/kooshapari/nanovms/internal/token"
 	"github.com/kooshapari/nanovms/pkg/deploy"
+	"github.com/kooshapari/nanovms/pkg/environment"
+	"github.com/kooshapari/nanovms/pkg/gpu"
+	"github.com/kooshapari/nanovms/pkg/orchestrate"
+	nvmsruntime "github.com/kooshapari/nanovms/pkg/runtime"
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		printUsage()
-		os.Exit(1)
-	}
+	os.Exit(runCLI(os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
+}
 
-	switch os.Args[1] {
+const (
+	exitOK            = orchestrate.ExitOK
+	exitUsage         = orchestrate.ExitUsage
+	exitInvalidJSON   = orchestrate.ExitInvalidJSON
+	exitEncodeFailure = orchestrate.ExitEncodeFailure
+	// exitActionFailure remains for older tests; prefer ProcessExitFor.
+	exitActionFailure = orchestrate.ExitInvalidRequest
+)
+
+func runCLI(arguments []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	if len(arguments) == 0 {
+		printCLIUsage(stderr)
+		return exitUsage
+	}
+	switch arguments[0] {
+	case "environment":
+		return environmentCmd(arguments[1:], stdin, stdout, stderr, executeEnvironment)
+	case "action":
+		return actionCmd(arguments[1:], stdin, stdout, stderr, executeEvaluation)
+	case "lifecycle":
+		return lifecycleCmd(arguments[1:], stdin, stdout, stderr, executeServiceLifecycle)
 	case "deploy":
-		deployCmd()
-	case "serve":
-		serveCmd(os.Args[2:])
-	case "token":
-		tokenCmd(os.Args[2:])
-	case "vm":
-		vmCmd(os.Args[2:])
-	case "tier":
-		tierCmd(os.Args[2:])
-	case "help", "--help", "-h":
-		printUsage()
+		return deployCmd(arguments[1:], stdout, stderr)
+	case "help", "-h", "--help":
+		printCLIUsage(stderr)
+		return exitOK
 	default:
-		fmt.Fprintf(os.Stderr, "nvms: unknown command %q\n", os.Args[1])
-		printUsage()
-		os.Exit(1)
+		fmt.Fprintf(stderr, "Unknown command: %s\n", arguments[0])
+		printCLIUsage(stderr)
+		return exitUsage
 	}
 }
 
-
-func vmCmd(args []string) {
-	vmSet := flag.NewFlagSet("vm", flag.ExitOnError)
-	socketPath := vmSet.String("socket", "", "UDS socket path")
-	_ = vmSet.Parse(args)
-
-	if vmSet.NArg() == 0 || vmSet.Arg(0) == "help" {
-		fmt.Println(`Usage: nvms vm [--socket <path>] <subcommand> [args]
-
-Subcommands:
-  list                   List all sandboxes
-  exec <id> <cmd...>     Execute a command in a sandbox
-  logs <id>              Stream logs from a sandbox
-  port-forward <id> <local-port>:<remote-port>  Create a port-forward tunnel`)
-		return
-	}
-
-	cl := sandbox.NewClient(*socketPath)
-
-	switch vmSet.Arg(0) {
-	case "list":
-		sandboxes, err := cl.ListSandboxes(context.Background())
-		if err != nil {
-			log.Fatal(err)
-		}
-		for _, sb := range sandboxes {
-			fmt.Printf("%s\t%s\t%s\n", sb.ID, sb.Name, sb.Status)
-		}
-	case "exec":
-		if vmSet.NArg() < 3 {
-			log.Fatal("usage: nvms vm exec <id> <cmd...>")
-		}
-		id := vmSet.Arg(1)
-		cmd := vmSet.Args()[2:]
-		out, err := cl.Exec(context.Background(), id, cmd)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer out.Close()
-		if _, err := io.Copy(os.Stdout, out); err != nil {
-			log.Fatal(err)
-		}
-	case "logs":
-		if vmSet.NArg() < 2 {
-			log.Fatal("usage: nvms vm logs <id>")
-		}
-		id := vmSet.Arg(1)
-		out, err := cl.Logs(context.Background(), id, false)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer out.Close()
-		if _, err := io.Copy(os.Stdout, out); err != nil {
-			log.Fatal(err)
-		}
-	case "port-forward":
-		if vmSet.NArg() != 3 {
-			log.Fatal("usage: nvms vm port-forward <id> <local-port>:<remote-port>")
-		}
-		id := vmSet.Arg(1)
-		ports := strings.SplitN(vmSet.Arg(2), ":", 2)
-		if len(ports) != 2 {
-			log.Fatal("invalid port spec, use <local>:<remote>")
-		}
-		local, err := strconv.Atoi(ports[0])
-		if err != nil {
-			log.Fatalf("invalid local port: %v", err)
-		}
-		remote, err := strconv.Atoi(ports[1])
-		if err != nil {
-			log.Fatalf("invalid remote port: %v", err)
-		}
-		addr, err := cl.PortForward(context.Background(), id, local, remote)
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Printf("Port-forward active: %s\n", addr)
-	default:
-		fmt.Fprintf(os.Stderr, "nvms vm: unknown subcommand %q\n", vmSet.Arg(0))
-		os.Exit(1)
-	}
+func printCLIUsage(stderr io.Writer) {
+	fmt.Fprintln(stderr, "Usage: nvms <command> [flags]")
+	fmt.Fprintln(stderr, "Commands:")
+	fmt.Fprintln(stderr, "  deploy                 Deploy a workload to the specified tier")
+	fmt.Fprintln(stderr, "  action --request -     Run one evaluation action from stdin JSON")
+	fmt.Fprintln(stderr, "  lifecycle --request -  Run one service lifecycle plan from stdin JSON")
+	fmt.Fprintln(stderr, "  environment <op> --request -")
+	fmt.Fprintln(stderr, "                         Plan/apply/verify host environment (op: plan|apply|verify)")
+	fmt.Fprintln(stderr, "Exit codes: 0 ok, 2 usage, 3 invalid JSON, 4 invalid request,")
+	fmt.Fprintln(stderr, "  5 encode failure, 6 contention, 7 host probe, 8 action runtime, 9 evidence/cleanup")
+	fmt.Fprintln(stderr, "See pkg/orchestrate/EVALUATION.md for evaluation error codes.")
 }
 
-func printUsage() {
-	fmt.Println(`Usage: nvms <command> [flags]
-
-Commands:
-  deploy              Deploy a workload to the specified tier
-  serve               Start the NVMS daemon (HTTP over UDS)
-  token               Manage bearer tokens (mint, list, remove)
-  vm                  Manage VMs/sandboxes (exec, logs, port-forward)
-  tier                 List, inspect, and probe sandbox tiers
-  help                Show this help`)
-}
-
-func deployCmd() {
-	deploySet := flag.NewFlagSet("deploy", flag.ExitOnError)
+func deployCmd(arguments []string, stdout, stderr io.Writer) int {
+	deploySet := flag.NewFlagSet("deploy", flag.ContinueOnError)
+	deploySet.SetOutput(stderr)
 	tier := deploySet.Int("tier", 1, "Deployment tier (1=WASM, 2=gVisor, 3=Firecracker)")
 	config := deploySet.String("config", "nvms.yaml", "Path to deployment config")
-	_ = deploySet.Parse(os.Args[2:])
+	if err := deploySet.Parse(arguments); err != nil {
+		return exitUsage
+	}
 
 	ctx := context.Background()
 	if err := deploy.Deploy(ctx, *tier, *config); err != nil {
-		log.Fatal(err)
+		fmt.Fprintf(stderr, "nvms deploy: %v\n", err)
+		return orchestrate.ExitEvidence
 	}
-	fmt.Printf("Deployment completed successfully (tier=%d, config=%s)\n", *tier, *config)
+	fmt.Fprintf(stdout, "Deployment completed successfully (tier=%d, config=%s)\n", *tier, *config)
+	return exitOK
 }
 
-func serveCmd(args []string) {
-	serveSet := flag.NewFlagSet("serve", flag.ExitOnError)
-	socketPath := serveSet.String("socket", "", "UDS socket path (default: $XDG_RUNTIME_DIR/nanovms/routed.sock)")
-	tokenFile := serveSet.String("token-file", "", "Path to token file (default: $XDG_CONFIG_DIR/nanovms/tokens)")
-	runBase := serveSet.String("run-base", "", "Runtime base dir (default: /run/user/<uid> or /tmp)")
-	tier := serveSet.Int("tier", 3, "Sandbox tier (1=WASM, 2=gVisor, 3=Firecracker)")
-	listenAddr := serveSet.String("listen", "", "TCP listen address (e.g. :8443)")
-	tlsCert := serveSet.String("tls-cert", "", "Path to TLS cert PEM (required with --listen)")
-	tlsKey := serveSet.String("tls-key", "", "Path to TLS key PEM (required with --listen)")
-	oidcIssuer := serveSet.String("oidc-issuer", "", "OIDC issuer URL for JWT auth")
-	oidcAudience := serveSet.String("oidc-audience", "", "Expected JWT audience claim")
-	oidcJWKS := serveSet.String("oidc-jwks", "", "Path to JWKS JSON file (PEM key for local verification)")
-	_ = serveSet.Parse(args)
+type evaluationExecutor func(context.Context, orchestrate.EvaluationRequest) (orchestrate.EvaluationResult, error)
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-
-	// Resolve defaults
-	if *socketPath == "" && *listenAddr == "" {
-		runDir := os.Getenv("XDG_RUNTIME_DIR")
-		if runDir == "" {
-			runDir = "/tmp"
+func actionCmd(arguments []string, stdin io.Reader, stdout, stderr io.Writer, execute evaluationExecutor) int {
+	flags := flag.NewFlagSet("action", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	requestSource := flags.String("request", "", "JSON request source; only '-' (stdin) is supported")
+	if err := flags.Parse(arguments); err != nil || *requestSource != "-" || flags.NArg() != 0 {
+		fmt.Fprintln(stderr, "nvms action: usage: nvms action --request -")
+		fmt.Fprintln(stderr, "nvms action: read one EvaluationRequest JSON from stdin; see pkg/orchestrate/EVALUATION.md")
+		return exitUsage
+	}
+	decoder := json.NewDecoder(stdin)
+	decoder.DisallowUnknownFields()
+	var request orchestrate.EvaluationRequest
+	if err := decoder.Decode(&request); err != nil {
+		fmt.Fprintf(stderr, "nvms action: invalid_json: %v\n", err)
+		return exitInvalidJSON
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		fmt.Fprintln(stderr, "nvms action: invalid_json: exactly one JSON request is required")
+		return exitInvalidJSON
+	}
+	result, actionErr := execute(context.Background(), request)
+	if err := json.NewEncoder(stdout).Encode(result); err != nil {
+		fmt.Fprintf(stderr, "nvms action: encode_failed: %v\n", err)
+		return exitEncodeFailure
+	}
+	if actionErr != nil {
+		var evaluationErr *orchestrate.EvaluationError
+		code := orchestrate.CodeEvaluationFailed
+		message := actionErr
+		if errors.As(actionErr, &evaluationErr) {
+			code = evaluationErr.Code
+			message = evaluationErr.Err
 		}
-		*socketPath = runDir + "/nanovms/routed.sock"
+		fmt.Fprintf(stderr, "nvms action: %s: %v\n", code, message)
+		return orchestrate.ProcessExitFor(code)
 	}
-	if *tokenFile == "" {
-		cfgDir := os.Getenv("XDG_CONFIG_DIR")
-		if cfgDir == "" {
-			cfgDir = "/etc/nanovms"
-		}
-		*tokenFile = cfgDir + "/tokens"
-	}
-	if *runBase == "" {
-		*runBase = os.Getenv("XDG_RUNTIME_DIR")
-		if *runBase == "" {
-			*runBase = "/tmp"
-		}
-	}
-
-	// Load tokens
-	tm, err := token.NewManager(*tokenFile)
-	if err != nil {
-		log.Fatalf("token manager: %v", err)
-	}
-
-	// Phase 3: OIDC JWT verifier (optional, overrides static token auth)
-	var jv *token.JWTVerifier
-	if *oidcIssuer != "" && *oidcJWKS != "" {
-		pemKey, readErr := os.ReadFile(*oidcJWKS)
-		if readErr != nil {
-			log.Fatalf("oidc jwks: %v", readErr)
-		}
-		jv, err = token.NewJWTVerifier(*oidcIssuer, *oidcAudience, pemKey)
-		if err != nil {
-			log.Fatalf("oidc verifier: %v", err)
-		}
-		log.Printf("OIDC JWT auth enabled: issuer=%s audience=%s", *oidcIssuer, *oidcAudience)
-	}
-
-	// Create listener: TCP (with optional TLS) or UDS
-	var ln *listen.Listener
-	if *listenAddr != "" {
-		var tlsCfg *tls.Config
-		if *tlsCert != "" && *tlsKey != "" {
-			cert, loadErr := tls.LoadX509KeyPair(*tlsCert, *tlsKey)
-			if loadErr != nil {
-				log.Fatalf("failed to load TLS cert/key: %v", loadErr)
-			}
-			tlsCfg = &tls.Config{Certificates: []tls.Certificate{cert}}
-		}
-		ln, err = listen.NewTCP(ctx, *listenAddr, tlsCfg)
-		if err != nil {
-			log.Fatalf("tcp listener: %v", err)
-		}
-		log.Printf("Listening on TCP %s", *listenAddr)
-	} else {
-		ln, err = listen.NewUDS(ctx, *socketPath, *runBase)
-		if err != nil {
-			log.Fatalf("uds listener: %v", err)
-		}
-		log.Printf("Listening on UDS %s", *socketPath)
-	}
-	defer ln.Close()
-
-	// Create sandbox adapter for the requested tier
-	adapter, err := adapters.NewSandboxPort(*tier)
-	if err != nil {
-		log.Fatalf("adapter (tier %d): %v", *tier, err)
-	}
-	log.Printf("Using sandbox adapter: tier=%d", *tier)
-
-	// Phase 2: audit logger (writes to nvms-audit.jsonl in temp dir)
-	auditDir := os.TempDir()
-	if p := os.Getenv("NVMS_AUDIT_PATH"); p != "" {
-		auditDir = p
-	}
-	auditLog := api.NewAuditLogger(auditDir)
-
-	// Start server
-	listenDesc := *socketPath
-	if *listenAddr != "" {
-		listenDesc = *listenAddr
-	}
-	log.Printf("NVMS daemon starting on %s (tokens from %s)", listenDesc, *tokenFile)
-	if err := api.Serve(ctx, ln, api.Handlers{
-		Port:        adapter,
-		Token:       tm,
-		JWTVerifier: jv,
-		AuditLog:    auditLog,
-	}); err != nil {
-		log.Fatalf("server: %v", err)
-	}
+	return exitOK
 }
 
-func tokenCmd(args []string) {
-	tokenSet := flag.NewFlagSet("token", flag.ExitOnError)
-	_ = tokenSet.Parse(args)
+type lifecycleExecutor func(context.Context, orchestrate.ServiceLifecycleRequest) (orchestrate.ServiceLifecycleResult, error)
 
-	if tokenSet.NArg() == 0 || tokenSet.Arg(0) == "help" {
-		fmt.Println(`Usage: nvms token <subcommand>
-
-Subcommands:
-  mint                 Generate a new bearer token
-  list                 List configured tokens
-  remove <token>       Remove a token`)
-		return
+func lifecycleCmd(arguments []string, stdin io.Reader, stdout, stderr io.Writer, execute lifecycleExecutor) int {
+	flags := flag.NewFlagSet("lifecycle", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	requestSource := flags.String("request", "", "JSON request source; only '-' (stdin) is supported")
+	if err := flags.Parse(arguments); err != nil || *requestSource != "-" || flags.NArg() != 0 {
+		fmt.Fprintln(stderr, "nvms lifecycle: usage: nvms lifecycle --request -")
+		return exitUsage
 	}
-
-	switch tokenSet.Arg(0) {
-	case "mint":
-		tok, err := token.MintToken()
-		if err != nil {
-			log.Fatalf("mint: %v", err)
+	decoder := json.NewDecoder(stdin)
+	decoder.DisallowUnknownFields()
+	var request orchestrate.ServiceLifecycleRequest
+	if err := decoder.Decode(&request); err != nil {
+		fmt.Fprintf(stderr, "nvms lifecycle: invalid_json: %v\n", err)
+		return exitInvalidJSON
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		fmt.Fprintln(stderr, "nvms lifecycle: invalid_json: exactly one JSON request is required")
+		return exitInvalidJSON
+	}
+	result, lifecycleErr := execute(context.Background(), request)
+	if err := json.NewEncoder(stdout).Encode(result); err != nil {
+		fmt.Fprintf(stderr, "nvms lifecycle: encode_failed: %v\n", err)
+		return exitEncodeFailure
+	}
+	if lifecycleErr != nil {
+		var evaluationErr *orchestrate.EvaluationError
+		code := orchestrate.CodeEvaluationFailed
+		message := lifecycleErr
+		if errors.As(lifecycleErr, &evaluationErr) {
+			code = evaluationErr.Code
+			message = evaluationErr.Err
 		}
-		fmt.Println(tok)
-	case "list":
-		fmt.Println("token list: not yet implemented (manager does not expose enumeration)",
-			" — use 'nvms token mint' to generate a new token,",
-			" check: cat /etc/nanovms/tokens",
-		)
+		fmt.Fprintf(stderr, "nvms lifecycle: %s: %v\n", code, message)
+		return orchestrate.ProcessExitFor(code)
+	}
+	return exitOK
+}
+
+func executeServiceLifecycle(ctx context.Context, request orchestrate.ServiceLifecycleRequest) (orchestrate.ServiceLifecycleResult, error) {
+	runner := gpu.ExecRunner{Timeout: 5 * time.Minute, MaxOutput: 16 << 20}
+	action := orchestrate.ServiceLifecycleAction{Runner: runner}
+	return action.Execute(ctx, request)
+}
+
+func executeEvaluation(ctx context.Context, request orchestrate.EvaluationRequest) (orchestrate.EvaluationResult, error) {
+	timeout := time.Duration(request.TimeoutMillis) * time.Millisecond
+	ttl := timeout + orchestrate.EvaluationReservationSkew
+	if ttl > orchestrate.MaxEvaluationTimeout {
+		ttl = orchestrate.MaxEvaluationTimeout
+	}
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, ttl)
+		defer cancel()
+	}
+	runner := gpu.ExecRunner{Timeout: timeout, MaxOutput: request.MaxOutputBytes}
+	action := orchestrate.EvaluationAction{
+		Registry:       nvmsruntime.NewBackendRegistry(),
+		Inventory:      evaluationInventoryProvider(request, runner),
+		Inspector:      orchestrate.HostEvaluationInspector{Runner: runner},
+		Runner:         runner,
+		Reservations:   &gpu.ReservationStore{Path: request.ReservationPath},
+		ReservationTTL: ttl,
+	}
+	return action.Execute(ctx, request)
+}
+
+func evaluationInventoryProvider(request orchestrate.EvaluationRequest, runner gpu.CommandRunner) gpu.ReconciledInventoryProvider {
+	adapters := []gpu.InventoryAdapter{gpu.WindowsInventoryAdapter{Runner: runner}}
+	if request.WSLDistribution != "" {
+		adapters = append(adapters, gpu.WSLInventoryAdapter{
+			Runner: runner, Distribution: request.WSLDistribution,
+		})
+	}
+	return gpu.ReconciledInventoryProvider{Adapters: adapters}
+}
+
+type environmentExecutor func(context.Context, string, environment.Request) (environment.Result, error)
+
+func environmentCmd(arguments []string, stdin io.Reader, stdout, stderr io.Writer, execute environmentExecutor) int {
+	if len(arguments) == 0 {
+		fmt.Fprintln(stderr, "nvms environment: usage: nvms environment <plan|apply|verify> --request -")
+		return exitUsage
+	}
+	operation := arguments[0]
+	flags := flag.NewFlagSet("environment", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	requestSource := flags.String("request", "", "JSON request source; only '-' (stdin) is supported")
+	if err := flags.Parse(arguments[1:]); err != nil || *requestSource != "-" || flags.NArg() != 0 {
+		fmt.Fprintln(stderr, "nvms environment: usage: nvms environment <plan|apply|verify> --request -")
+		return exitUsage
+	}
+	switch operation {
+	case "plan", "apply", "verify":
 	default:
-		fmt.Fprintf(os.Stderr, "nvms token: unknown subcommand %q\n", tokenSet.Arg(0))
-		os.Exit(1)
+		fmt.Fprintf(stderr, "nvms environment: unknown operation %q\n", operation)
+		return exitUsage
+	}
+	decoder := json.NewDecoder(stdin)
+	decoder.DisallowUnknownFields()
+	var request environment.Request
+	if err := decoder.Decode(&request); err != nil {
+		fmt.Fprintf(stderr, "nvms environment: invalid_json: %v\n", err)
+		return exitInvalidJSON
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		fmt.Fprintln(stderr, "nvms environment: invalid_json: exactly one JSON request is required")
+		return exitInvalidJSON
+	}
+	result, envErr := execute(context.Background(), operation, request)
+	if err := json.NewEncoder(stdout).Encode(result); err != nil {
+		fmt.Fprintf(stderr, "nvms environment: encode_failed: %v\n", err)
+		return exitEncodeFailure
+	}
+	if envErr != nil {
+		var providerErr *environment.ProviderError
+		code := environment.CodeEnvironmentFailed
+		message := envErr
+		if errors.As(envErr, &providerErr) {
+			code = providerErr.Code
+			message = providerErr.Err
+		}
+		fmt.Fprintf(stderr, "nvms environment: %s: %v\n", code, message)
+		return environment.ProcessExitFor(code)
+	}
+	return exitOK
+}
+
+func executeEnvironment(ctx context.Context, operation string, request environment.Request) (environment.Result, error) {
+	timeout := 30 * time.Second
+	runner := gpu.ExecRunner{Timeout: timeout, MaxOutput: 16 << 20}
+	state := &environment.MemoryStateStore{}
+	provider := environment.DefaultProvider(
+		evaluationInventoryProvider(orchestrate.EvaluationRequest{WSLDistribution: request.WSLDistribution}, runner),
+		runner,
+		state,
+	)
+	switch operation {
+	case "plan":
+		return provider.Plan(ctx, request)
+	case "apply":
+		return provider.Apply(ctx, request)
+	case "verify":
+		return provider.Verify(ctx, request)
+	default:
+		return environment.Result{}, fmt.Errorf("unknown environment operation %q", operation)
 	}
 }
