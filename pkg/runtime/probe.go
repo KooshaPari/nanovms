@@ -14,9 +14,24 @@ import (
 type Availability struct {
 	Backend   BackendID
 	Available bool
-	Reason    string
-	Version   string
+	// State is a machine-readable result for audit and scheduler decisions.
+	// Available is retained for compatibility with existing callers.
+	State   AvailabilityState
+	Reason  string
+	Version string
 }
+
+// AvailabilityState distinguishes an unconfigured adapter from an installed
+// but unusable engine. These observations are local-only and must not be
+// persisted as provider deployment state.
+type AvailabilityState string
+
+const (
+	AvailabilityUnknown      AvailabilityState = "unknown"
+	AvailabilityAvailable    AvailabilityState = "available"
+	AvailabilityUnavailable  AvailabilityState = "unavailable"
+	AvailabilityUnconfigured AvailabilityState = "unconfigured"
+)
 
 // Probe discovers local runtime availability. Implementations must not inspect
 // cloud/provider state or credentials.
@@ -37,19 +52,47 @@ type BinaryProbe struct{ Commands map[BackendID]string }
 func (p BinaryProbe) Probe(ctx context.Context, backend BackendID) Availability {
 	command := p.Commands[backend]
 	if command == "" {
-		return Availability{Backend: backend, Reason: "no local probe configured"}
+		return Availability{Backend: backend, State: AvailabilityUnconfigured, Reason: "no local probe configured"}
 	}
 	path, err := exec.LookPath(command)
 	if err != nil {
-		return Availability{Backend: backend, Reason: "executable unavailable"}
+		return Availability{Backend: backend, State: AvailabilityUnavailable, Reason: "executable unavailable"}
 	}
 	versionCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 	out, err := exec.CommandContext(versionCtx, path, "--version").Output()
 	if err != nil {
-		return Availability{Backend: backend, Available: true, Reason: "executable found", Version: "unknown"}
+		return Availability{Backend: backend, Available: true, State: AvailabilityAvailable, Reason: "executable found", Version: "unknown"}
 	}
-	return Availability{Backend: backend, Available: true, Reason: "executable found", Version: strings.TrimSpace(string(out))}
+	return Availability{Backend: backend, Available: true, State: AvailabilityAvailable, Reason: "executable found", Version: strings.TrimSpace(string(out))}
+}
+
+// CommandProbe validates an engine with a read-only command (for example
+// `docker info` or `podman info`). It deliberately does not create resources.
+// Commands and Args are keyed by canonical BackendID values.
+type CommandProbe struct {
+	Commands map[BackendID]string
+	Args     map[BackendID][]string
+}
+
+// Probe executes the configured read-only readiness command with a bounded
+// timeout. A non-zero exit means the executable exists but the engine is not
+// ready, which is different from an unconfigured adapter.
+func (p CommandProbe) Probe(ctx context.Context, backend BackendID) Availability {
+	command := p.Commands[backend]
+	if command == "" {
+		return Availability{Backend: backend, State: AvailabilityUnconfigured, Reason: "no readiness probe configured"}
+	}
+	path, err := exec.LookPath(command)
+	if err != nil {
+		return Availability{Backend: backend, State: AvailabilityUnavailable, Reason: "executable unavailable"}
+	}
+	probeCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	if err := exec.CommandContext(probeCtx, path, p.Args[backend]...).Run(); err != nil {
+		return Availability{Backend: backend, State: AvailabilityUnavailable, Reason: "readiness probe failed"}
+	}
+	return Availability{Backend: backend, Available: true, State: AvailabilityAvailable, Reason: "readiness probe passed"}
 }
 
 // Discover probes all registered backends in deterministic ID order.
