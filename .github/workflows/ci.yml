@@ -23,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with: { fetch-depth: 50 }
-      - uses: dorny/paths-filter@cae9006b65a1a53044b518c68e13e835c54948a7
+      - uses: dorny/paths-filter@b41dfa943b1939b9b646f67753bfe35cf6e4de03
         id: filter
         with:
           filters: |
