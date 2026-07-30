@@ -31,3 +31,21 @@ func TestNewSandboxPort(t *testing.T) {
 		}
 	}
 }
+
+func TestNewProviderKeepsTierDefaultsAndAddsOptInPodman(t *testing.T) {
+	port, err := NewProvider("tier", 2)
+	if err != nil || port == nil {
+		t.Fatalf("tier provider: port=%v err=%v", port, err)
+	}
+	port, err = NewProvider("", 3)
+	if err != nil || port == nil {
+		t.Fatalf("empty provider: port=%v err=%v", port, err)
+	}
+	port, err = NewProvider("podman", 1)
+	if err != nil || port == nil {
+		t.Fatalf("podman provider: port=%v err=%v", port, err)
+	}
+	if _, err := NewProvider("unknown", 2); err == nil {
+		t.Fatal("unknown provider unexpectedly accepted")
+	}
+}

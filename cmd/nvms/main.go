@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"io"
-	"crypto/tls"
 	"log"
 	"os"
 	"os/signal"
@@ -46,7 +46,6 @@ func main() {
 		os.Exit(1)
 	}
 }
-
 
 func vmCmd(args []string) {
 	vmSet := flag.NewFlagSet("vm", flag.ExitOnError)
@@ -161,6 +160,7 @@ func serveCmd(args []string) {
 	tokenFile := serveSet.String("token-file", "", "Path to token file (default: $XDG_CONFIG_DIR/nanovms/tokens)")
 	runBase := serveSet.String("run-base", "", "Runtime base dir (default: /run/user/<uid> or /tmp)")
 	tier := serveSet.Int("tier", 3, "Sandbox tier (1=WASM, 2=gVisor, 3=Firecracker)")
+	provider := serveSet.String("provider", "tier", "Sandbox provider (tier or podman; podman is explicit and independent of --tier)")
 	listenAddr := serveSet.String("listen", "", "TCP listen address (e.g. :8443)")
 	tlsCert := serveSet.String("tls-cert", "", "Path to TLS cert PEM (required with --listen)")
 	tlsKey := serveSet.String("tls-key", "", "Path to TLS key PEM (required with --listen)")
@@ -240,11 +240,11 @@ func serveCmd(args []string) {
 	defer ln.Close()
 
 	// Create sandbox adapter for the requested tier
-	adapter, err := adapters.NewSandboxPort(*tier)
+	adapter, err := adapters.NewProvider(strings.ToLower(strings.TrimSpace(*provider)), *tier)
 	if err != nil {
-		log.Fatalf("adapter (tier %d): %v", *tier, err)
+		log.Fatalf("adapter (provider %s, tier %d): %v", *provider, *tier, err)
 	}
-	log.Printf("Using sandbox adapter: tier=%d", *tier)
+	log.Printf("Using sandbox provider: %s (tier=%d)", *provider, *tier)
 
 	// Phase 2: audit logger (writes to nvms-audit.jsonl in temp dir)
 	auditDir := os.TempDir()
