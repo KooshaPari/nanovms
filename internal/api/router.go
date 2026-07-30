@@ -175,10 +175,15 @@ func (h Handlers) handleDeploy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Adapters normally update their stored object from Start. Normalize the
-	// returned descriptor as well so a conforming adapter that only reports
-	// success cannot accidentally make this endpoint claim "pending".
-	if sb.Status == domain.SandboxStatusPending {
+	// returned descriptor as well: a successful Start is the lifecycle
+	// boundary, even for adapters whose Create state is named "created" rather
+	// than "pending".
+	if sb.Status != domain.SandboxStatusFailed {
 		sb.Status = domain.SandboxStatusRunning
+		if sb.StartedAt == nil {
+			now := time.Now().UTC()
+			sb.StartedAt = &now
+		}
 	}
 	if sb.Status != domain.SandboxStatusRunning {
 		http.Error(w, "adapter reported a non-running sandbox after start", http.StatusInternalServerError)
