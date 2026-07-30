@@ -17,11 +17,8 @@ package phenointegration
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"net/http"
-	"sync"
-	"time"
 )
 
 // requestIDHeader is the HTTP header used to carry the per-request
@@ -36,71 +33,15 @@ const requestIDHeader = "X-Request-Id"
 // request, threads it through the request context (so downstream
 // handlers can read it via RequestIDFrom), echoes it on the response,
 // and emits a single structured log line at request completion.
-// InitServer returns an http.Handler with the request-id middleware
-// applied. The returned handler registers /healthz, /health (alias),
-// and /metrics endpoints and can be passed directly to http.Server or
-// wrapped by additional middleware.
 func InitServer(ctx context.Context) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", HandleHealthz)
-	mux.HandleFunc("/health", HandleHealth)
-	mux.HandleFunc("/metrics", HandleMetrics)
 	return requestIDMiddleware(mux)
 }
 
 // HandleHealthz is a simple liveness probe that returns HTTP 200.
 func HandleHealthz(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-}
-
-// HandleHealth is an alias for /healthz — it returns HTTP 200 as a
-// liveness probe.  The audit report (L5, L27) flagged that the API
-// reference documents /health but only /healthz was implemented.
-func HandleHealth(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-}
-
-// globalMetrics is a package-level collector for the /metrics endpoint.
-var globalMetrics = newMetricsCollector()
-
-// metricsCollector holds cumulative counters exposed at /metrics.
-type metricsCollector struct {
-	mu        sync.Mutex
-	requests  int64
-	startTime time.Time
-}
-
-func newMetricsCollector() *metricsCollector {
-	return &metricsCollector{startTime: time.Now()}
-}
-
-// recordRequest increments the request counter.
-func (mc *metricsCollector) recordRequest() {
-	mc.mu.Lock()
-	defer mc.mu.Unlock()
-	mc.requests++
-}
-
-// snapshot returns a copy of the current counters.
-func (mc *metricsCollector) snapshot() (requests int64, uptime time.Duration) {
-	mc.mu.Lock()
-	defer mc.mu.Unlock()
-	return mc.requests, time.Since(mc.startTime)
-}
-
-// HandleMetrics serves basic runtime metrics in Prometheus
-// exposition format.  The audit report (L5, L27) flagged that the API
-// reference documents /metrics but no handler existed in code.
-func HandleMetrics(w http.ResponseWriter, r *http.Request) {
-	reqs, uptime := globalMetrics.snapshot()
-	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "# HELP nanovms_http_requests_total Total HTTP requests processed.\n")
-	fmt.Fprintf(w, "# TYPE nanovms_http_requests_total counter\n")
-	fmt.Fprintf(w, "nanovms_http_requests_total %d\n", reqs)
-	fmt.Fprintf(w, "# HELP nanovms_uptime_seconds Server uptime in seconds.\n")
-	fmt.Fprintf(w, "# TYPE nanovms_uptime_seconds gauge\n")
-	fmt.Fprintf(w, "nanovms_uptime_seconds %.0f\n", uptime.Seconds())
 }
 
 // contextKey is unexported to prevent key collisions in the request
@@ -128,7 +69,6 @@ func requestIDMiddleware(next http.Handler) http.Handler {
 			id = newRequestID()
 		}
 		w.Header().Set(requestIDHeader, id)
-		globalMetrics.recordRequest()
 		ctx := context.WithValue(r.Context(), requestIDKey, id)
 		slog.Info("http_request",
 			slog.String("method", r.Method),
