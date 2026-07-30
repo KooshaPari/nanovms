@@ -141,8 +141,14 @@ func (a *Adapter) Start(ctx context.Context, id string) error {
 	if _, err := a.run(ctx, "start", id); err != nil {
 		return err
 	}
-	_, err := a.inspect(ctx, id)
-	return err
+	sb, err := a.inspect(ctx, id)
+	if err != nil {
+		return err
+	}
+	if sb.Status != domain.SandboxStatusRunning {
+		return fmt.Errorf("podman container %s did not enter running state (status=%s)", id, sb.Status)
+	}
+	return nil
 }
 
 // Stop stops a running container.
