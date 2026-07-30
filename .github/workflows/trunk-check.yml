@@ -35,6 +35,7 @@ jobs:
           # downloads; retain the reports as an artifact instead of requiring
           # Checks API write access from the PR token.
           cache-key: nanovms-trunk-v2
+          setup-deps: true
           save-annotations: true
 
       - name: Trunk Upgrade (on schedule only)
