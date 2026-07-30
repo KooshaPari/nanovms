@@ -1,113 +1,82 @@
-# =============================================================================
-# Trunk.io — Plugin versions for linting/formatting tools
-# =============================================================================
-# This file is auto-generated. Run `trunk upgrade` to update.
-# https://docs.trunk.io/check/reference
-# =============================================================================
+# Trunk.io configuration (schema 0.1).
+# Keep repository lint and format policy in the supported list form.
+version: 0.1
+
+cli:
+  version: 1.22.12
 
 plugins:
   sources:
     - id: trunk
-      ref: v1.2.2
-    - id: community
-      ref: main
+      ref: v1.6.6
+    - id: trunk-fmt
+      ref: v1.2.1
 
-# Linters (auto-detected by file type)
 linters:
-  actionlint:
+  - name: actionlint
     enabled: true
-    commands:
-      - name: actionlint
-        run: actionlint ${target}
-        direct_configs:
-          - .github/workflows/*.yml
-  black:
+  - name: black
     enabled: true
-    commands:
-      - name: black
-        run: black --check --line-length 100 ${target}
-        direct_configs:
-          - pyproject.toml
-          - ruff.toml
-  clippy:
+    direct_configs:
+      - pyproject.toml
+  - name: clippy
     enabled: true
-    commands:
-      - name: clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
-  eslint:
+    direct_configs:
+      - clippy.toml
+      - .clippy.toml
+  - name: eslint
     enabled: true
     direct_configs:
       - .eslintrc.*
       - eslint.config.*
-  golangci-lint:
+  - name: golangci-lint
     enabled: true
     direct_configs:
       - .golangci.yml
       - .golangci.yaml
-  mypy:
+  - name: mypy
     enabled: true
-    commands:
-      - name: mypy
-        run: mypy --ignore-missing-imports ${target}
-  ruff:
+    direct_configs:
+      - mypy.ini
+      - pyproject.toml
+  - name: ruff
     enabled: true
-    commands:
-      - name: ruff
-        run: ruff check --output-format=github ${target}
-        direct_configs:
-          - ruff.toml
-          - pyproject.toml
-  shellcheck:
+    direct_configs:
+      - ruff.toml
+      - pyproject.toml
+  - name: shellcheck
     enabled: true
-  taplo:
+  - name: taplo
     enabled: true
-  yamllint:
+  - name: yamllint
     enabled: true
 
-# Formatters
 formatters:
-  black:
+  - name: black
     enabled: true
-    commands:
-      - name: black
-        run: black --line-length 100 ${target}
-        direct_configs:
-          - pyproject.toml
-  prettier:
+    direct_configs:
+      - pyproject.toml
+  - name: prettier
     enabled: true
     direct_configs:
       - .prettierrc
       - prettier.config.*
-  rustfmt:
+  - name: rustfmt
     enabled: true
-    commands:
-      - name: rustfmt
-        run: rustfmt ${target}
+    direct_configs:
+      - rustfmt.toml
 
-# Actions (CI optimization)
-actions:
-  trunk-check:
-    enabled: true
-    size: 5GB
-    memory: 16GB
-    disk: 10GB
-  trunk-merge:
-    enabled: true
-    size: 5GB
-  trunk-push:
-    enabled: true
-    size: 5GB
-
-# Caching
-cache:
-  enabled: true
-  storage: local
-
-# CLI
-cli:
-  version: 1.22.2
-
-# Environment
-env:
-  variables:
-    EDITOR: vim
+ignore:
+  - paths:
+      - node_modules/
+      - .venv/
+      - venv/
+      - __pycache__/
+      - target/
+      - dist/
+      - build/
+      - .git/
+      - vendor/
+      - "*.lock"
+      - go.sum
+    type: include
