@@ -1,5 +1,5 @@
 # Trunk.io configuration (schema 0.1).
-# Keep repository lint and format policy in the supported list form.
+# See https://docs.trunk.io/reference/trunk-yaml.
 version: 0.1
 
 cli:
@@ -9,74 +9,79 @@ plugins:
   sources:
     - id: trunk
       ref: v1.6.6
+      uri: https://github.com/trunk-io/plugins
     - id: trunk-fmt
       ref: v1.2.1
 
-linters:
-  - name: actionlint
-    enabled: true
-  - name: black
-    enabled: true
-    direct_configs:
-      - pyproject.toml
-  - name: clippy
-    enabled: true
-    direct_configs:
-      - clippy.toml
-      - .clippy.toml
-  - name: eslint
-    enabled: true
-    direct_configs:
-      - .eslintrc.*
-      - eslint.config.*
-  - name: golangci-lint
-    enabled: true
-    direct_configs:
-      - .golangci.yml
-      - .golangci.yaml
-  - name: mypy
-    enabled: true
-    direct_configs:
-      - mypy.ini
-      - pyproject.toml
-  - name: ruff
-    enabled: true
-    direct_configs:
-      - ruff.toml
-      - pyproject.toml
-  - name: shellcheck
-    enabled: true
-  - name: taplo
-    enabled: true
-  - name: yamllint
-    enabled: true
+runtimes:
+  enabled:
+    - go@1.25.0
+    - node@22.0.0
+    - python@3.12.0
 
-formatters:
-  - name: black
-    enabled: true
-    direct_configs:
-      - pyproject.toml
-  - name: prettier
-    enabled: true
-    direct_configs:
-      - .prettierrc
-      - prettier.config.*
-  - name: rustfmt
-    enabled: true
-    direct_configs:
-      - rustfmt.toml
+lint:
+  enabled:
+    - actionlint
+    - black
+    - clippy
+    - eslint
+    - golangci-lint
+    - mypy
+    - prettier
+    - ruff
+    - rustfmt
+    - shellcheck
+    - taplo
+    - yamllint
+  definitions:
+    - name: black
+      direct_configs:
+        - pyproject.toml
+    - name: clippy
+      direct_configs:
+        - clippy.toml
+        - .clippy.toml
+    - name: eslint
+      direct_configs:
+        - .eslintrc.*
+        - eslint.config.*
+    - name: golangci-lint
+      direct_configs:
+        - .golangci.yml
+        - .golangci.yaml
+    - name: mypy
+      direct_configs:
+        - mypy.ini
+        - pyproject.toml
+    - name: ruff
+      direct_configs:
+        - ruff.toml
+        - pyproject.toml
+    - name: prettier
+      direct_configs:
+        - .prettierrc
+        - prettier.config.*
+    - name: rustfmt
+      direct_configs:
+        - rustfmt.toml
+  ignore:
+    - linters: [ALL]
+      paths:
+        - node_modules/**
+        - .venv/**
+        - venv/**
+        - __pycache__/**
+        - target/**
+        - dist/**
+        - build/**
+        - .git/**
+        - vendor/**
+        - "*.lock"
+        - go.sum
 
-ignore:
-  - paths:
-      - node_modules/
-      - .venv/
-      - venv/
-      - __pycache__/
-      - target/
-      - dist/
-      - build/
-      - .git/
-      - vendor/
-      - "*.lock"
-      - go.sum
-    type: include
+actions:
+  enabled:
+    - trunk-announce
+    - trunk-check-pre-push
+    - trunk-fmt-pre-commit
+    - trunk-upgrade-available
