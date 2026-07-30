@@ -30,6 +30,12 @@ jobs:
 
       - name: Trunk Check
         uses: trunk-io/trunk-action@04ba50e7658c81db7356da96657e6e77f220bfa3  # v1
+        with:
+          # Rotate the cache after the prior cache contained incomplete tool
+          # downloads; retain the reports as an artifact instead of requiring
+          # Checks API write access from the PR token.
+          cache-key: nanovms-trunk-v2
+          save-annotations: true
 
       - name: Trunk Upgrade (on schedule only)
         if: github.event_name == 'schedule'
