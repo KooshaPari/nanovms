@@ -12,18 +12,18 @@ on:
   pull_request:
     branches: [main, master]
     paths:
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'deny.toml'
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "deny.toml"
   push:
     branches: [main, master]
     paths:
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'deny.toml'
-    tags: ['v*']
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "deny.toml"
+    tags: ["v*"]
   schedule:
-    - cron: '0 7 * * 1'  # Mondays 07:00 UTC
+    - cron: "0 7 * * 1" # Mondays 07:00 UTC
   workflow_dispatch:
 
 permissions:
