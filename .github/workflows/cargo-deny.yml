@@ -23,6 +23,7 @@ on:
       - "deny.toml"
     tags: ["v*"]
   schedule:
+    # yamllint disable-line rule:comments
     - cron: "0 7 * * 1" # Mondays 07:00 UTC
   workflow_dispatch:
 
