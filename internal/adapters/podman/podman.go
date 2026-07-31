@@ -291,12 +291,29 @@ func (a *Adapter) inspect(ctx context.Context, id string) (*domain.Sandbox, erro
 	case "paused", "stopped", "exited", "dead", "removing":
 		status = domain.SandboxStatusStopped
 	}
-	cfg := &domain.SandboxConfig{Name: strings.TrimPrefix(c.Name, "/"), Image: c.Config.Image}
+	cfg := &domain.SandboxConfig{
+		Name:   strings.TrimPrefix(c.Name, "/"),
+		Image:  c.Config.Image,
+		Labels: cloneLabels(c.Config.Labels),
+	}
 	return &domain.Sandbox{
 		ID: c.ID, Name: strings.TrimPrefix(c.Name, "/"), Status: status,
 		Type: domain.SandboxTypeContainer, Config: cfg, PID: c.State.PID,
 		CreatedAt: created, StartedAt: startedAt, IPAddress: c.NetworkSettings.IPAddress,
 	}, nil
+}
+
+// cloneLabels keeps inspect results independent from the JSON decode buffer
+// and preserves provider metadata for reconciliation and callers.
+func cloneLabels(labels map[string]string) map[string]string {
+	if len(labels) == 0 {
+		return nil
+	}
+	result := make(map[string]string, len(labels))
+	for key, value := range labels {
+		result[key] = value
+	}
+	return result
 }
 
 func parseTime(value string) time.Time {

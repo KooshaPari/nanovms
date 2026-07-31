@@ -107,7 +107,23 @@ func (h Handlers) handleHealthz(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h Handlers) handleReadyz(w http.ResponseWriter, r *http.Request) {
-	// For readiness, ping the port (if it implements a health method).
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if h.Port == nil {
+		http.Error(w, "provider is not configured", http.StatusServiceUnavailable)
+		return
+	}
+	probe, ok := h.Port.(interface{ Probe(context.Context) error })
+	if !ok {
+		http.Error(w, "provider readiness probe is unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	if err := probe.Probe(r.Context()); err != nil {
+		http.Error(w, "provider is not ready: "+err.Error(), http.StatusServiceUnavailable)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ready"})
@@ -394,15 +410,60 @@ func (h Handlers) handleAudit(w http.ResponseWriter, r *http.Request) {
 func auditMiddleware(al *AuditLogger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		next.ServeHTTP(w, r)
+		recorder := &statusRecordingResponseWriter{ResponseWriter: w}
+		next.ServeHTTP(recorder, r)
+		status := recorder.status
+		if status == 0 {
+			status = http.StatusOK
+		}
+		requestID := strings.TrimSpace(r.Header.Get("X-Request-ID"))
+		if requestID == "" {
+			requestID = newAuditRequestID()
+		}
 		al.Append(AuditEntry{
 			Timestamp:  time.Now().UTC().Format(time.RFC3339),
 			Method:     r.Method,
 			Path:       r.URL.Path,
-			StatusCode: 0,
+			RequestID:  requestID,
+			StatusCode: status,
 			DurationMs: time.Since(start).Milliseconds(),
 		})
 	})
+}
+
+type statusRecordingResponseWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *statusRecordingResponseWriter) WriteHeader(status int) {
+	if w.status != 0 {
+		return
+	}
+	w.status = status
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *statusRecordingResponseWriter) Write(body []byte) (int, error) {
+	if w.status == 0 {
+		w.WriteHeader(http.StatusOK)
+	}
+	return w.ResponseWriter.Write(body)
+}
+
+// Flush preserves streaming semantics for logs and exec responses while still
+// recording the implicit 200 response status.
+func (w *statusRecordingResponseWriter) Flush() {
+	if w.status == 0 {
+		w.WriteHeader(http.StatusOK)
+	}
+	if flusher, ok := w.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+func (w *statusRecordingResponseWriter) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
 }
 
 // auth wraps a handler with bearer-token auth, preferring JWT when configured.

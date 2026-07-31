@@ -36,13 +36,13 @@ func TestServiceLifecycleExecutesCreateIntentsInOrder(t *testing.T) {
 	cpu := uint32(1000)
 	mem := uint64(1073741824)
 	result, err := action.Execute(context.Background(), ServiceLifecycleRequest{
-		Version:         ServiceLifecycleVersion,
-		SchemaVersion:   PhenoComposeLifecycleSchema,
-		ManifestSHA256:  "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-		RunID:           "run",
-		PodmanPipe:      "npipe:////./pipe/podman-machine-default",
-		Order:           []string{"worker"},
-		Intents:         []ServiceLifecycleIntent{{Phase: "create", Service: "worker", Image: "quay.io/podman/hello:latest"}},
+		Version:        ServiceLifecycleVersion,
+		SchemaVersion:  PhenoComposeLifecycleSchema,
+		ManifestSHA256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+		RunID:          "run",
+		PodmanPipe:     "npipe:////./pipe/podman-machine-default",
+		Order:          []string{"worker"},
+		Intents:        []ServiceLifecycleIntent{{Phase: "create", Service: "worker", Image: "quay.io/podman/hello:latest"}},
 		Services: map[string]ServiceDefinition{
 			"worker": {
 				Image:       "quay.io/podman/hello:latest",
@@ -71,5 +71,23 @@ func TestServiceLifecycleRejectsUnsupportedSchema(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected unsupported schema to fail")
+	}
+}
+
+func TestCanonicalManifestDigestRequiresLowercaseHex(t *testing.T) {
+	valid := strings.Repeat("a", 64)
+	if got, err := canonicalManifestDigest(valid); err != nil || got != "sha256:"+valid {
+		t.Fatalf("canonicalManifestDigest(valid) = %q, %v", got, err)
+	}
+	for name, value := range map[string]string{
+		"uppercase": strings.Repeat("A", 64),
+		"non-hex":   strings.Repeat("g", 64),
+		"short":     strings.Repeat("a", 63),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := canonicalManifestDigest(value); err == nil {
+				t.Fatalf("canonicalManifestDigest(%q) accepted invalid digest", name)
+			}
+		})
 	}
 }

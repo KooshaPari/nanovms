@@ -3,6 +3,7 @@ package orchestrate
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -15,27 +16,32 @@ const (
 	ServiceLifecycleVersion = "nanovms.io/service-lifecycle/v1"
 	// PhenoComposeLifecycleSchema is the lifecycle plan schema emitted by PhenoCompose.
 	PhenoComposeLifecycleSchema = "phenocompose.lifecycle/v0"
+	// ServiceLifecycleCompositionDigestLabel identifies the canonical manifest
+	// digest attached to lifecycle containers for reconciliation.
+	ServiceLifecycleCompositionDigestLabel = "phenotype.io/composition-digest"
+	// ServiceLifecycleRunIDLabel links a lifecycle container to its run.
+	ServiceLifecycleRunIDLabel = "phenotype.io/run-id"
 )
 
 // ServiceLifecycleRequest is the stdin JSON contract for `nvms lifecycle --request -`.
 type ServiceLifecycleRequest struct {
-	Version          string                       `json:"version"`
-	SchemaVersion    string                       `json:"schema_version"`
-	ManifestSHA256   string                       `json:"manifest_sha256"`
-	RunID            string                       `json:"run_id"`
-	WSLDistribution  string                       `json:"wsl_distribution"`
-	PodmanPipe       string                       `json:"podman_pipe"`
-	Order            []string                     `json:"order"`
-	Intents          []ServiceLifecycleIntent     `json:"intents"`
-	Services         map[string]ServiceDefinition `json:"services"`
+	Version         string                       `json:"version"`
+	SchemaVersion   string                       `json:"schema_version"`
+	ManifestSHA256  string                       `json:"manifest_sha256"`
+	RunID           string                       `json:"run_id"`
+	WSLDistribution string                       `json:"wsl_distribution"`
+	PodmanPipe      string                       `json:"podman_pipe"`
+	Order           []string                     `json:"order"`
+	Intents         []ServiceLifecycleIntent     `json:"intents"`
+	Services        map[string]ServiceDefinition `json:"services"`
 }
 
 // ServiceLifecycleIntent mirrors PhenoCompose lifecycle intents.
 type ServiceLifecycleIntent struct {
-	Phase      string `json:"phase"`
-	Service    string `json:"service"`
-	Image      string `json:"image,omitempty"`
-	DependsOn  []string `json:"depends_on,omitempty"`
+	Phase     string   `json:"phase"`
+	Service   string   `json:"service"`
+	Image     string   `json:"image,omitempty"`
+	DependsOn []string `json:"depends_on,omitempty"`
 }
 
 // ServiceDefinition carries per-service spawn configuration.
@@ -51,14 +57,14 @@ type ServiceDefinition struct {
 
 // ServiceLifecycleResult records bounded lifecycle evidence for PhenoCompose.
 type ServiceLifecycleResult struct {
-	Version        string            `json:"version"`
-	Success        bool              `json:"success"`
-	ErrorCode      string            `json:"error_code,omitempty"`
-	ErrorMessage   string            `json:"error_message,omitempty"`
-	Containers     map[string]string `json:"containers,omitempty"`
-	EffectiveEngine string           `json:"effective_engine"`
-	ResolvedProvider string          `json:"resolved_provider"`
-	PodmanPipe     string            `json:"podman_pipe"`
+	Version          string            `json:"version"`
+	Success          bool              `json:"success"`
+	ErrorCode        string            `json:"error_code,omitempty"`
+	ErrorMessage     string            `json:"error_message,omitempty"`
+	Containers       map[string]string `json:"containers,omitempty"`
+	EffectiveEngine  string            `json:"effective_engine"`
+	ResolvedProvider string            `json:"resolved_provider"`
+	PodmanPipe       string            `json:"podman_pipe"`
 }
 
 // ServiceLifecycleAction executes create-phase Podman lifecycle intents through
@@ -115,8 +121,8 @@ func validateServiceLifecycleRequest(request ServiceLifecycleRequest) error {
 	if request.SchemaVersion != PhenoComposeLifecycleSchema {
 		return evaluationError(CodeInvalidRequest, "unsupported lifecycle schema %q", request.SchemaVersion)
 	}
-	if len(request.ManifestSHA256) != 64 {
-		return evaluationError(CodeInvalidRequest, "manifest_sha256 must be a 64-character digest")
+	if _, err := canonicalManifestDigest(request.ManifestSHA256); err != nil {
+		return evaluationError(CodeInvalidRequest, "%v", err)
 	}
 	if strings.TrimSpace(request.RunID) == "" {
 		return evaluationError(CodeInvalidRequest, "run_id must not be empty")
@@ -130,12 +136,36 @@ func validateServiceLifecycleRequest(request ServiceLifecycleRequest) error {
 	return nil
 }
 
+// canonicalManifestDigest validates the wire digest and returns the OCI-style
+// value used for container labels. The lifecycle contract deliberately uses a
+// bare lowercase hexadecimal SHA-256 while labels carry the algorithm.
+func canonicalManifestDigest(value string) (string, error) {
+	if len(value) != 64 {
+		return "", fmt.Errorf("manifest_sha256 must be a 64-character digest")
+	}
+	if value != strings.ToLower(value) {
+		return "", fmt.Errorf("manifest_sha256 must use lowercase hexadecimal")
+	}
+	if _, err := hex.DecodeString(value); err != nil {
+		return "", fmt.Errorf("manifest_sha256 must be lowercase hexadecimal")
+	}
+	return "sha256:" + value, nil
+}
+
 func (action ServiceLifecycleAction) spawn(ctx context.Context, request ServiceLifecycleRequest, serviceName string, service ServiceDefinition) (string, error) {
 	if strings.TrimSpace(service.Image) == "" {
 		return "", evaluationError(CodeInvalidRequest, "service %q image must not be empty", serviceName)
 	}
+	digest, err := canonicalManifestDigest(request.ManifestSHA256)
+	if err != nil {
+		return "", evaluationError(CodeInvalidRequest, "%v", err)
+	}
 	name := fmt.Sprintf("%s-%s", request.RunID, serviceName)
-	args := []string{"run", "--detach", "--name", name}
+	args := []string{
+		"run", "--detach", "--name", name,
+		"--label", ServiceLifecycleCompositionDigestLabel + "=" + digest,
+		"--label", ServiceLifecycleRunIDLabel + "=" + request.RunID,
+	}
 	for key, value := range service.Environment {
 		args = append(args, "--env", key+"="+value)
 	}

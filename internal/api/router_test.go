@@ -21,6 +21,8 @@ type fakePort struct {
 	startCalls []string
 }
 
+func (f *fakePort) Probe(context.Context) error { return nil }
+
 func (f *fakePort) Create(ctx context.Context, cfg domain.SandboxConfig) (*domain.Sandbox, error) {
 	if cfg.Name == "" {
 		cfg.Name = "svc"
@@ -83,14 +85,65 @@ func withAuth(t *testing.T, tok *token.Manager, req *http.Request) *http.Request
 }
 
 func TestHealthz_Readyz_NoAuth(t *testing.T) {
-	r := NewRouter(Handlers{Token: nil, Port: nil})
-	for _, path := range []string{"/healthz", "/readyz"} {
-		req := httptest.NewRequest(http.MethodGet, path, nil)
+	t.Run("liveness does not require provider", func(t *testing.T) {
+		r := NewRouter(Handlers{Token: nil, Port: nil})
+		req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 		rr := httptest.NewRecorder()
 		r.ServeHTTP(rr, req)
 		if rr.Code != http.StatusOK {
-			t.Fatalf("%s => %d", path, rr.Code)
+			t.Fatalf("/healthz => %d", rr.Code)
 		}
+	})
+
+	t.Run("readiness fails closed without provider", func(t *testing.T) {
+		r := NewRouter(Handlers{Token: nil, Port: nil})
+		req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+		rr := httptest.NewRecorder()
+		r.ServeHTTP(rr, req)
+		if rr.Code != http.StatusServiceUnavailable {
+			t.Fatalf("/readyz => %d, want %d", rr.Code, http.StatusServiceUnavailable)
+		}
+	})
+
+	t.Run("readiness probes provider", func(t *testing.T) {
+		r := NewRouter(Handlers{Token: nil, Port: &fakePort{}})
+		req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+		rr := httptest.NewRecorder()
+		r.ServeHTTP(rr, req)
+		if rr.Code != http.StatusOK {
+			t.Fatalf("/readyz => %d, want 200", rr.Code)
+		}
+	})
+}
+
+func TestAuditMiddlewareRecordsStatusAndRequestID(t *testing.T) {
+	audit := NewAuditLogger("")
+	r := NewRouter(Handlers{Port: nil, AuditLog: audit})
+
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	req.Header.Set("X-Request-ID", "pilot-123")
+	rr := httptest.NewRecorder()
+	r.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("healthz = %d, want 200", rr.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	rr = httptest.NewRecorder()
+	r.ServeHTTP(rr, req)
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Fatalf("readyz = %d, want 503", rr.Code)
+	}
+
+	entries := audit.Query("", "", "", "", 10, 0)
+	if len(entries) != 2 {
+		t.Fatalf("audit entries = %d, want 2", len(entries))
+	}
+	if entries[0].StatusCode != http.StatusServiceUnavailable || entries[1].StatusCode != http.StatusOK {
+		t.Fatalf("audit statuses = %d, %d, want 503, 200", entries[0].StatusCode, entries[1].StatusCode)
+	}
+	if entries[1].RequestID != "pilot-123" || entries[0].RequestID == "" {
+		t.Fatalf("audit request IDs = %q, %q", entries[0].RequestID, entries[1].RequestID)
 	}
 }
 
