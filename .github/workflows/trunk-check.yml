@@ -36,6 +36,8 @@ jobs:
           # Checks API write access from the PR token.
           cache-key: nanovms-trunk-v2
           setup-deps: true
+          post-init: |
+            "${TRUNK_PATH}" tools install --ci
           save-annotations: true
 
       - name: Trunk Upgrade (on schedule only)
