@@ -83,7 +83,7 @@ jobs:
     name: Rust
     needs: detect
     if: needs.detect.outputs.rust == 'true'
-    runs-on: blacksmith-2vcpu-ubuntu-2204
+    runs-on: ubuntu-latest
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -117,7 +117,7 @@ jobs:
     name: Python
     needs: detect
     if: needs.detect.outputs.python == 'true'
-    runs-on: blacksmith-2vcpu-ubuntu-2204
+    runs-on: ubuntu-latest
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -151,7 +151,7 @@ jobs:
     name: Go
     needs: detect
     if: needs.detect.outputs.go == 'true'
-    runs-on: blacksmith-2vcpu-ubuntu-2204
+    runs-on: ubuntu-latest
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -169,7 +169,7 @@ jobs:
     name: TS/JS
     needs: detect
     if: needs.detect.outputs.typescript == 'true'
-    runs-on: blacksmith-2vcpu-ubuntu-2204
+    runs-on: ubuntu-latest
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
