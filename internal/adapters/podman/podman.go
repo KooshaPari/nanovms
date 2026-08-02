@@ -9,6 +9,7 @@ package podman
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -24,6 +25,12 @@ import (
 type Adapter struct {
 	binary string
 }
+
+// podmanCommandTimeout bounds readiness and lifecycle calls when a local
+// engine connection is wedged. Callers can still supply a shorter deadline
+// through ctx; this is the fail-closed upper bound for an otherwise unbounded
+// request context.
+var podmanCommandTimeout = 10 * time.Second
 
 // NewAdapter creates an adapter using podman from PATH, or the path supplied
 // by NVMS_PODMAN_BINARY.  The environment override is useful for packaged
@@ -64,8 +71,13 @@ func (a *Adapter) command(ctx context.Context, args ...string) *exec.Cmd {
 }
 
 func (a *Adapter) run(ctx context.Context, args ...string) ([]byte, error) {
-	out, err := a.command(ctx, args...).CombinedOutput()
+	runCtx, cancel := context.WithTimeout(ctx, podmanCommandTimeout)
+	defer cancel()
+	out, err := a.command(runCtx, args...).CombinedOutput()
 	if err != nil {
+		if errors.Is(runCtx.Err(), context.DeadlineExceeded) {
+			return nil, fmt.Errorf("podman %s timed out after %s", args[0], podmanCommandTimeout)
+		}
 		return nil, fmt.Errorf("podman %s: %w: %s", args[0], err, strings.TrimSpace(string(out)))
 	}
 	return out, nil
