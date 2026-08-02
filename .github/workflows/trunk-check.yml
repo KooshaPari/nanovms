@@ -35,7 +35,8 @@ jobs:
           GOBIN="$HOME/.local/bin" \
             go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
           GOBIN="$HOME/.local/bin" \
-            go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
+            go install \
+            github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
 
       - name: Trunk Check
         uses: trunk-io/trunk-action@04ba50e7658c81db7356da96657e6e77f220bfa3  # v1.3.1
