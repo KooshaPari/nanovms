@@ -23,6 +23,9 @@ jobs:
     name: Lint & Format
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      checks: write
+      contents: read
 
     steps:
       - name: Checkout
