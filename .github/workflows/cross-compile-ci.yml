@@ -50,7 +50,7 @@ jobs:
             libappindicator3-dev librsvg2-dev patchelf libglib2.0-dev
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@1d1d528c25b5c4ba9c5b6f4f4d9ea5e2c0e8a8c7 # stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
         with:
           targets: ${{ matrix.target }}
 
