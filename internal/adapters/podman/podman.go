@@ -35,6 +35,8 @@ var podmanCommandTimeout = 30 * time.Second
 // readiness check fails quickly without making cleanup races more likely.
 var podmanProbeTimeout = 10 * time.Second
 
+const podmanFormatFlag = "--format"
+
 // NewAdapter creates an adapter using podman from PATH, or the path supplied
 // by NVMS_PODMAN_BINARY.  The environment override is useful for packaged
 // installations and hermetic tests; it is not interpreted as a shell command.
@@ -109,7 +111,24 @@ func (a *Adapter) Create(ctx context.Context, cfg domain.SandboxConfig) (*domain
 	if err := a.Probe(ctx); err != nil {
 		return nil, err
 	}
-	if strings.TrimSpace(cfg.Image) == "" {
+	args, err := createArgs(cfg)
+	if err != nil {
+		return nil, err
+	}
+	out, err := a.run(ctx, args...)
+	if err != nil {
+		return nil, err
+	}
+	id := strings.TrimSpace(string(out))
+	if id == "" {
+		return nil, fmt.Errorf("podman create returned an empty container ID")
+	}
+	return a.inspect(ctx, id)
+}
+
+func createArgs(cfg domain.SandboxConfig) ([]string, error) {
+	image := strings.TrimSpace(cfg.Image)
+	if image == "" {
 		return nil, fmt.Errorf("podman: image is required")
 	}
 	name := strings.TrimSpace(cfg.Name)
@@ -142,19 +161,11 @@ func (a *Adapter) Create(ctx context.Context, cfg domain.SandboxConfig) (*domain
 	if cfg.TmpfsTmp {
 		args = append(args, "--tmpfs", "/tmp")
 	}
-	args = append(args, cfg.Image)
+	args = append(args, image)
 	if cfg.NativeSandbox != nil && len(cfg.NativeSandbox.Command) != 0 {
 		args = append(args, cfg.NativeSandbox.Command...)
 	}
-	out, err := a.run(ctx, args...)
-	if err != nil {
-		return nil, err
-	}
-	id := strings.TrimSpace(string(out))
-	if id == "" {
-		return nil, fmt.Errorf("podman create returned an empty container ID")
-	}
-	return a.inspect(ctx, id)
+	return args, nil
 }
 
 // Start starts a created container and refreshes its state from inspect.
@@ -190,7 +201,7 @@ func (a *Adapter) Delete(ctx context.Context, id string) error {
 
 // List returns all containers known to Podman, including stopped containers.
 func (a *Adapter) List(ctx context.Context) ([]*domain.Sandbox, error) {
-	out, err := a.run(ctx, "ps", "-a", "--format", "{{.ID}}")
+	out, err := a.run(ctx, "ps", "-a", podmanFormatFlag, "{{.ID}}")
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +264,7 @@ func (a *Adapter) Exec(ctx context.Context, id string, command []string) (io.Rea
 
 // Metrics returns a best-effort one-shot Podman stats sample.
 func (a *Adapter) Metrics(ctx context.Context, id string) (*domain.SandboxMetrics, error) {
-	out, err := a.run(ctx, "stats", "--no-stream", "--format", "{{json .}}", id)
+	out, err := a.run(ctx, "stats", "--no-stream", podmanFormatFlag, "{{json .}}", id)
 	if err != nil {
 		return nil, err
 	}
@@ -289,7 +300,7 @@ func (r *waitReadCloser) Close() error {
 }
 
 func (a *Adapter) inspect(ctx context.Context, id string) (*domain.Sandbox, error) {
-	out, err := a.run(ctx, "inspect", "--format", "{{json .}}", id)
+	out, err := a.run(ctx, "inspect", podmanFormatFlag, "{{json .}}", id)
 	if err != nil {
 		return nil, err
 	}
