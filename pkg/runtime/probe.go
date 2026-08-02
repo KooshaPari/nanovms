@@ -34,7 +34,13 @@ func (f ProbeFunc) Probe(ctx context.Context, backend BackendID) Availability { 
 type BinaryProbe struct {
 	Commands   map[BackendID]string
 	Candidates CandidateCommands
-	Runner     Runner
+	// Args supplies backend-specific version/probe arguments. When omitted,
+	// --version remains the compatibility default for existing embedders.
+	Args map[BackendID][]string
+	// ArgRunner is the argument-aware test/embedding hook. Runner is retained
+	// for callers that only need executable-path control.
+	ArgRunner func(context.Context, string, []string) ([]byte, error)
+	Runner    Runner
 }
 
 // CandidateCommands optionally supplies fallbacks for a backend. The first
@@ -64,12 +70,20 @@ func (p BinaryProbe) candidates(backend BackendID) []string {
 // backends. The WSL Containers executable is tried under both its current
 // container.exe name and the legacy wslc.exe name.
 func DefaultBinaryProbe() BinaryProbe {
-	return BinaryProbe{Commands: map[BackendID]string{
-		BackendPodman:          "podman",
-		BackendAppleContainers: "container",
-	}, Candidates: CandidateCommands{
-		BackendWSLContainers: {"container.exe", "wslc.exe"},
-	}}
+	return BinaryProbe{
+		Commands: map[BackendID]string{
+			BackendPodman:          "podman",
+			BackendAppleContainers: "container",
+		},
+		Candidates: CandidateCommands{
+			BackendWSLContainers: {"container.exe", "wslc.exe"},
+		},
+		Args: map[BackendID][]string{
+			BackendPodman:          {"--version"},
+			BackendAppleContainers: {"system", "version", "--format", "json"},
+			BackendWSLContainers:   {"version"},
+		},
+	}
 }
 
 // Probe checks PATH and, when present, obtains a bounded version string.
@@ -90,12 +104,18 @@ func (p BinaryProbe) Probe(ctx context.Context, backend BackendID) Availability 
 	}
 	versionCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
+	args := p.Args[backend]
+	if len(args) == 0 {
+		args = []string{"--version"}
+	}
 	var out []byte
 	var err error
-	if p.Runner != nil {
+	if p.ArgRunner != nil {
+		out, err = p.ArgRunner(versionCtx, path, args)
+	} else if p.Runner != nil {
 		out, err = p.Runner(versionCtx, path)
 	} else {
-		out, err = exec.CommandContext(versionCtx, path, "--version").Output()
+		out, err = exec.CommandContext(versionCtx, path, args...).Output()
 	}
 	if err != nil {
 		if versionCtx.Err() != nil {

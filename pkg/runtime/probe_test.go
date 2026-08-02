@@ -40,6 +40,37 @@ func TestDefaultBinaryProbeIncludesCurrentAndLegacyWSLCNames(t *testing.T) {
 	if len(got) != 2 || got[0] != "container.exe" || got[1] != "wslc.exe" {
 		t.Fatalf("unexpected WSLC candidates: %#v", got)
 	}
+	if got := probe.Args[BackendAppleContainers]; len(got) != 4 || got[0] != "system" || got[1] != "version" || got[2] != "--format" || got[3] != "json" {
+		t.Fatalf("unexpected Apple Containers probe args: %#v", got)
+	}
+	if got := probe.Args[BackendWSLContainers]; len(got) != 1 || got[0] != "version" {
+		t.Fatalf("unexpected WSL Containers probe args: %#v", got)
+	}
+}
+
+func TestBinaryProbeUsesBackendSpecificArguments(t *testing.T) {
+	var observed []string
+	probe := BinaryProbe{
+		Commands: map[BackendID]string{BackendAppleContainers: "go"},
+		Args:     map[BackendID][]string{BackendAppleContainers: {"system", "version", "--format", "json"}},
+		ArgRunner: func(_ context.Context, _ string, args []string) ([]byte, error) {
+			observed = append([]string(nil), args...)
+			return []byte("[{\"version\":\"1.0\"}]"), nil
+		},
+	}
+	got := probe.Probe(context.Background(), BackendAppleContainers)
+	if !got.Available || got.Version != `[{"version":"1.0"}]` {
+		t.Fatalf("unexpected probe result: %#v", got)
+	}
+	want := []string{"system", "version", "--format", "json"}
+	if len(observed) != len(want) {
+		t.Fatalf("observed args = %#v, want %#v", observed, want)
+	}
+	for i := range want {
+		if observed[i] != want[i] {
+			t.Fatalf("observed args = %#v, want %#v", observed, want)
+		}
+	}
 }
 
 func TestSelectHonorsPreferenceAndNeverLeaksCloudState(t *testing.T) {
