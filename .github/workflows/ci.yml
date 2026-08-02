@@ -104,11 +104,11 @@ jobs:
       - name: clippy
         run: cargo clippy --all-targets --no-deps -- -D warnings 2>&1 || echo "::warning::clippy failed (non-blocking)"
       - name: build
-        run: cargo build --workspace 2>&1 || cargo build 2>&1 || echo "::warning::build failed (non-blocking)"
+        run: cargo build --workspace --locked 2>&1 || cargo build --locked 2>&1 || echo "::warning::build failed (non-blocking)"
       - name: test
         run: |
           if [ -f "Cargo.lock" ]; then
-            cargo test --workspace --no-fail-fast 2>&1 || cargo test --no-fail-fast 2>&1 || echo "::warning::tests failed (non-blocking)"
+            cargo test --workspace --locked --no-fail-fast 2>&1 || cargo test --locked --no-fail-fast 2>&1 || echo "::warning::tests failed (non-blocking)"
           else
             echo "No Cargo.lock — skipping tests"
           fi
@@ -125,7 +125,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install ruff
-        run: pip install --quiet ruff 2>&1 || echo "::warning::ruff install failed"
+        run: python -m pip install --quiet --disable-pip-version-check --no-cache-dir --no-deps "ruff==0.12.7" 2>&1 || echo "::warning::ruff install failed"
       - name: ruff check
         run: ruff check --output-format=github . 2>&1 || echo "::warning::ruff check found issues (non-blocking)"
       - name: ruff format
@@ -133,15 +133,27 @@ jobs:
       - name: install deps
         run: |
           if [ -f "uv.lock" ]; then
-            pip install --quiet uv && uv sync --all-extras 2>&1 || echo "::warning::uv sync failed"
+            python -m pip install --quiet --disable-pip-version-check --no-cache-dir --no-deps "uv==0.8.9" && uv sync --locked --no-build --all-extras 2>&1 || echo "::warning::uv sync failed"
           elif [ -f "pyproject.toml" ]; then
-            pip install --quiet -e . 2>&1 || echo "::warning::pip install -e failed"
+            echo "pyproject.toml found without uv.lock — skipping unlocked dependency install"
           elif compgen -G "requirements*.txt" > /dev/null; then
-            pip install --quiet -r requirements.txt 2>&1 || pip install --quiet -r requirements-dev.txt 2>&1 || echo "::warning::pip install failed"
+            if [ -f "requirements.txt" ]; then
+              if grep -q -- "--hash=" requirements.txt; then
+                python -m pip install --quiet --disable-pip-version-check --no-cache-dir --require-hashes -r requirements.txt 2>&1 || echo "::warning::pip install failed"
+              else
+                echo "requirements.txt has no hashes — skipping unlocked dependency install"
+              fi
+            elif [ -f "requirements-dev.txt" ]; then
+              if grep -q -- "--hash=" requirements-dev.txt; then
+                python -m pip install --quiet --disable-pip-version-check --no-cache-dir --require-hashes -r requirements-dev.txt 2>&1 || echo "::warning::pip install failed"
+              else
+                echo "requirements-dev.txt has no hashes — skipping unlocked dependency install"
+              fi
+            fi
           fi
       - name: pytest
         run: |
-          if compgen -G "**/test_*.py" > /dev/null || compgen -G "tests/**/*.py" > /dev/null; then
+          if python -c 'import pytest' >/dev/null 2>&1 && (compgen -G "**/test_*.py" > /dev/null || compgen -G "tests/**/*.py" > /dev/null); then
             python -m pytest --no-header -q 2>&1 || echo "::warning::pytest failed (non-blocking)"
           else
             echo "No tests found"
@@ -192,16 +204,16 @@ jobs:
       - name: install
         run: |
           case "${{ steps.pm.outputs.manager }}" in
-            pnpm) npm install -g pnpm && pnpm install --frozen-lockfile 2>&1 || echo "::warning::install failed" ;;
-            yarn) npm install -g yarn && yarn install --frozen-lockfile 2>&1 || echo "::warning::install failed" ;;
-            bun)  npm install -g bun && bun install --frozen-lockfile 2>&1 || echo "::warning::install failed" ;;
-            *)    npm ci 2>&1 || npm install 2>&1 || echo "::warning::install failed" ;;
+            pnpm) corepack enable && corepack pnpm install --frozen-lockfile --ignore-scripts 2>&1 || echo "::warning::install failed" ;;
+            yarn) corepack enable && corepack yarn install --immutable --mode=skip-builds 2>&1 || echo "::warning::install failed" ;;
+            bun)  bun install --frozen-lockfile --ignore-scripts 2>&1 || echo "::warning::install failed" ;;
+            *)    npm ci --ignore-scripts 2>&1 || echo "::warning::install failed" ;
           esac
       - name: lint
         run: |
           if [ -f "biome.json" ] || [ -f "biome.jsonc" ]; then
-            npx @biomejs/biome lint . 2>&1 || echo "::warning::biome lint failed"
-            npx @biomejs/biome format --check . 2>&1 || echo "::warning::biome format failed"
+            npx --no-install @biomejs/biome lint . 2>&1 || echo "::warning::biome lint failed"
+            npx --no-install @biomejs/biome format --check . 2>&1 || echo "::warning::biome format failed"
           elif grep -q '"lint"' package.json 2>/dev/null; then
             npm run lint 2>&1 || echo "::warning::lint failed"
           else
@@ -227,7 +239,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Trivy scan
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: "fs"
           scan-ref: "."
@@ -275,7 +287,7 @@ jobs:
             echo "Trunk not configured (no trunk.yaml + .trunk/) — skipping"
             exit 0
           fi
-      - uses: trunk-io/trunk-action@v1
+      - uses: trunk-io/trunk-action@04ba50e7658c81db7356da96657e6e77f220bfa3 # v1
         if: hashFiles('trunk.yaml', '.trunk/trunk.yaml') != ''
 
   # ===========================================================================
