@@ -56,8 +56,8 @@ func NewBackendRegistry() *BackendRegistry {
 	return &BackendRegistry{backends: map[BackendID]BackendMetadata{
 		BackendNanoVMS:         {ID: BackendNanoVMS, Tier: 3, Lifecycle: true},
 		BackendPodman:          {ID: BackendPodman, Tier: 2, Lifecycle: true},
-		BackendAppleContainers: {ID: BackendAppleContainers, Tier: 2, Lifecycle: false},
-		BackendWSLContainers:   {ID: BackendWSLContainers, Tier: 2, Lifecycle: false},
+		BackendAppleContainers: {ID: BackendAppleContainers, Tier: 2, Lifecycle: true},
+		BackendWSLContainers:   {ID: BackendWSLContainers, Tier: 2, Lifecycle: true},
 	}}
 }
 

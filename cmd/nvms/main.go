@@ -303,14 +303,15 @@ func executeEnvironment(ctx context.Context, operation string, request environme
 }
 
 // serveCmd starts the provider-neutral NanoVMS HTTP control plane. Provider
-// selection is explicit: the default remains tier-backed; Podman is opt-in.
+// selection is explicit: the default remains tier-backed; provider-native
+// Podman, Apple Containers, and WSL Containers are opt-in.
 func serveCmd(args []string) {
 	flags := flag.NewFlagSet("serve", flag.ExitOnError)
 	socketPath := flags.String("socket", "", "UDS socket path")
 	tokenFile := flags.String("token-file", "", "Path to token file")
 	runBase := flags.String("run-base", "", "Runtime base directory")
 	tierLevel := flags.Int("tier", 3, "Sandbox tier")
-	provider := flags.String("provider", "tier", "Sandbox provider (tier or podman)")
+	provider := flags.String("provider", "tier", "Sandbox provider (tier, podman, apple-containers, or wsl-containers)")
 	listenAddr := flags.String("listen", "", "TCP listen address")
 	tlsCert := flags.String("tls-cert", "", "TLS certificate PEM")
 	tlsKey := flags.String("tls-key", "", "TLS private key PEM")

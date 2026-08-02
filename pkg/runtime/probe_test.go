@@ -46,6 +46,43 @@ func TestDefaultBinaryProbeIncludesCurrentAndLegacyWSLCNames(t *testing.T) {
 	if got := probe.Args[BackendWSLContainers]; len(got) != 1 || got[0] != "version" {
 		t.Fatalf("unexpected WSL Containers probe args: %#v", got)
 	}
+	if got := probe.Platforms[BackendAppleContainers]; len(got) != 1 || got[0] != "darwin" {
+		t.Fatalf("unexpected Apple Containers platforms: %#v", got)
+	}
+	if got := probe.Platforms[BackendWSLContainers]; len(got) != 1 || got[0] != "windows" {
+		t.Fatalf("unexpected WSL Containers platforms: %#v", got)
+	}
+}
+
+func TestBinaryProbeFailsClosedWhenVersionCommandFails(t *testing.T) {
+	probe := BinaryProbe{
+		Commands: map[BackendID]string{BackendPodman: "go"},
+		ArgRunner: func(context.Context, string, []string) ([]byte, error) {
+			return nil, context.Canceled
+		},
+	}
+	got := probe.Probe(context.Background(), BackendPodman)
+	if got.Available || got.Reason != "probe failed" {
+		t.Fatalf("unexpected failed probe result: %#v", got)
+	}
+}
+
+func TestBinaryProbeRequiresRuntimeReadiness(t *testing.T) {
+	probe := BinaryProbe{
+		Commands:      map[BackendID]string{BackendPodman: "go"},
+		Args:          map[BackendID][]string{BackendPodman: {"--version"}},
+		ReadinessArgs: map[BackendID][]string{BackendPodman: {"ps", "--all", "--noheading"}},
+		ArgRunner: func(_ context.Context, _ string, args []string) ([]byte, error) {
+			if len(args) == 1 && args[0] == "--version" {
+				return []byte("podman 5.8.3"), nil
+			}
+			return nil, context.Canceled
+		},
+	}
+	got := probe.Probe(context.Background(), BackendPodman)
+	if got.Available || got.Reason != "runtime unavailable" || got.Version != "podman 5.8.3" {
+		t.Fatalf("unexpected readiness result: %#v", got)
+	}
 }
 
 func TestBinaryProbeUsesBackendSpecificArguments(t *testing.T) {
@@ -73,16 +110,30 @@ func TestBinaryProbeUsesBackendSpecificArguments(t *testing.T) {
 	}
 }
 
-func TestSelectHonorsPreferenceAndNeverLeaksCloudState(t *testing.T) {
+func TestSelectSkipsProbeOnlyPreference(t *testing.T) {
+	registry := NewBackendRegistry()
+	registry.backends[BackendWSLContainers] = BackendMetadata{ID: BackendWSLContainers, Tier: 2, Lifecycle: false}
 	probe := ProbeFunc(func(_ context.Context, backend BackendID) Availability {
 		return Availability{Backend: backend, Available: backend == BackendPodman || backend == BackendWSLContainers, Reason: "fake"}
 	})
-	metadata, observed, err := Select(context.Background(), NewBackendRegistry(), probe, PlanTargetDocker, []BackendID{BackendWSLContainers})
+	metadata, observed, err := Select(context.Background(), registry, probe, PlanTargetDocker, []BackendID{BackendWSLContainers})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if metadata.ID != BackendWSLContainers || observed.Backend != BackendWSLContainers {
+	if metadata.ID != BackendPodman || observed.Backend != BackendPodman {
 		t.Fatalf("unexpected selection: %#v %#v", metadata, observed)
+	}
+}
+
+func TestSelectRejectsProbeOnlyBackendsWhenNoLifecycleBackendIsAvailable(t *testing.T) {
+	registry := NewBackendRegistry()
+	registry.backends[BackendAppleContainers] = BackendMetadata{ID: BackendAppleContainers, Tier: 2, Lifecycle: false}
+	registry.backends[BackendWSLContainers] = BackendMetadata{ID: BackendWSLContainers, Tier: 2, Lifecycle: false}
+	probe := ProbeFunc(func(_ context.Context, backend BackendID) Availability {
+		return Availability{Backend: backend, Available: backend == BackendAppleContainers || backend == BackendWSLContainers}
+	})
+	if _, _, err := Select(context.Background(), registry, probe, PlanTargetDocker, nil); err == nil {
+		t.Fatal("expected probe-only backends to be rejected for deployment selection")
 	}
 }
 

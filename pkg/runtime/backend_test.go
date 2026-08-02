@@ -17,7 +17,7 @@ func TestBackendRegistryIsDeterministic(t *testing.T) {
 		if metadata.Tier < 1 {
 			t.Errorf("backend %q has invalid tier metadata: %+v", metadata.ID, metadata)
 		}
-		wantLifecycle := metadata.ID == BackendNanoVMS || metadata.ID == BackendPodman
+		wantLifecycle := true
 		if metadata.Lifecycle != wantLifecycle {
 			t.Errorf("backend %q lifecycle = %t, want %t", metadata.ID, metadata.Lifecycle, wantLifecycle)
 		}

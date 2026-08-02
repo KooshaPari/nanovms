@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	goruntime "runtime"
 	"sort"
 	"strings"
 	"time"
@@ -37,6 +38,13 @@ type BinaryProbe struct {
 	// Args supplies backend-specific version/probe arguments. When omitted,
 	// --version remains the compatibility default for existing embedders.
 	Args map[BackendID][]string
+	// ReadinessArgs optionally performs a second local engine check after the
+	// version command. A version binary alone is not lifecycle readiness.
+	ReadinessArgs map[BackendID][]string
+	// Platforms optionally restricts a backend to host GOOS values. This
+	// prevents the Windows wslc container.exe shim from being mistaken for
+	// Apple's container CLI.
+	Platforms map[BackendID][]string
 	// ArgRunner is the argument-aware test/embedding hook. Runner is retained
 	// for callers that only need executable-path control.
 	ArgRunner func(context.Context, string, []string) ([]byte, error)
@@ -83,11 +91,23 @@ func DefaultBinaryProbe() BinaryProbe {
 			BackendAppleContainers: {"system", "version", "--format", "json"},
 			BackendWSLContainers:   {"version"},
 		},
+		ReadinessArgs: map[BackendID][]string{
+			BackendPodman:          {"ps", "--all", "--noheading"},
+			BackendAppleContainers: {"system", "status", "--format", "json"},
+			BackendWSLContainers:   {"container", "list", "--all", "--quiet"},
+		},
+		Platforms: map[BackendID][]string{
+			BackendAppleContainers: {"darwin"},
+			BackendWSLContainers:   {"windows"},
+		},
 	}
 }
 
 // Probe checks PATH and, when present, obtains a bounded version string.
 func (p BinaryProbe) Probe(ctx context.Context, backend BackendID) Availability {
+	if platforms := p.Platforms[backend]; len(platforms) != 0 && !contains(platforms, goruntime.GOOS) {
+		return Availability{Backend: backend, Reason: "unsupported host platform"}
+	}
 	commands := p.candidates(backend)
 	if len(commands) == 0 {
 		return Availability{Backend: backend, Reason: "no local probe configured"}
@@ -121,9 +141,36 @@ func (p BinaryProbe) Probe(ctx context.Context, backend BackendID) Availability 
 		if versionCtx.Err() != nil {
 			return Availability{Backend: backend, Reason: "probe timed out", Version: "unknown"}
 		}
-		return Availability{Backend: backend, Available: true, Reason: "executable found", Version: "unknown"}
+		return Availability{Backend: backend, Reason: "probe failed", Version: "unknown"}
 	}
-	return Availability{Backend: backend, Available: true, Reason: "executable found", Version: strings.TrimSpace(string(out))}
+	if readiness := p.ReadinessArgs[backend]; len(readiness) != 0 {
+		if _, readinessErr := p.runArgs(versionCtx, path, readiness); readinessErr != nil {
+			if versionCtx.Err() != nil {
+				return Availability{Backend: backend, Reason: "readiness probe timed out", Version: strings.TrimSpace(string(out))}
+			}
+			return Availability{Backend: backend, Reason: "runtime unavailable", Version: strings.TrimSpace(string(out))}
+		}
+	}
+	return Availability{Backend: backend, Available: true, Reason: "runtime ready", Version: strings.TrimSpace(string(out))}
+}
+
+func (p BinaryProbe) runArgs(ctx context.Context, path string, args []string) ([]byte, error) {
+	if p.ArgRunner != nil {
+		return p.ArgRunner(ctx, path, args)
+	}
+	if p.Runner != nil {
+		return p.Runner(ctx, path)
+	}
+	return exec.CommandContext(ctx, path, args...).Output()
+}
+
+func contains(values []string, value string) bool {
+	for _, item := range values {
+		if item == value {
+			return true
+		}
+	}
+	return false
 }
 
 // Discover probes all registered backends in deterministic ID order.
@@ -161,7 +208,7 @@ func Select(ctx context.Context, registry *BackendRegistry, probe Probe, target 
 		}
 		seen[id] = true
 		metadata, err := registry.Resolve(id)
-		if err != nil || !id.Supports(target) {
+		if err != nil || !metadata.Lifecycle || !id.Supports(target) {
 			continue
 		}
 		observation := available[id]
