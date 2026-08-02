@@ -1,6 +1,4 @@
-# Trunk.io — repository lint configuration.
-# Keep this file on the Trunk 0.1 schema so hosted checks and local Trunk use
-# the same plugin and linter definitions.
+# Trunk.io configuration (schema 0.1).
 version: 0.1
 
 cli:
@@ -9,34 +7,23 @@ cli:
 plugins:
   sources:
     - id: trunk
+      uri: https://github.com/trunk-io/plugins
       ref: v1.6.6
-    - id: trunk-fmt
-      ref: v1.2.1
 
-linters:
-  - name: actionlint
-    enabled: true
-  - name: clippy
-    enabled: true
-  - name: eslint
-    enabled: true
-  - name: golangci-lint
-    enabled: true
-  - name: mypy
-    enabled: true
-  - name: ruff
-    enabled: true
-  - name: rustfmt
-    enabled: true
-  - name: shellcheck
-    enabled: true
-  - name: taplo
-    enabled: true
-  - name: yamllint
-    enabled: true
-
-ignore:
-  - paths:
-      - .git/
-      - "**/*.lock"
-    type: include
+lint:
+  enabled:
+    - actionlint
+    - clippy
+    - eslint
+    - golangci-lint
+    - mypy
+    - ruff
+    - rustfmt
+    - shellcheck
+    - taplo
+    - yamllint
+  ignore:
+    - linters: [ALL]
+      paths:
+        - .git/
+        - "*.lock"
