@@ -81,7 +81,8 @@ jobs:
 
       - name: Attest release outputs and SBOM
         # Artifact provenance attestation action v2.4.0
-        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be
+        uses: >-
+          actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be
         with:
           subject-path: |
             dist/**
