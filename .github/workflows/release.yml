@@ -87,4 +87,3 @@ jobs:
         with:
           subject-checksums: dist/checksums.txt
           sbom-path: dist/nanovms.sbom.spdx.json
-          predicate-type: https://spdx.dev/Document/v2.3
