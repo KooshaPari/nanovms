@@ -7,7 +7,23 @@
 1. Tag: `git tag v0.X.Y && git push --tags`
 2. CI runs `goreleaser release --clean`
 3. Cross-compiled binaries published to GitHub release
-4. SBOM attached via cosign
+4. SPDX SBOM uploaded as a workflow artifact and release asset
+5. GitHub artifact attestations are generated for the release outputs and SBOM
+
+The release workflow is the source of truth for generated evidence. A release
+must not be promoted until the workflow completes successfully and its
+attestation summary is visible in GitHub.
+
+## Rollback
+
+Do not overwrite a published release. To roll back a bad release:
+
+1. Stop promotion and record the affected tag and attestation URL.
+2. Repoint consumers to the last known-good immutable tag.
+3. Remove or mark the bad release as unavailable according to the repository
+   release policy; retain its assets and attestations for auditability.
+4. Open a corrective change, rerun the release workflow, and verify a new
+   attestation before restoring promotion.
 
 ## Binaries
 
