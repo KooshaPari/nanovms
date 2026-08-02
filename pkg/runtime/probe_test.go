@@ -73,7 +73,7 @@ func TestBinaryProbeUsesBackendSpecificArguments(t *testing.T) {
 	}
 }
 
-func TestSelectHonorsPreferenceAndNeverLeaksCloudState(t *testing.T) {
+func TestSelectSkipsProbeOnlyPreference(t *testing.T) {
 	probe := ProbeFunc(func(_ context.Context, backend BackendID) Availability {
 		return Availability{Backend: backend, Available: backend == BackendPodman || backend == BackendWSLContainers, Reason: "fake"}
 	})
@@ -81,8 +81,17 @@ func TestSelectHonorsPreferenceAndNeverLeaksCloudState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if metadata.ID != BackendWSLContainers || observed.Backend != BackendWSLContainers {
+	if metadata.ID != BackendPodman || observed.Backend != BackendPodman {
 		t.Fatalf("unexpected selection: %#v %#v", metadata, observed)
+	}
+}
+
+func TestSelectRejectsProbeOnlyBackendsWhenNoLifecycleBackendIsAvailable(t *testing.T) {
+	probe := ProbeFunc(func(_ context.Context, backend BackendID) Availability {
+		return Availability{Backend: backend, Available: backend == BackendAppleContainers || backend == BackendWSLContainers}
+	})
+	if _, _, err := Select(context.Background(), NewBackendRegistry(), probe, PlanTargetDocker, nil); err == nil {
+		t.Fatal("expected probe-only backends to be rejected for deployment selection")
 	}
 }
 

@@ -140,8 +140,9 @@ func Discover(ctx context.Context, registry *BackendRegistry, probe Probe) []Ava
 	return result
 }
 
-// Select chooses an available backend for a target, honoring preference first
-// and canonical ID order second.
+// Select chooses an available deployable backend for a target, honoring
+// preference first and canonical ID order second. Probe-only backends are
+// intentionally excluded until a lifecycle dispatcher is registered.
 func Select(ctx context.Context, registry *BackendRegistry, probe Probe, target PlanTarget, preferred []BackendID) (BackendMetadata, Availability, error) {
 	if registry == nil || probe == nil {
 		return BackendMetadata{}, Availability{}, fmt.Errorf("runtime registry and probe are required")
@@ -161,7 +162,7 @@ func Select(ctx context.Context, registry *BackendRegistry, probe Probe, target 
 		}
 		seen[id] = true
 		metadata, err := registry.Resolve(id)
-		if err != nil || !id.Supports(target) {
+		if err != nil || !metadata.Lifecycle || !id.Supports(target) {
 			continue
 		}
 		observation := available[id]
