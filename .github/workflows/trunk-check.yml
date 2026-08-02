@@ -32,10 +32,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y jq
-          GOBIN="$HOME/.local/bin" \
-            go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
-          GOTOOLCHAIN=local GOBIN="$HOME/.local/bin" \
-            go install \
+          export GOTOOLCHAIN=go1.25.12
+          export GOBIN="$HOME/.local/bin"
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+          go install \
             github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
 
       - name: Trunk Check
