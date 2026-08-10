@@ -1,0 +1,238 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Manifest",
+  "description": "Top-level manifest object. Matches the `odin.nvms` v0.2 wire format.",
+  "type": "object",
+  "required": [
+    "app",
+    "infra"
+  ],
+  "properties": {
+    "app": {
+      "description": "Application identity & build configuration. Required.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/App"
+        }
+      ]
+    },
+    "infra": {
+      "description": "Infrastructure engine + resource envelope. Required.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Infra"
+        }
+      ]
+    },
+    "network": {
+      "description": "Optional network configuration.",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Network"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "observability": {
+      "description": "Optional observability configuration (OTel, log level).",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Observability"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "agent": {
+      "description": "Optional agent section (MCP tools / A2A skills).",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Agent"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "portfolio": {
+      "description": "Optional portfolio section.",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Portfolio"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "App": {
+      "description": "Application identity and build configuration.",
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "description": "Human-readable app name (project slug, portfolio display name). Required, non-empty.",
+          "type": "string"
+        },
+        "repo": {
+          "description": "Source repository URL. Optional.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "build": {
+          "description": "Build command. Optional.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "runtime": {
+          "description": "Runtime identifier (e.g. `node`, `python`, `wasm`, `static`). Optional.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "Infra": {
+      "description": "Infrastructure section — engine and its resource envelope.",
+      "type": "object",
+      "required": [
+        "engine"
+      ],
+      "properties": {
+        "engine": {
+          "description": "Execution engine id (e.g. `docker`, `firecracker`, `k8s`, `lambda`, `local`). Required, non-empty.",
+          "type": "string"
+        },
+        "resources": {
+          "description": "Optional resource envelope (CPU / memory).",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Resources"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "Resources": {
+      "description": "Resource envelope for the engine.",
+      "type": "object",
+      "properties": {
+        "cpu": {
+          "description": "CPU request (engine-specific unit; typically millicores for k8s-like engines). Kept as a free-form JSON value in v0.1 to avoid locking the wire shape to a single engine."
+        },
+        "memory": {
+          "description": "Memory request (engine-specific unit; typically a string like `\"512Mi\"` or `\"1Gi\"`).",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "Network": {
+      "description": "Network section — ports and domains.",
+      "type": "object",
+      "properties": {
+        "ports": {
+          "description": "Public-facing ports.",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "uint16",
+            "minimum": 0.0
+          }
+        },
+        "domains": {
+          "description": "Custom domains.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Observability": {
+      "description": "Observability section — OTel endpoint and log level.",
+      "type": "object",
+      "properties": {
+        "otel_endpoint": {
+          "description": "OTLP collector endpoint (e.g. `http://otel:4317`).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "log_level": {
+          "description": "Log level filter (`trace`/`debug`/`info`/`warn`/`error`).",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "Agent": {
+      "description": "Agent section — MCP tools + A2A skills enabled for this app.",
+      "type": "object",
+      "properties": {
+        "mcp_tools": {
+          "description": "Enabled MCP tool names (e.g. `byteport_deploy`).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "a2a_skills": {
+          "description": "Exposed A2A skill names (e.g. `deploy_application`).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Portfolio": {
+      "description": "Portfolio section — visibility and presentation.",
+      "type": "object",
+      "properties": {
+        "visibility": {
+          "description": "Visibility: `public`, `unlisted`, or `private`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "theme": {
+          "description": "Theme name.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

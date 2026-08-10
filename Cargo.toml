@@ -7,6 +7,7 @@
 # PILLAR-TAXONOMY-v2.md v2.1 §L121-L130 (cross-platform FFI).
 resolver = "2"
 members = [
+    "crates/phenotype-manifest",
     "mobile/macos-tray",
     "mobile/android-companion",
     "windows/scm-host",
