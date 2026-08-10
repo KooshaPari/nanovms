@@ -1,0 +1,15 @@
+{
+  "app": {
+    "name": "web-service",
+    "repo": "https://github.com/example/web-service",
+    "build": "npm ci && npm run build",
+    "runtime": "node"
+  },
+  "infra": {
+    "engine": "docker",
+    "resources": {
+      "cpu": 500,
+      "memory": "512Mi"
+    }
+  }
+}
