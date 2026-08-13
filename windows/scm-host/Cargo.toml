@@ -42,7 +42,7 @@ windows-sys = { version = "0.59", features = [
 ], optional = true }
 
 [dependencies]
-thiserror = "1.0"
+thiserror = "2.0"
 
 [lib]
 crate-type = ["lib", "staticlib", "cdylib"]
