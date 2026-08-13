@@ -143,6 +143,8 @@ func (p BinaryProbe) candidates(backend BackendID) []string {
 // container backends. WSLc is preferred, with Windows executable aliases
 // retained for installations that ship an .exe name.
 func DefaultBinaryProbe() BinaryProbe {
+	const formatArg = "--format"
+
 	return BinaryProbe{
 		Commands: map[BackendID]string{
 			BackendPodman:          "podman",
@@ -154,13 +156,13 @@ func DefaultBinaryProbe() BinaryProbe {
 		Specs: map[BackendID]CommandSpec{
 			BackendPodman: {
 				Command:     "podman",
-				VersionArgs: []string{"version", "--format", "{{.Version}}"},
+				VersionArgs: []string{"version", formatArg, "{{.Version}}"},
 				HealthArgs:  []string{"info"},
 			},
 			BackendAppleContainers: {
 				Command:     "container",
-				VersionArgs: []string{"system", "version", "--format", "json"},
-				HealthArgs:  []string{"system", "status", "--format", "json"},
+				VersionArgs: []string{"system", "version", formatArg, "json"},
+				HealthArgs:  []string{"system", "status", formatArg, "json"},
 			},
 			BackendWSLContainers: {
 				Command:     "wslc",
@@ -170,13 +172,13 @@ func DefaultBinaryProbe() BinaryProbe {
 			},
 		},
 		Args: map[BackendID][]string{
-			BackendPodman:          {"version", "--format", "{{.Version}}"},
-			BackendAppleContainers: {"system", "version", "--format", "json"},
+			BackendPodman:          {"version", formatArg, "{{.Version}}"},
+			BackendAppleContainers: {"system", "version", formatArg, "json"},
 			BackendWSLContainers:   {"version"},
 		},
 		ReadinessArgs: map[BackendID][]string{
 			BackendPodman:          {"info"},
-			BackendAppleContainers: {"system", "status", "--format", "json"},
+			BackendAppleContainers: {"system", "status", formatArg, "json"},
 			BackendWSLContainers:   {"container", "list", "--all", "--quiet"},
 		},
 	}
