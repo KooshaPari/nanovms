@@ -1,6 +1,6 @@
 ﻿# nanovms
 
-**Status:** ARCHIVED  
+**Status:** ARCHIVED
 **Date:** 2026-07-29
 
 This repository has been archived. All work has been migrated to the Phenotype ecosystem repositories.

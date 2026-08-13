@@ -79,13 +79,20 @@ func (a *PodmanAdapter) Delete(ctx context.Context, id string) error {
 // GetStartupTime returns the typical Podman container start latency.
 func (a *PodmanAdapter) GetStartupTime() time.Duration { return 700 * time.Millisecond }
 
-// Probe verifies the podman CLI is on $PATH.
+// Probe verifies the podman CLI can inspect its local lifecycle store. Avoid
+// `podman version --format`: rootless/WSL connection discovery may hang even
+// when local create/run operations are healthy.
 func (a *PodmanAdapter) Probe(ctx context.Context) error {
 	if _, err := exec.LookPath(a.binary); err != nil {
 		return fmt.Errorf("podman: binary %q not found: %w", a.binary, err)
 	}
-	cmd := exec.CommandContext(ctx, a.binary, "version", "--format", "{{.Version}}")
+	probeCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(probeCtx, a.binary, "ps", "--all", "--noheading")
 	if out, err := cmd.CombinedOutput(); err != nil {
+		if probeCtx.Err() != nil {
+			return fmt.Errorf("podman: probe timed out after 10s")
+		}
 		return fmt.Errorf("podman: not functional: %w (%s)", err, string(out))
 	}
 	return nil

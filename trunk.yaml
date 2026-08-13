@@ -10,7 +10,7 @@ cli:
 plugins:
   sources:
     - id: trunk
-      ref: v1.6.6
+      ref: v1.10.2
     - id: trunk-fmt
       ref: v1.2.1
 

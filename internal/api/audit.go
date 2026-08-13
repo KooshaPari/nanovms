@@ -1,6 +1,8 @@
 package api
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -16,12 +18,21 @@ type AuditEntry struct {
 	Timestamp       string `json:"timestamp"`
 	Method          string `json:"method"`
 	Path            string `json:"path"`
+	RequestID       string `json:"request_id,omitempty"`
 	StatusCode      int    `json:"status_code"`
 	DurationMs      int64  `json:"duration_ms"`
 	ClientTokenHash string `json:"client_token_hash,omitempty"`
 	Provider        string `json:"provider,omitempty"`
 	Isolation       string `json:"isolation,omitempty"`
 	Error           string `json:"error,omitempty"`
+}
+
+func newAuditRequestID() string {
+	var value [16]byte
+	if _, err := rand.Read(value[:]); err != nil {
+		return ""
+	}
+	return hex.EncodeToString(value[:])
 }
 
 const (
@@ -38,12 +49,12 @@ var (
 // AuditLogger maintains an in-memory ring buffer of audit entries and
 // writes them to a rotating JSONL file.
 type AuditLogger struct {
-	mu         sync.RWMutex
-	buf        []AuditEntry
-	head       int
-	count      int
-	jsonlPath  string
-	jsonlFile  *os.File
+	mu        sync.RWMutex
+	buf       []AuditEntry
+	head      int
+	count     int
+	jsonlPath string
+	jsonlFile *os.File
 }
 
 // NewAuditLogger creates an AuditLogger that writes JSONL to the given

@@ -20,12 +20,24 @@ import (
 // Client is a UDS HTTP client for the NVMS daemon.
 type Client struct {
 	socketPath string
+	token      string
 	http       http.Client
 }
 
 // NewClient returns a Client that dials the daemon's UDS.
 // If socketPath is empty, it defaults to $XDG_RUNTIME_DIR/nanovms/routed.sock.
 func NewClient(socketPath string) *Client {
+	return newClient(socketPath, "")
+}
+
+// NewClientWithToken returns a Client that authenticates requests with a
+// static daemon bearer token. An empty token preserves the unauthenticated
+// behavior of NewClient for health or test-only callers.
+func NewClientWithToken(socketPath, token string) *Client {
+	return newClient(socketPath, token)
+}
+
+func newClient(socketPath, token string) *Client {
 	if socketPath == "" {
 		runDir := os.Getenv("XDG_RUNTIME_DIR")
 		if runDir == "" {
@@ -35,6 +47,7 @@ func NewClient(socketPath string) *Client {
 	}
 	return &Client{
 		socketPath: socketPath,
+		token:      token,
 		http: http.Client{
 			Timeout: 30 * time.Second,
 			Transport: &http.Transport{
@@ -46,13 +59,34 @@ func NewClient(socketPath string) *Client {
 	}
 }
 
+func (c *Client) newRequest(ctx context.Context, method, path string, body io.Reader) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, method, "http://nvms"+path, body)
+	if err != nil {
+		return nil, err
+	}
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	return req, nil
+}
+
 // ListSandboxes returns all sandboxes from the daemon.
 func (c *Client) ListSandboxes(ctx context.Context) ([]SandboxInfo, error) {
-	resp, err := c.http.Get("http://nvms/v1/sandboxes")
+	req, err := c.newRequest(ctx, http.MethodGet, "/v1/sandboxes", nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.http.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("list sandboxes: %w", err)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("list sandboxes: HTTP %d", resp.StatusCode)
+	}
 
 	var body struct {
 		Object string        `json:"object"`
@@ -66,13 +100,14 @@ func (c *Client) ListSandboxes(ctx context.Context) ([]SandboxInfo, error) {
 
 // Exec executes a command in a sandbox and returns a ReadCloser of output.
 func (c *Client) Exec(ctx context.Context, id string, cmd []string) (io.ReadCloser, error) {
-	body, _ := json.Marshal(map[string]any{"command": cmd})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		"http://nvms/v1/sandboxes/"+id+"/exec", bytes.NewReader(body))
+	body, err := json.Marshal(map[string]any{"command": cmd})
+	if err != nil {
+		return nil, fmt.Errorf("encode exec %s: %w", id, err)
+	}
+	req, err := c.newRequest(ctx, http.MethodPost, "/v1/sandboxes/"+id+"/exec", bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.http.Do(req)
 	if err != nil {
@@ -87,8 +122,8 @@ func (c *Client) Exec(ctx context.Context, id string, cmd []string) (io.ReadClos
 
 // Logs streams logs from a sandbox.
 func (c *Client) Logs(ctx context.Context, id string, follow bool) (io.ReadCloser, error) {
-	u := fmt.Sprintf("http://nvms/v1/sandboxes/%s/logs?follow=%t", id, follow)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	path := fmt.Sprintf("/v1/sandboxes/%s/logs?follow=%t", id, follow)
+	req, err := c.newRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -111,13 +146,10 @@ func (c *Client) PortForward(ctx context.Context, id string, localPort, remotePo
 		"local_port":  localPort,
 		"remote_port": remotePort,
 	})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		"http://nvms/v1/sandboxes/"+id+"/port-forward", bytes.NewReader(body))
+	req, err := c.newRequest(ctx, http.MethodPost, "/v1/sandboxes/"+id+"/port-forward", bytes.NewReader(body))
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("Content-Type", "application/json")
-
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("port-forward %s: %w", id, err)

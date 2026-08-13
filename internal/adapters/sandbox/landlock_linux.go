@@ -27,6 +27,10 @@ var kernelSupportsLandlock = sync.OnceValue(func() bool {
 	return errno != unix.ENOSYS
 })
 
+// kernelSupportsLandlockWrapper exposes the cached probe to the platform-
+// neutral adapter implementation.
+func kernelSupportsLandlockWrapper() bool { return kernelSupportsLandlock() }
+
 // buildLandlockRuleset constructs an in-kernel landlock ruleset with the
 // given path allow-lists and returns the ruleset fd (caller closes).
 //
@@ -70,7 +74,7 @@ func buildLandlockRuleset(readOnlyPaths, readWritePaths []string) (int, error) {
 			uintptr(rulesetFd),
 			unix.LANDLOCK_RULE_PATH_BENEATH,
 			pathPtr,
-			access,
+			uintptr(access),
 			0, 0,
 		)
 		if errno != 0 {
@@ -90,7 +94,6 @@ func buildLandlockRuleset(readOnlyPaths, readWritePaths []string) (int, error) {
 			unix.LANDLOCK_ACCESS_FS_READ_FILE|
 				unix.LANDLOCK_ACCESS_FS_WRITE_FILE|
 				unix.LANDLOCK_ACCESS_FS_READ_DIR|
-				unix.LANDLOCK_ACCESS_FS_WRITE_DIR|
 				unix.LANDLOCK_ACCESS_FS_REMOVE_FILE|
 				unix.LANDLOCK_ACCESS_FS_REMOVE_DIR|
 				unix.LANDLOCK_ACCESS_FS_MAKE_CHAR|
@@ -120,3 +123,12 @@ func landlockRestrictSelf(rulesetFd int) error {
 	}
 	return nil
 }
+
+// The adapter calls these platform-neutral wrappers so the same landlock
+// lifecycle compiles on non-Linux targets. Keep the real implementation here
+// and expose it through the *_Stub names used by landlock.go.
+func buildLandlockRulesetStub(readOnlyPaths, readWritePaths []string) (int, error) {
+	return buildLandlockRuleset(readOnlyPaths, readWritePaths)
+}
+
+func landlockRestrictSelfStub(rulesetFd int) error { return landlockRestrictSelf(rulesetFd) }

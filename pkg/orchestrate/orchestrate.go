@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kooshapari/nanovms/internal/adapters"
 	"github.com/kooshapari/nanovms/internal/domain"
 	"github.com/kooshapari/nanovms/pkg/config"
 	"github.com/kooshapari/nanovms/pkg/gpu"
@@ -49,14 +50,24 @@ type tier3Runtime interface {
 // NewEngine creates a new orchestration engine with default tier adapters.
 func NewEngine() *Engine {
 	tier3 := tier.NewFirecrackerAdapter()
+	dispatchers := map[nvmsruntime.BackendID]BackendDispatcher{
+		nvmsruntime.BackendNanoVMS: tier3,
+	}
+	for backend, provider := range map[nvmsruntime.BackendID]string{
+		nvmsruntime.BackendPodman:          "podman",
+		nvmsruntime.BackendAppleContainers: "apple-containers",
+		nvmsruntime.BackendWSLContainers:   "wsl-containers",
+	} {
+		if port, err := adapters.NewProvider(provider, 2); err == nil {
+			dispatchers[backend] = newSandboxPortDispatcher(port)
+		}
+	}
 	return &Engine{
-		tier1: tier.NewWASMAdapter(),
-		tier2: tier.NewGVisorAdapter(),
-		tier3: tier3,
-		backendDispatchers: map[nvmsruntime.BackendID]BackendDispatcher{
-			nvmsruntime.BackendNanoVMS: tier3,
-		},
-		reservationTTL: 15 * time.Minute,
+		tier1:              tier.NewWASMAdapter(),
+		tier2:              tier.NewGVisorAdapter(),
+		tier3:              tier3,
+		backendDispatchers: dispatchers,
+		reservationTTL:     15 * time.Minute,
 	}
 }
 

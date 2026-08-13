@@ -3,14 +3,11 @@ package orchestrate
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/kooshapari/nanovms/internal/domain"
-	"github.com/kooshapari/nanovms/pkg/gpu"
 	nvmsruntime "github.com/kooshapari/nanovms/pkg/runtime"
 )
 
@@ -45,22 +42,12 @@ func (e *Engine) DeployComposition(ctx context.Context, request CompositionReque
 	if metadata.Tier != request.Backend.Tier || metadata.Lifecycle != request.Backend.Lifecycle {
 		return nil, fmt.Errorf("backend metadata mismatch for %q", request.Backend.ID)
 	}
-	if !metadata.Lifecycle {
-		return nil, fmt.Errorf("backend %q does not advertise lifecycle support", request.Backend.ID)
-	}
-	dispatcher, exists := e.backendDispatchers[request.Backend.ID]
-	if !exists || dispatcher == nil {
-		return nil, fmt.Errorf("backend %q has no backend-specific dispatcher", request.Backend.ID)
-	}
 
 	config := request.Config
 	config.Name = request.Name
-	sandbox, err := dispatcher.Deploy(ctx, config)
+	sandbox, err := e.Deploy(ctx, metadata.Tier, config)
 	if err != nil {
-		return nil, fmt.Errorf("backend %q deployment failed: %w", request.Backend.ID, err)
-	}
-	if sandbox == nil {
-		return nil, fmt.Errorf("backend %q dispatcher returned a nil sandbox", request.Backend.ID)
+		return nil, err
 	}
 	if sandbox.Environment == nil {
 		sandbox.Environment = make(map[string]string)
@@ -69,73 +56,6 @@ func (e *Engine) DeployComposition(ctx context.Context, request CompositionReque
 	sandbox.Environment["phenocompose.sha256"] = strings.ToLower(request.Digest)
 	sandbox.Environment["nvms.backend"] = string(request.Backend.ID)
 	return sandbox, nil
-}
-
-// ResourceManifest is the versioned companion to CompositionRequest.
-type ResourceManifest = gpu.ResourceManifest
-
-// DeployCompositionWithResources validates deterministic GPU evidence,
-// reserves every requested UUID atomically, and rolls the reservation back if
-// backend deployment fails.
-func (e *Engine) DeployCompositionWithResources(ctx context.Context, request CompositionRequest, manifest ResourceManifest) (*domain.Sandbox, error) {
-	canonical, err := manifest.CanonicalJSON()
-	if err != nil {
-		return nil, fmt.Errorf("invalid resource manifest: %w", err)
-	}
-	if len(manifest.GPUs) == 0 {
-		return e.DeployComposition(ctx, request)
-	}
-	if e == nil || e.reservations == nil {
-		return nil, fmt.Errorf("GPU reservation store is not configured")
-	}
-	uuids := make([]gpu.UUID, len(manifest.GPUs))
-	for i := range manifest.GPUs {
-		uuids[i] = manifest.GPUs[i].UUID
-	}
-	owner := request.Name + ":" + strings.ToLower(request.Digest)
-	lease, err := e.reservations.Reserve(ctx, uuids, owner, e.reservationTTL)
-	if err != nil {
-		return nil, fmt.Errorf("reserve composition GPUs: %w", err)
-	}
-	sandbox, deployErr := e.DeployComposition(ctx, request)
-	if deployErr != nil {
-		if rollbackErr := e.reservations.Release(ctx, lease); rollbackErr != nil {
-			return nil, fmt.Errorf("%w (GPU reservation rollback failed: %v)", deployErr, rollbackErr)
-		}
-		return nil, deployErr
-	}
-	digest := sha256.Sum256(canonical)
-	if sandbox.Environment == nil {
-		sandbox.Environment = make(map[string]string)
-	}
-	sandbox.Environment["nvms.resources.version"] = manifest.Version
-	sandbox.Environment["nvms.resources.sha256"] = hex.EncodeToString(digest[:])
-	sandbox.Environment["nvms.gpu.reservation.owner"] = lease.Owner
-	sandbox.Environment["nvms.gpu.reservation.token"] = lease.Token
-	sandbox.Environment["nvms.gpu.reservation.expires"] = lease.ExpiresAt.Format(time.RFC3339Nano)
-	return sandbox, nil
-}
-
-// ReleaseCompositionResources releases a successful deployment's GPU lease.
-func (e *Engine) ReleaseCompositionResources(ctx context.Context, sandbox *domain.Sandbox, manifest ResourceManifest) error {
-	if e == nil || e.reservations == nil || sandbox == nil {
-		return fmt.Errorf("engine, reservation store, and sandbox are required")
-	}
-	environment := sandbox.Environment
-	expiresAt, err := time.Parse(time.RFC3339Nano, environment["nvms.gpu.reservation.expires"])
-	if err != nil {
-		return fmt.Errorf("invalid reservation expiry metadata: %w", err)
-	}
-	uuids := make([]gpu.UUID, len(manifest.GPUs))
-	for i := range manifest.GPUs {
-		uuids[i] = manifest.GPUs[i].UUID
-	}
-	return e.reservations.Release(ctx, gpu.ReservationLease{
-		Token:     environment["nvms.gpu.reservation.token"],
-		Owner:     environment["nvms.gpu.reservation.owner"],
-		UUIDs:     uuids,
-		ExpiresAt: expiresAt,
-	})
 }
 
 func validateCompositionRequest(request CompositionRequest) error {
@@ -148,7 +68,7 @@ func validateCompositionRequest(request CompositionRequest) error {
 	if _, err := hex.DecodeString(request.Digest); err != nil {
 		return fmt.Errorf("composition digest must be hexadecimal: %w", err)
 	}
-	if request.Backend.ID == "" || request.Backend.Tier < 1 {
+	if request.Backend.ID == "" || request.Backend.Tier < 1 || !request.Backend.Lifecycle {
 		return fmt.Errorf("composition backend metadata is incomplete")
 	}
 	return nil

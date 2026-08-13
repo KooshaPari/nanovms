@@ -1,16 +1,17 @@
-# Mergify Configuration — Optimized for multi-language monorepos
-# Docs: https://docs.mergify.com/
+# Mergify Configuration
+# https://docs.mergify.com/workflow/rule-syntax/
+#
+# Keep this file limited to documented pull-request conditions/actions. GitHub
+# branch protection and human approval remain authoritative for merge safety.
 
 pull_request_rules:
-  # Auto-merge when all CI checks pass and PR is approved
-  - name: Auto-merge when approved + CI green
+  - name: Auto-merge approved pull requests with green CI
     conditions:
-      - "#review-requested=0"
-      - "#approved-reviews-by>=1"
-      - check-success=ci
-      - check-success=lint
-      - check-success=typecheck
-      - check-success=test
+      - "#approved-reviews-by >= 1"
+      - "check-success = ci"
+      - "check-success = lint"
+      - "check-success = typecheck"
+      - "check-success = test"
       - -conflict
       - -closed
     actions:
@@ -18,23 +19,42 @@ pull_request_rules:
         method: squash
         commit_message_template: |
           {{ title }} (#{{ number }})
-          
+
           Co-authored-by: {{ author }}
 
-  # Add reviewers based on changed paths
-  - name: Request review from team
+  - name: Auto-merge dependency updates with green CI
     conditions:
+      - or:
+          - "author = dependabot[bot]"
+          - "author = renovate[bot]"
+      - "check-success = ci"
+      - -conflict
       - -closed
-      - -draft
     actions:
-      request_reviews:
-        teams:
-          - phenotype/core
+      merge:
+        method: squash
+        commit_message_template: |
+          {{ title }} (#{{ number }})
 
-  # Label PRs based on changed files
+          Co-authored-by: {{ author }}
+
+  - name: Auto-merge bot housekeeping with green CI
+    conditions:
+      - or:
+          - "author = trunk-io[bot]"
+          - "author = mergify[bot]"
+          - "author = github-actions[bot]"
+      - "check-success = ci"
+      - "check-success = lint"
+      - -conflict
+      - -closed
+    actions:
+      merge:
+        method: squash
+
   - name: Label Python changes
     conditions:
-      - files~=\.py$
+      - "files ~= \\.py$"
     actions:
       label:
         add:
@@ -42,7 +62,7 @@ pull_request_rules:
 
   - name: Label Rust changes
     conditions:
-      - files~=\.rs$|Cargo\.
+      - "files ~= \\.rs$|Cargo\\."
     actions:
       label:
         add:
@@ -50,7 +70,7 @@ pull_request_rules:
 
   - name: Label Go changes
     conditions:
-      - files~=\.go$|go\.
+      - "files ~= \\.go$|go\\."
     actions:
       label:
         add:
@@ -58,33 +78,20 @@ pull_request_rules:
 
   - name: Label TypeScript changes
     conditions:
-      - files~=\.ts$|\.tsx$|package\.json
+      - "files ~= \\.ts$|\\.tsx$|package\\.json"
     actions:
       label:
         add:
           - typescript
 
-  # Warn on large PRs
-  - name: Warn on large PRs
+  - name: Add ready-to-merge label after review and CI
     conditions:
       - -closed
       - -draft
-      - "#files>20"
-    actions:
-      comment:
-        message: >
-          **Large PR Alert**: This PR touches {{ number }} files.
-          Consider splitting into smaller PRs for easier review.
-
-  # Add ready-to-merge label when all checks pass
-  - name: Add ready-to-merge label
-    conditions:
-      - -closed
-      - -draft
-      - check-success=ci
-      - check-success=lint
-      - check-success=test
-      - "#approved-reviews-by>=1"
+      - "check-success = ci"
+      - "check-success = lint"
+      - "check-success = test"
+      - "#approved-reviews-by >= 1"
     actions:
       label:
         add:
