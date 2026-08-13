@@ -49,3 +49,12 @@ func TestNewProviderKeepsTierDefaultsAndAddsOptInPodman(t *testing.T) {
 		t.Fatal("unknown provider unexpectedly accepted")
 	}
 }
+
+func TestNewProviderAddsNativeContainerAdapters(t *testing.T) {
+	for _, name := range []string{"apple-containers", "wsl-containers"} {
+		port, err := NewProvider(name, 2)
+		if err != nil || port == nil {
+			t.Fatalf("%s provider: port=%v err=%v", name, port, err)
+		}
+	}
+}

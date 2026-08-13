@@ -5,6 +5,7 @@ package adapters
 import (
 	"fmt"
 
+	"github.com/kooshapari/nanovms/internal/adapters/containers"
 	"github.com/kooshapari/nanovms/internal/adapters/firecracker"
 	"github.com/kooshapari/nanovms/internal/adapters/gvisor"
 	"github.com/kooshapari/nanovms/internal/adapters/podman"
@@ -20,8 +21,12 @@ func NewProvider(name string, tier int) (ports.SandboxPort, error) {
 		return NewSandboxPort(tier)
 	case "podman":
 		return podman.NewAdapter(), nil
+	case "apple-containers", "apple":
+		return containers.NewAppleAdapter(""), nil
+	case "wsl-containers", "wsl":
+		return containers.NewWSLAdapter(""), nil
 	default:
-		return nil, fmt.Errorf("unsupported provider %q (supported: tier, podman)", name)
+		return nil, fmt.Errorf("unsupported provider %q (supported: tier, podman, apple-containers, wsl-containers)", name)
 	}
 }
 
