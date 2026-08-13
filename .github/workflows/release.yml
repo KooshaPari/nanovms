@@ -9,6 +9,8 @@ on:
 permissions:
   contents: write
   packages: write
+  id-token: write
+  attestations: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -58,3 +60,30 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610
+        with:
+          path: .
+          format: spdx-json
+          output-file: dist/nanovms.sbom.spdx.json
+          syft-version: v1.50.0
+          upload-release-assets: true
+
+      - name: Upload SPDX SBOM
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: nanovms-sbom
+          path: dist/nanovms.sbom.spdx.json
+          if-no-files-found: error
+
+      - name: Attest release provenance
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d
+        with:
+          subject-checksums: dist/checksums.txt
+
+      - name: Attest SPDX SBOM
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d
+        with:
+          subject-checksums: dist/checksums.txt
+          sbom-path: dist/nanovms.sbom.spdx.json
