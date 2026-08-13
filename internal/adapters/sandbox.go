@@ -7,8 +7,23 @@ import (
 
 	"github.com/kooshapari/nanovms/internal/adapters/firecracker"
 	"github.com/kooshapari/nanovms/internal/adapters/gvisor"
+	"github.com/kooshapari/nanovms/internal/adapters/podman"
 	"github.com/kooshapari/nanovms/internal/ports"
 )
+
+// NewProvider returns an explicitly selected daemon provider. The default
+// tier path remains unchanged; provider selection is opt-in at the serve CLI
+// boundary so existing tier 1-3 callers retain their behavior.
+func NewProvider(name string, tier int) (ports.SandboxPort, error) {
+	switch name {
+	case "", "tier":
+		return NewSandboxPort(tier)
+	case "podman":
+		return podman.NewAdapter(), nil
+	default:
+		return nil, fmt.Errorf("unsupported provider %q (supported: tier, podman)", name)
+	}
+}
 
 // NewSandboxPort returns the appropriate SandboxPort implementation for the
 // given tier: 1 = WASM (not yet migrated to SandboxPort), 2 = gVisor, 3 = Firecracker.

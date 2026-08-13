@@ -31,22 +31,76 @@ type ProbeFunc func(context.Context, BackendID) Availability
 func (f ProbeFunc) Probe(ctx context.Context, backend BackendID) Availability { return f(ctx, backend) }
 
 // BinaryProbe checks local executable availability only.
-type BinaryProbe struct{ Commands map[BackendID]string }
+type BinaryProbe struct {
+	Commands   map[BackendID]string
+	Candidates CandidateCommands
+	Runner     Runner
+}
+
+// CandidateCommands optionally supplies fallbacks for a backend. The first
+// executable found on PATH is used. This is useful for the WSL Containers CLI,
+// whose shipped executable is currently named container.exe while older
+// integrations used wslc.exe.
+type CandidateCommands map[BackendID][]string
+
+// Runner allows tests and embedders to provide a bounded version invocation.
+// A nil Runner uses exec.CommandContext.
+type Runner func(context.Context, string) ([]byte, error)
+
+// Candidates and Runner are optional extensions to BinaryProbe. Commands is
+// retained as the single-command compatibility path for existing callers.
+// If both are supplied, Commands takes precedence for that backend.
+func (p BinaryProbe) candidates(backend BackendID) []string {
+	if command := p.Commands[backend]; command != "" {
+		return []string{command}
+	}
+	if candidates := p.Candidates[backend]; len(candidates) != 0 {
+		return candidates
+	}
+	return nil
+}
+
+// DefaultBinaryProbe returns local command mappings for supported container
+// backends. The WSL Containers executable is tried under both its current
+// container.exe name and the legacy wslc.exe name.
+func DefaultBinaryProbe() BinaryProbe {
+	return BinaryProbe{Commands: map[BackendID]string{
+		BackendPodman:          "podman",
+		BackendAppleContainers: "container",
+	}, Candidates: CandidateCommands{
+		BackendWSLContainers: {"container.exe", "wslc.exe"},
+	}}
+}
 
 // Probe checks PATH and, when present, obtains a bounded version string.
 func (p BinaryProbe) Probe(ctx context.Context, backend BackendID) Availability {
-	command := p.Commands[backend]
-	if command == "" {
+	commands := p.candidates(backend)
+	if len(commands) == 0 {
 		return Availability{Backend: backend, Reason: "no local probe configured"}
 	}
-	path, err := exec.LookPath(command)
-	if err != nil {
+	var path string
+	for _, command := range commands {
+		if found, err := exec.LookPath(command); err == nil {
+			path = found
+			break
+		}
+	}
+	if path == "" {
 		return Availability{Backend: backend, Reason: "executable unavailable"}
 	}
 	versionCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(versionCtx, path, "--version").Output()
+	var out []byte
+	var err error
+	if p.Runner != nil {
+		out, err = p.Runner(versionCtx, path)
+	} else {
+		out, err = exec.CommandContext(versionCtx, path, "--version").Output()
+	}
 	if err != nil {
+		if versionCtx.Err() != nil {
+			return Availability{Backend: backend, Reason: "probe timed out", Version: "unknown"}
+		}
 		return Availability{Backend: backend, Available: true, Reason: "executable found", Version: "unknown"}
 	}
 	return Availability{Backend: backend, Available: true, Reason: "executable found", Version: strings.TrimSpace(string(out))}

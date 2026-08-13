@@ -75,7 +75,6 @@ func TestAdapterGetStartupTime(t *testing.T) {
 // returns within a tight deadline.
 func TestAdapterProbeReturnsErrorOrNil(t *testing.T) {
 	alwaysAvailable := map[string]bool{
-		"wasm":   true, // wasm runtime detected via internal sandbox.Adapter
 		"native": true, // native requires no runtime
 	}
 	for _, c := range allAdapterCases() {
@@ -195,12 +194,12 @@ func TestAdapterInfoHasSecurity(t *testing.T) {
 // actually invoking the Start path on a CI host.
 func TestAdapterLifecycleReturnsImmediately(t *testing.T) {
 	noopAdapters := map[string]bool{
-		"wasm":    true,
+		"wasm":     true,
 		"landlock": true,
-		"seccomp": true,
-		"native":  true,
-		"kvm":     true,
-		"applevz": true,
+		"seccomp":  true,
+		"native":   true,
+		"kvm":      true,
+		"applevz":  true,
 	}
 	for _, c := range allAdapterCases() {
 		if !noopAdapters[c.name] {

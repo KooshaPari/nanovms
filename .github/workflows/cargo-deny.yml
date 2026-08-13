@@ -12,18 +12,19 @@ on:
   pull_request:
     branches: [main, master]
     paths:
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'deny.toml'
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "deny.toml"
   push:
     branches: [main, master]
     paths:
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'deny.toml'
-    tags: ['v*']
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "deny.toml"
+    tags: ["v*"]
   schedule:
-    - cron: '0 7 * * 1'  # Mondays 07:00 UTC
+    # yamllint disable-line rule:comments
+    - cron: "0 7 * * 1" # Mondays 07:00 UTC
   workflow_dispatch:
 
 permissions:
@@ -40,10 +41,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@1d1d528c25b5c4ba9c5b6f4f4d9ea5e2c0e8a8c7 # stable
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
           components: rustfmt, clippy
 
@@ -59,7 +60,7 @@ jobs:
             ${{ runner.os }}-cargo-deny-
 
       - name: Install cargo-deny
-        uses: taiki-e/install-action@f133b2e44339449c3c64b9b8a922c154145c1f9a # v2
+        uses: taiki-e/install-action@065d6a08a14e61e89fb0a4c10eecdbdef39c7d8e # v2
         with:
           tool: cargo-deny
 

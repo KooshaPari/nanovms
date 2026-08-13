@@ -16,18 +16,31 @@ import (
 
 // fakePort is a minimal in-memory SandboxPort stub for API routing tests.
 type fakePort struct {
-	s []domain.Sandbox
+	s          []domain.Sandbox
+	startErr   error
+	startCalls []string
 }
 
 func (f *fakePort) Create(ctx context.Context, cfg domain.SandboxConfig) (*domain.Sandbox, error) {
 	if cfg.Name == "" {
 		cfg.Name = "svc"
 	}
-	sb := &domain.Sandbox{ID: cfg.Name, Name: cfg.Name, Status: domain.SandboxStatusRunning}
+	sb := &domain.Sandbox{ID: cfg.Name, Name: cfg.Name, Status: domain.SandboxStatusPending}
 	f.s = append(f.s, *sb)
 	return sb, nil
 }
-func (f *fakePort) Start(ctx context.Context, id string) error           { return nil }
+func (f *fakePort) Start(ctx context.Context, id string) error {
+	f.startCalls = append(f.startCalls, id)
+	if f.startErr != nil {
+		return f.startErr
+	}
+	for i := range f.s {
+		if f.s[i].ID == id {
+			f.s[i].Status = domain.SandboxStatusRunning
+		}
+	}
+	return nil
+}
 func (f *fakePort) Stop(ctx context.Context, id string, force bool) error { return nil }
 func (f *fakePort) Delete(ctx context.Context, id string) error {
 	f.s = nil
@@ -111,6 +124,9 @@ func TestDeployAndList(t *testing.T) {
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("deploy = %d", rr.Code)
 	}
+	if len(p.startCalls) != 1 || p.startCalls[0] != "test" {
+		t.Fatalf("start calls = %#v, want [test]", p.startCalls)
+	}
 
 	req = withAuth(t, m, httptest.NewRequest(http.MethodGet, "/v1/sandboxes", nil))
 	rr = httptest.NewRecorder()
@@ -124,5 +140,32 @@ func TestDeployAndList(t *testing.T) {
 	}
 	if _, ok := body["data"]; !ok {
 		t.Fatalf("list missing data")
+	}
+}
+
+func TestDeployStartFailureReturnsFailedSandbox(t *testing.T) {
+	m, _ := token.NewFromHex([]string{"deadbeef"})
+	p := &fakePort{startErr: errors.New("adapter capability unavailable: runsc not found")}
+	r := NewRouter(Handlers{Token: m, Port: p})
+
+	req := withAuth(t, m, httptest.NewRequest(http.MethodPost, "/v1/deploy", strings.NewReader(`{"name":"needs-runsc"}`)))
+	rr := httptest.NewRecorder()
+	r.ServeHTTP(rr, req)
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("deploy start failure = %d, want %d", rr.Code, http.StatusInternalServerError)
+	}
+	var body struct {
+		Error   string               `json:"error"`
+		Status  domain.SandboxStatus `json:"status"`
+		Sandbox domain.Sandbox       `json:"sandbox"`
+	}
+	if err := json.NewDecoder(rr.Body).Decode(&body); err != nil {
+		t.Fatalf("decode failure response: %v", err)
+	}
+	if body.Error == "" || !strings.Contains(body.Error, "runsc not found") {
+		t.Fatalf("failure response error = %q", body.Error)
+	}
+	if body.Status != domain.SandboxStatusFailed || body.Sandbox.Status != domain.SandboxStatusFailed {
+		t.Fatalf("failure statuses = %q/%q, want failed", body.Status, body.Sandbox.Status)
 	}
 }

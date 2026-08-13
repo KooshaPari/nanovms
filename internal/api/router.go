@@ -157,6 +157,38 @@ func (h Handlers) handleDeploy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	// The deploy contract is synchronous: a successful response must describe
+	// a sandbox that has actually been handed to the adapter's lifecycle.  A
+	// Create-only response would leave callers with a misleading pending
+	// sandbox, so always invoke Start before acknowledging the deployment.
+	if err := h.Port.Start(r.Context(), sb.ID); err != nil {
+		// Preserve the failed object in the response so callers can distinguish
+		// an adapter capability/startup failure from a request or auth failure.
+		sb.Status = domain.SandboxStatusFailed
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error":   err.Error(),
+			"sandbox": sb,
+			"status":  domain.SandboxStatusFailed,
+		})
+		return
+	}
+	// Adapters normally update their stored object from Start. Normalize the
+	// returned descriptor as well: a successful Start is the lifecycle
+	// boundary, even for adapters whose Create state is named "created" rather
+	// than "pending".
+	if sb.Status != domain.SandboxStatusFailed {
+		sb.Status = domain.SandboxStatusRunning
+		if sb.StartedAt == nil {
+			now := time.Now().UTC()
+			sb.StartedAt = &now
+		}
+	}
+	if sb.Status != domain.SandboxStatusRunning {
+		http.Error(w, "adapter reported a non-running sandbox after start", http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(sb)
@@ -411,6 +443,7 @@ func auth(tm *token.Manager, jv *token.JWTVerifier, next http.HandlerFunc) http.
 }
 
 type ctxKey string
+
 const ctxKeyClaims ctxKey = "jwt_claims"
 
 // ClaimsFromContext extracts JWT claims from a request context, returning nil if absent.

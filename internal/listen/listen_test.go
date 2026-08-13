@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -23,8 +24,14 @@ func TestNewUDSDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stat: %v", err)
 	}
-	if fi.Mode().Perm() != 0o660 {
-		t.Fatalf("socket perms = %o, want 660", fi.Mode().Perm())
+	wantPerm := os.FileMode(0o660)
+	if runtime.GOOS == "windows" {
+		// Windows reports Unix socket permissions as the platform default; the
+		// chmod request is not reflected in Mode().Perm().
+		wantPerm = 0o666
+	}
+	if fi.Mode().Perm() != wantPerm {
+		t.Fatalf("socket perms = %o, want %o", fi.Mode().Perm(), wantPerm)
 	}
 }
 
