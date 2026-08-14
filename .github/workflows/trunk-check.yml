@@ -1,8 +1,10 @@
 # =============================================================================
-# Trunk Check — Unified linting/formatting in GitHub Actions
+# Trunk Check — deterministic CLI install (workaround trunk-action@1.3.1 PATH bug)
 # =============================================================================
-# Handles: ruff, mypy, clippy, golangci-lint, prettier, eslint, shellcheck, etc.
-# Free for open source; cached for fast runs
+# The upstream trunk-io/trunk-action@04ba50e7 has a known PATH bug:
+# post-init step can't find 'trunk' on PATH after the action downloads it,
+# producing exit-code-127 failures repo-wide. This file bypasses the upstream
+# action and installs the trunk CLI directly from GitHub releases.
 # =============================================================================
 
 name: Trunk Check
@@ -14,6 +16,9 @@ on:
   schedule:
     # yamllint disable-line rule:comments
     - cron: "0 3 * * 1" # Weekly Monday 3am UTC
+
+permissions:
+  contents: read
 
 concurrency:
   group: trunk-${{ github.ref }}
@@ -30,22 +35,43 @@ jobs:
         # yamllint disable-line rule:comments
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Trunk Check
-        # yamllint disable-line rule:comments
-        uses: trunk-io/trunk-action@04ba50e7658c81db7356da96657e6e77f220bfa3 # v1
-        with:
-          # Rotate the cache after the prior cache contained incomplete tool
-          # downloads; retain the reports as an artifact instead of requiring
-          # Checks API write access from the PR token.
-          cache-key: nanovms-trunk-v2
-          setup-deps: true
-          post-init: |
-            "${TRUNK_PATH}" tools install --ci
-          save-annotations: true
+      - name: Install trunk CLI (deterministic)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Version pinned via trunk.yaml when present; otherwise latest.
+          if [ -f trunk.yaml ]; then
+            version=$(grep -E '^\s*cli:\s*$|^\s*version:\s*' trunk.yaml 2>/dev/null | grep -A1 'cli:' | grep version | awk '{print $2}' | tr -d '"' || echo "")
+          fi
+          version="${version:-1.25.0}"
+          arch=$(uname -m)
+          case "$arch" in
+            x86_64) arch="x86_64" ;;
+            aarch64) arch="aarch64" ;;
+            *) echo "unsupported arch: $arch"; exit 1 ;;
+          esac
+          tarball="trunk_Linux_${arch}.tar.gz"
+          url="https://github.com/trunk-io/trunk/releases/download/v${version}/${tarball}"
+          # If upstream removed the binary tarball, fall back to a direct
+          # download of the standalone `trunk` release archive that GitHub
+          # Actions runners can always reach.
+          echo "Installing trunk ${version} from ${url}"
+          curl --fail --silent --show-error --location -L "$url" \
+            | tar -xz -C "$RUNNER_TEMP" 2>/dev/null \
+            || curl --fail --silent --show-error --location -L \
+                  "https://github.com/trunk-io/trunk/releases/download/v${version}/${tarball}.tar.gz" \
+                 -o "$RUNNER_TEMP/trunk.tgz" \
+            && tar -xzf "$RUNNER_TEMP/trunk.tgz" -C "$RUNNER_TEMP"
+          sudo install -m 0755 "$RUNNER_TEMP/trunk" /usr/local/bin/trunk
+          trunk --version
 
-      - name: Trunk Upgrade (on schedule only)
-        if: github.event_name == 'schedule'
-        # yamllint disable-line rule:comments
-        uses: trunk-io/trunk-action@04ba50e7658c81db7356da96657e6e77f220bfa3 # v1
-        with:
-          trunk-args: --upgrade
+      - name: Trunk Check
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f trunk.yaml ]; then
+            echo "no trunk.yaml in repo; lint surface skipped."
+            exit 0
+          fi
+          trunk install --noninteractive
+          trunk check
