@@ -8,6 +8,8 @@
 resolver = "2"
 members = [
     "crates/phenotype-manifest",
+    "crates/phenotype-port-adapter-shim",
+    "crates/ffi_utils",
     "mobile/macos-tray",
     "mobile/android-companion",
     "windows/scm-host",
