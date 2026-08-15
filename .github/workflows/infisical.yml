@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
 
       - name: Install Infisical CLI
         run: |
@@ -52,7 +52,7 @@ jobs:
 
       - name: Upload secrets as artifact (debug only, never published)
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: infisical-debug
           path: .env
