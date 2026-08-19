@@ -20,6 +20,8 @@ import (
 	"io"
 	"os"
 	"time"
+
+	"github.com/KooshaPari/nanovms/pkg/i18n"
 )
 
 type request struct {
@@ -63,12 +65,12 @@ var handlers = map[string]handler{
 	},
 }
 
-func dispatch(r *request) response {
+func dispatch(r *request, t *i18n.I18n) response {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	h, ok := handlers[r.Method]
 	if !ok {
-		return response{OK: false, Err: fmt.Sprintf("unknown method: %s", r.Method)}
+		return response{OK: false, Err: t.T("errors.unknown_method", r.Method)}
 	}
 	res, err := h(ctx, r)
 	if err != nil {
@@ -78,9 +80,17 @@ func dispatch(r *request) response {
 }
 
 func main() {
+	// Initialize i18n with English locale
+	locale := os.Getenv("NANOVMS_LOCALE")
+	if locale == "" {
+		locale = "en"
+	}
+	t := i18n.New(locale)
+
 	in := os.Stdin
 	out := io.Writer(os.Stdout)
 	if len(os.Args) > 1 && os.Args[1] == "-h" {
+		fmt.Fprintln(out, t.T("status.running"))
 		fmt.Fprintln(out, "agentctl: JSON-in/JSON-out Omniroute-compatible dispatcher. Read stdin, write stdout.")
 		os.Exit(0)
 	}
@@ -92,13 +102,13 @@ func main() {
 		line := scanner.Bytes()
 		var req request
 		if err := json.Unmarshal(line, &req); err != nil {
-			_ = enc.Encode(response{OK: false, Err: "invalid json: " + err.Error()})
+			_ = enc.Encode(response{OK: false, Err: t.T("errors.invalid_json", err.Error())})
 			continue
 		}
-		_ = enc.Encode(dispatch(&req))
+		_ = enc.Encode(dispatch(&req, t))
 	}
 	if err := scanner.Err(); err != nil {
-		fmt.Fprintln(os.Stderr, "agentctl: read error:", err)
+		fmt.Fprintln(os.Stderr, t.T("errors.read_failed", err))
 		os.Exit(1)
 	}
 }

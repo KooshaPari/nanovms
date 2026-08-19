@@ -1,5 +1,8 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
 contact_links:
+  - name: Security Vulnerability
+    url: https://github.com/KooshaPari/nanovms/security/advisories/new
+    about: Report security vulnerabilities privately
   - name: Phenotype org
     url: https://github.com/KooshaPari
     about: Other Phenotype-ecosystem repos and discussions
