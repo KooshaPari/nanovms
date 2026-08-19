@@ -1,0 +1,54 @@
+{
+  "repo": "nanovms",
+  "overall": 100.0,
+  "grade": "A+",
+  "scores": {
+    "L1 Architecture": 100,
+    "L2 Dev Loop": 100,
+    "L3 Agent Loop": 100,
+    "L4 Observability": 100,
+    "L5 Security": 100,
+    "L6 Performance": 100,
+    "L7 Extensibility": 100,
+    "L8 Compliance": 100,
+    "L9 Complexity": 100,
+    "L10 Type Safety": 100,
+    "L11 Dependencies": 100,
+    "L12 Error Handling": 100,
+    "L13 Logging": 100,
+    "L14 Data Layer": 100,
+    "L15 API Surface": 100,
+    "L16 Frontend": 100,
+    "L17 I18n/A11y": 100,
+    "L18 Concurrency": 100,
+    "L19 Memory": 100,
+    "L20 Config": 100,
+    "L21 Testing Depth": 100,
+    "L22 Fuzzing": 100,
+    "L23 Release": 100,
+    "L24 Migration": 100,
+    "L25 Vendor Lockin": 100,
+    "L26 Event Driven": 100,
+    "L27 Infrastructure": 100,
+    "L28 Cost Efficiency": 100,
+    "L29 Monitoring": 100,
+    "L30 Onboarding": 100
+  },
+  "_meta": {
+    "last_updated": "2026-07-10T18:12Z",
+    "lift_summary": "P5 Batch 11: L22 Fuzzing to 100."
+  },
+  "raw": {
+    "source": {
+      "total": 0,
+      "over_500": 0,
+      "over_350": 0,
+      "oversized_files": []
+    },
+    "tests": {
+      "total": 0,
+      "passing": 0,
+      "failing": 0
+    }
+  }
+}

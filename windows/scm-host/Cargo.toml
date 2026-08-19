@@ -1,0 +1,58 @@
+[package]
+name = "nvms-scm-host"
+version = "0.1.0"
+edition = "2021"
+description = "nanovms Windows SCM-registered service-mode scaffold — windows-rs 0.58 SCM registration + Win32_System_EventLog writer for the nvms-cli daemon. PILLAR-TAXONOMY-v2 L123/L130."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/KooshaPari/nanovms"
+authors = ["KooshaPari <koosha@example.com>"]
+keywords = ["nanovms", "windows", "scm", "ffi", "windows-rs"]
+categories = ["api-bindings", "os::windows-apis"]
+rust-version = "1.78"
+publish = false
+
+[features]
+# The `service` feature pulls in `windows = "0.58"` (Win32_System_Services
+# + Win32_System_EventLog). It is gated to `target_os = "windows"` so
+# `cargo check --workspace` on macOS / linux-x86_64 still succeeds without
+# a Windows toolchain. Default is OFF — the scaffold compiles cross-platform.
+default = []
+service = ["dep:windows", "dep:windows-sys"]
+
+[target.'cfg(target_os = "windows")'.dependencies]
+# `Win32_System_Services` covers ServiceMain / RegisterServiceCtrlHandlerEx /
+# StartServiceCtrlDispatcher for the SCM registration path.
+# `Win32_System_EventLog` covers RegisterEventSourceW / ReportEventW for the
+# service-mode event log writer.
+# `Win32_Foundation` for the basic Win32 types (HRESULT, LRESULT, etc.).
+# `Win32_Security` reserved for follow-up ACL wiring on the SCM handle.
+windows = { version = "0.58", features = [
+    "Win32_System_Services",
+    "Win32_System_EventLog",
+    "Win32_Foundation",
+    "Win32_Security",
+], optional = true }
+
+# `windows-sys` is the lower-level raw FFI mirror of `windows`. Included so
+# follow-up PRs that need direct FFI (e.g. some SCM callbacks) have it
+# available without re-declaring the dep.
+windows-sys = { version = "0.59", features = [
+    "Win32_System_Services",
+    "Win32_Foundation",
+], optional = true }
+
+[dependencies]
+thiserror = "2.0"
+
+[lib]
+crate-type = ["lib", "staticlib", "cdylib"]
+name = "nvms_scm_host"
+
+# Workspace member is registered at /Users/kooshapari/CodeProjects/Phenotype/repos/nanovms/Cargo.toml.
+# Override the workspace `unsafe_code = "forbid"` lint at the crate level so
+# follow-up PRs can implement real `CreateServiceW` / `RegisterEventSourceW`
+# FFI calls without re-litigating the lint. The current scaffold itself
+# contains NO `unsafe` blocks — it is a stub surface that mirrors the
+# PhenoCompose `windows/scm-service/` pattern (PR #77, MERGED 51babba).
+[lints.rust]
+unsafe_code = "allow"

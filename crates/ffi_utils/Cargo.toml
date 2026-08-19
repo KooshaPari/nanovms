@@ -1,0 +1,16 @@
+[package]
+name = "ffi_utils"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/KooshaPari/phenotype-shared"
+description = "ffi_utils — shared FFI helpers for Phenotype infrastructure (parking_lot-backed Mutex shim)"
+keywords = ["phenotype", "ffi", "mutex"]
+categories = ["development-tools::ffi"]
+authors = ["kooshapari"]
+
+[dependencies]
+parking_lot = "0.12"
+
+[lints]
+workspace = true

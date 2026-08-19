@@ -3,6 +3,7 @@ package orchestrate
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/kooshapari/nanovms/internal/domain"
@@ -53,5 +54,30 @@ func TestDeployCompositionRejectsBadDigest(t *testing.T) {
 	_, err := (&Engine{}).DeployComposition(context.Background(), CompositionRequest{Name: "demo", Digest: "not-a-digest", Backend: backend})
 	if err == nil {
 		t.Fatal("expected invalid digest")
+	}
+}
+
+func TestDeployCompositionHandoffNormalizesBytePortDigest(t *testing.T) {
+	sandbox := &domain.Sandbox{Environment: map[string]string{}}
+	engine := NewEngineWithAdapters(compositionTestRuntime{sandbox}, compositionTestRuntime{sandbox}, compositionTestRuntime{sandbox})
+	backend, err := nvmsruntime.NewBackendRegistry().Resolve(nvmsruntime.BackendPodman)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// BytePort carries the self-describing form; NanoVMS accepts the raw
+	// 64-hex form. The adapter boundary must strip only the known prefix.
+	bytePortDigest := "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	rawDigest := strings.TrimPrefix(bytePortDigest, "sha256:")
+	result, err := engine.DeployComposition(context.Background(), CompositionRequest{
+		Name:    "demo",
+		Digest:  rawDigest,
+		Backend: backend,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := result.Environment["phenocompose.sha256"]; got != rawDigest {
+		t.Fatalf("normalized digest mismatch: got %q want %q", got, rawDigest)
 	}
 }

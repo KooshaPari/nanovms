@@ -1,0 +1,28 @@
+[package]
+name = "nvms-android-companion"
+version = "0.1.0"
+edition = "2021"
+description = "Android observability companion for nanovms via ndk + jni"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/KooshaPari/nanovms"
+keywords = ["nanovms", "android", "jni", "ndk", "ffi"]
+categories = ["api-bindings", "os::unix-apis"]
+rust-version = "1.78"
+publish = false
+
+[features]
+# Default off — the ndk crate pulls platform-specific toolchain assumptions
+# and is only meaningful when targeting `aarch64-linux-android` /
+# `x86_64-linux-android`. Host `cargo check` skips the JNI surface.
+default = []
+jni-bridge = ["dep:ndk", "dep:jni"]
+
+[dependencies]
+ndk = { version = "0.8", optional = true, default-features = false }
+jni = { version = "0.21", optional = true }
+
+[lib]
+crate-type = ["staticlib", "cdylib", "lib"]
+name = "nvms_android_companion"
+
+# Workspace member is registered at /Users/kooshapari/CodeProjects/Phenotype/repos/nanovms/Cargo.toml

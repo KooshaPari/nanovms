@@ -1,0 +1,30 @@
+[package]
+name = "nvms-macos-tray"
+version = "0.1.0"
+edition = "2021"
+description = "macOS menu-bar tray for nanovms via swift-rs + AppKit"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/KooshaPari/nanovms"
+keywords = ["nanovms", "macos", "tray", "appkit", "ffi"]
+categories = ["api-bindings", "os::macos-apis"]
+rust-version = "1.78"
+publish = false
+
+[features]
+# Default off — the Swift bridge requires `swiftc` on the host.
+# Build with: cargo check -p nvms-macos-tray --features native-bridge
+default = []
+native-bridge = ["swift-rs"]
+
+[dependencies]
+swift-rs = { version = "0.1", optional = true }
+
+[build-dependencies]
+# swift-rs requires a `build.rs` that runs `swiftc` and emits a static lib.
+# Kept optional so `cargo check` on linux/windows hosts stays green.
+
+[lib]
+crate-type = ["staticlib", "lib"]
+name = "nvms_macos_tray"
+
+# Workspace member is registered at /Users/kooshapari/CodeProjects/Phenotype/repos/nanovms/Cargo.toml

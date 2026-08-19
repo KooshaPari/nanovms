@@ -9,8 +9,29 @@ linters:
     - unused
     - gofmt
     - goimports
+    - gocritic
+    - revive
+    - gosec
+    - prealloc
+    - bodyclose
+    - gocognit
+    - cyclop
+    - dupl
+    - funlen
+    - goconst
+    - lll
+    - misspell
+    - nakedret
+    - nestif
+    - nolintlint
+    - stylecheck
+    - tparallel
+    - unconvert
+    - unparam
+    - wastedassign
+    - whitespace
 lint:
-  timeout: 5m
+  timeout: 10m
   modules-download-mode: readonly
 issues:
   exclude-use-default: false

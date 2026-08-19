@@ -72,20 +72,18 @@ nanovms version
 ### Container Installation
 
 ```bash
-# Pull image
-docker pull ghcr.io/kooshapari/nanovms:latest
+# Podman is the supported OCI-compatible local engine; Docker is not required.
+podman pull ghcr.io/kooshapari/nanovms:latest
 
-# Run with Docker
-docker run -it --rm \
-  --privileged \
-  -v /dev/kvm:/dev/kvm \
-  ghcr.io/kooshapari/nanovms:latest
-
-# Or with Podman
+# Run with Podman
 podman run -it --rm \
   --privileged \
   -v /dev/kvm:/dev/kvm \
   ghcr.io/kooshapari/nanovms:latest
+
+# On Windows, use the first-party WSL Containers CLI (wslc) for OCI workloads.
+# On macOS, use Apple Containers (container); both are capability-gated
+# runtime adapters and do not require a Docker daemon.
 ```
 
 ## Rust SDK Quick Start

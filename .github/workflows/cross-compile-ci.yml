@@ -1,0 +1,89 @@
+name: Cross-Compile CI Matrix
+
+# Gates PILLAR-TAXONOMY-v2.md L129 (cross_compile pillar) for this repo.
+# The matrix scaffolds three cross-compile-style builds:
+#   - aarch64-apple-darwin    (Apple Silicon macOS host; macos-14)
+#   - aarch64-linux-android   (Android NDK; ubuntu-24.04, true cross-compile)
+#   - x86_64-pc-windows-msvc  (Windows MSVC host; windows-latest)
+#
+# Fail-fast is disabled so a single target's failure does not mask the others.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cross-compile:
+    name: cargo check (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            os: macos-14
+          - target: aarch64-linux-android
+            os: ubuntu-24.04
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      # Tauri v2 GTK/WebKit build deps on Linux hosts. Harmless for repos whose
+      # workspace does not pull in a Tauri member.
+      - name: Install Linux GTK/WebKit build deps (Tauri v2)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev \
+            libappindicator3-dev librsvg2-dev patchelf libglib2.0-dev
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@1d1d528c25b5c4ba9c5b6f4f4d9ea5e2c0e8a8c7 # stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@258712b0b7b1ddf8bddc9fc3b0faca682b2736c3 # v2
+        with:
+          cache-on-failure: true
+
+      # Android cross-compile needs an NDK toolchain. We install the LTS NDK r26d
+      # directly into the runner temp dir and point cargo at its clang/llvm
+      # linker via a per-run .cargo/config.toml.
+      - name: Setup Android NDK + cargo linker
+        if: matrix.target == 'aarch64-linux-android'
+        run: |
+          set -euo pipefail
+          ANDROID_NDK_VERSION="r26d"
+          ANDROID_NDK_HOME="${RUNNER_TEMP}/android-ndk-${ANDROID_NDK_VERSION}"
+          if [[ ! -d "${ANDROID_NDK_HOME}" ]]; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq unzip
+            curl -fsSL -o "${RUNNER_TEMP}/ndk.zip" \
+              "https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION}-linux.zip"
+            unzip -q "${RUNNER_TEMP}/ndk.zip" -d "${RUNNER_TEMP}"
+          fi
+          if [[ ! -d "${ANDROID_NDK_HOME}" ]]; then
+            mv "${RUNNER_TEMP}/android-ndk-${ANDROID_NDK_VERSION}" "${ANDROID_NDK_HOME}"
+          fi
+          echo "ANDROID_NDK_HOME=${ANDROID_NDK_HOME}" >> "${GITHUB_ENV}"
+          mkdir -p .cargo
+          {
+            echo '[target.aarch64-linux-android]'
+            echo "linker = \"${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang\""
+          } > .cargo/config.toml
+
+      - name: cargo check (${{ matrix.target }})
+        run: cargo check --target ${{ matrix.target }} --workspace

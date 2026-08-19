@@ -1,0 +1,15 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: daemon-serve-slow
+  labels:
+    severity: warning
+spec:
+  groups:
+  - name: nanovms
+    rules:
+    - alert: daemon-serve-slow
+      expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
+      for: 5m
+      annotations:
+        summary: "nanovms daemon-serve-slow firing"

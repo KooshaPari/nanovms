@@ -1,38 +1,52 @@
-name: Scorecard
+# =============================================================================
+# OpenSSF Scorecard — Automated security best practices check
+# =============================================================================
+# Runs weekly + on main to track supply chain security posture
+# Free for public repos, adds security badge
+# =============================================================================
+
+name: OpenSSF Scorecard
 
 on:
-  push:
-    branches: [main, master]
+  branch_protection_rule:
   schedule:
-    - cron: "0 0 * * 0"
+    # Weekly Monday 4:25 UTC
+    - cron: "25 4 * * 1"
+  push:
+    branches: [main]
 
 permissions: read-all
 
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 jobs:
-  scorecard:
+  analysis:
     name: Scorecard analysis
     runs-on: ubuntu-latest
-    permissions:
-      security-events: write
-      id-token: write
-      contents: read
-      actions: read
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - name: Checkout
+        # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+
       - name: Run Scorecard
-        uses: ossf/scorecard-action@50757822a4ac41af1c2f5572df4e1c1a5ae50c03  # v2.4.3
+        # v2.4.0
+        uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc
         with:
           results_file: results.sarif
           results_format: sarif
           publish_results: true
-      - name: Upload SARIF results
-        uses: github/codeql-action/upload-sarif@411bbbe57033eedfc1a82d68c01345aa96c737d7  # v4
+
+      - name: Upload SARIF
+        # v3.28.18
+        uses: github/codeql-action/upload-sarif@fca7ace96b7d713c7035881819e25a804e825323
         with:
           sarif_file: results.sarif
+
+      - name: Upload artifact
+        # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: SARIF file
+          path: results.sarif
+          retention-days: 5

@@ -7,8 +7,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kooshapari/nanovms/internal/adapters"
 	"github.com/kooshapari/nanovms/internal/domain"
 	"github.com/kooshapari/nanovms/pkg/config"
+	"github.com/kooshapari/nanovms/pkg/gpu"
+	nvmsruntime "github.com/kooshapari/nanovms/pkg/runtime"
 	"github.com/kooshapari/nanovms/pkg/tier"
 )
 
@@ -17,6 +20,16 @@ type Engine struct {
 	tier1 tier1Runtime
 	tier2 tier2Runtime
 	tier3 tier3Runtime
+
+	backendDispatchers map[nvmsruntime.BackendID]BackendDispatcher
+	reservations       *gpu.ReservationStore
+	reservationTTL     time.Duration
+}
+
+// BackendDispatcher is a backend-specific lifecycle implementation. Backend
+// metadata is never translated into a generic tier dispatcher.
+type BackendDispatcher interface {
+	Deploy(ctx context.Context, config domain.SandboxConfig) (*domain.Sandbox, error)
 }
 
 // tier1Runtime is the interface for Tier1 (WASM) workloads.
@@ -36,10 +49,25 @@ type tier3Runtime interface {
 
 // NewEngine creates a new orchestration engine with default tier adapters.
 func NewEngine() *Engine {
+	tier3 := tier.NewFirecrackerAdapter()
+	dispatchers := map[nvmsruntime.BackendID]BackendDispatcher{
+		nvmsruntime.BackendNanoVMS: tier3,
+	}
+	for backend, provider := range map[nvmsruntime.BackendID]string{
+		nvmsruntime.BackendPodman:          "podman",
+		nvmsruntime.BackendAppleContainers: "apple-containers",
+		nvmsruntime.BackendWSLContainers:   "wsl-containers",
+	} {
+		if port, err := adapters.NewProvider(provider, 2); err == nil {
+			dispatchers[backend] = newSandboxPortDispatcher(port)
+		}
+	}
 	return &Engine{
-		tier1: tier.NewWASMAdapter(),
-		tier2: tier.NewGVisorAdapter(),
-		tier3: tier.NewFirecrackerAdapter(),
+		tier1:              tier.NewWASMAdapter(),
+		tier2:              tier.NewGVisorAdapter(),
+		tier3:              tier3,
+		backendDispatchers: dispatchers,
+		reservationTTL:     15 * time.Minute,
 	}
 }
 
@@ -49,7 +77,40 @@ func NewEngineWithAdapters(t1 tier1Runtime, t2 tier2Runtime, t3 tier3Runtime) *E
 		tier1: t1,
 		tier2: t2,
 		tier3: t3,
+		backendDispatchers: map[nvmsruntime.BackendID]BackendDispatcher{
+			nvmsruntime.BackendNanoVMS: t3,
+		},
+		reservationTTL: 15 * time.Minute,
 	}
+}
+
+// RegisterBackendDispatcher installs an implementation for one exact backend.
+func (e *Engine) RegisterBackendDispatcher(backend nvmsruntime.BackendID, dispatcher BackendDispatcher) error {
+	if e == nil || dispatcher == nil {
+		return fmt.Errorf("engine and backend dispatcher are required")
+	}
+	metadata, err := nvmsruntime.NewBackendRegistry().Resolve(backend)
+	if err != nil {
+		return err
+	}
+	if !metadata.Lifecycle {
+		return fmt.Errorf("backend %q does not advertise lifecycle support", backend)
+	}
+	if e.backendDispatchers == nil {
+		e.backendDispatchers = make(map[nvmsruntime.BackendID]BackendDispatcher)
+	}
+	e.backendDispatchers[backend] = dispatcher
+	return nil
+}
+
+// ConfigureGPUReservations enables resource-aware deployment reservations.
+func (e *Engine) ConfigureGPUReservations(store *gpu.ReservationStore, ttl time.Duration) error {
+	if e == nil || store == nil || ttl <= 0 {
+		return fmt.Errorf("engine, reservation store, and positive expiry are required")
+	}
+	e.reservations = store
+	e.reservationTTL = ttl
+	return nil
 }
 
 // DeployFromConfig deploys a workload using an NVMS configuration file.

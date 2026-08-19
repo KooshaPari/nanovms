@@ -1,0 +1,86 @@
+---
+# Trunk.io configuration (schema 0.1).
+# See https://docs.trunk.io/reference/trunk-yaml.
+version: 0.1
+
+cli:
+  version: 1.22.12
+
+plugins:
+  sources:
+    - id: trunk
+      ref: v1.10.2
+      uri: https://github.com/trunk-io/plugins
+
+runtimes:
+  enabled:
+    - go@1.25.0
+    - node@22.0.0
+    - python@3.10.8
+
+lint:
+  enabled:
+    - actionlint@1.7.8
+    - black@25.9.0
+    - clippy
+    - eslint@8.10.0
+    - golangci-lint@1.64.8
+    - mypy@1.20.2
+    - prettier@3.6.2
+    - ruff@0.14.3
+    - rustfmt
+    - shellcheck@0.11.0
+    - taplo@0.10.0
+    - yamllint@1.37.1
+  definitions:
+    - name: black
+      direct_configs:
+        - pyproject.toml
+    - name: clippy
+      direct_configs:
+        - clippy.toml
+        - .clippy.toml
+    - name: eslint
+      direct_configs:
+        - .eslintrc.*
+        - eslint.config.*
+    - name: golangci-lint
+      direct_configs:
+        - .golangci.yml
+        - .golangci.yaml
+    - name: mypy
+      direct_configs:
+        - mypy.ini
+        - pyproject.toml
+    - name: ruff
+      direct_configs:
+        - ruff.toml
+        - pyproject.toml
+    - name: prettier
+      direct_configs:
+        - .prettierrc
+        - prettier.config.*
+    - name: rustfmt
+      direct_configs:
+        - rustfmt.toml
+  ignore:
+    - linters: [ALL]
+      paths:
+        - node_modules/**
+        - .venv/**
+        - venv/**
+        - __pycache__/**
+        - target/**
+        - dist/**
+        - build/**
+        - .git/**
+        - vendor/**
+        - "*.lock"
+        - go.sum
+
+actions:
+  enabled:
+    - trunk-announce
+    - trunk-check-pre-push
+    - trunk-fmt-pre-commit
+    - trunk-upgrade-available

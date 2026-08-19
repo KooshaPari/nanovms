@@ -15,11 +15,11 @@ concurrency:
   cancel-in-progress: true
 jobs:
   trivy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Run Trivy
-        uses: aquasecurity/trivy-action@cf5c088a69634cd13ccddc735d7926162c31f9a6  # was: @master
+        uses: aquasecurity/trivy-action@2736533278103862a861f4a35ebac3e97854d956  # was: @master
         with:
           scan-type: 'fs'
           severity: 'CRITICAL,HIGH'

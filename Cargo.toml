@@ -1,0 +1,29 @@
+[workspace]
+# Top-level nanovms FFI workspace — deliberately distinct from the
+# `sdk/rust/Cargo.toml` workspace (which is self-contained for the published
+# `nvms-sdk` crate and out-of-scope for scaffolding).
+#
+# This workspace groups the cross-platform FFI scaffolding introduced by
+# PILLAR-TAXONOMY-v2.md v2.1 §L121-L130 (cross-platform FFI).
+resolver = "2"
+members = [
+    "crates/phenotype-manifest",
+    "crates/phenotype-port-adapter-shim",
+    "crates/ffi_utils",
+    "mobile/macos-tray",
+    "mobile/android-companion",
+    "windows/scm-host",
+]
+
+# Workspace-level metadata so downstream `cargo metadata` consumers see the
+# whole FFI surface as one logical project.
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/KooshaPari/nanovms"
+authors = ["KooshaPari <koosha@example.com>"]
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+unused_must_use = "deny"

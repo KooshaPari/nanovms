@@ -1,0 +1,98 @@
+# Mergify Configuration
+# https://docs.mergify.com/workflow/rule-syntax/
+#
+# Keep this file limited to documented pull-request conditions/actions. GitHub
+# branch protection and human approval remain authoritative for merge safety.
+
+pull_request_rules:
+  - name: Auto-merge approved pull requests with green CI
+    conditions:
+      - "#approved-reviews-by >= 1"
+      - "check-success = ci"
+      - "check-success = lint"
+      - "check-success = typecheck"
+      - "check-success = test"
+      - -conflict
+      - -closed
+    actions:
+      merge:
+        method: squash
+        commit_message_template: |
+          {{ title }} (#{{ number }})
+
+          Co-authored-by: {{ author }}
+
+  - name: Auto-merge dependency updates with green CI
+    conditions:
+      - or:
+          - "author = dependabot[bot]"
+          - "author = renovate[bot]"
+      - "check-success = ci"
+      - -conflict
+      - -closed
+    actions:
+      merge:
+        method: squash
+        commit_message_template: |
+          {{ title }} (#{{ number }})
+
+          Co-authored-by: {{ author }}
+
+  - name: Auto-merge bot housekeeping with green CI
+    conditions:
+      - or:
+          - "author = trunk-io[bot]"
+          - "author = mergify[bot]"
+          - "author = github-actions[bot]"
+      - "check-success = ci"
+      - "check-success = lint"
+      - -conflict
+      - -closed
+    actions:
+      merge:
+        method: squash
+
+  - name: Label Python changes
+    conditions:
+      - "files ~= \\.py$"
+    actions:
+      label:
+        add:
+          - python
+
+  - name: Label Rust changes
+    conditions:
+      - "files ~= \\.rs$|Cargo\\."
+    actions:
+      label:
+        add:
+          - rust
+
+  - name: Label Go changes
+    conditions:
+      - "files ~= \\.go$|go\\."
+    actions:
+      label:
+        add:
+          - go
+
+  - name: Label TypeScript changes
+    conditions:
+      - "files ~= \\.ts$|\\.tsx$|package\\.json"
+    actions:
+      label:
+        add:
+          - typescript
+
+  - name: Add ready-to-merge label after review and CI
+    conditions:
+      - -closed
+      - -draft
+      - "check-success = ci"
+      - "check-success = lint"
+      - "check-success = test"
+      - "#approved-reviews-by >= 1"
+    actions:
+      label:
+        add:
+          - ready-to-merge

@@ -1,0 +1,12 @@
+[package]
+name = "nvms-fuzz"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+# Empty crate -- the fuzz targets exercise the public surface of other
+# nanovms crates via path dependencies. Add deps here as needed.
+
+[lib]
+path = "src/lib.rs"

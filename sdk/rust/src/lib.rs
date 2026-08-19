@@ -62,21 +62,10 @@ pub struct RenderFrame {
 /// Discriminated payload for render frames.
 #[derive(Debug, Clone)]
 pub enum FrameData {
-    Audio {
-        samples: Vec<f32>,
-    },
-    Video {
-        width: u32,
-        height: u32,
-        raw: Vec<u8>,
-    },
-    Metrics {
-        key: String,
-        value: f64,
-    },
-    Text {
-        payload: String,
-    },
+    Audio { samples: Vec<f32> },
+    Video { width: u32, height: u32, raw: Vec<u8> },
+    Metrics { key: String, value: f64 },
+    Text { payload: String },
 }
 
 /// Default no-op renderer for testing and placeholders.
