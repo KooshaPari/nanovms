@@ -1,0 +1,27 @@
+{
+  "welcome": "Willkommen bei nanovms",
+  "errors": {
+    "file_not_found": "Datei nicht gefunden: {path}",
+    "permission_denied": "Berechtigung verweigert: {path}",
+    "adapter_not_found": "Adapter nicht gefunden: {adapter}",
+    "probe_failed": "Erkennung fehlgeschlagen: {reason}",
+    "build_failed": "Build fehlgeschlagen: {reason}"
+  },
+  "status": {
+    "probing": "Substratfähigkeiten werden erkannt...",
+    "building": "Unikernel wird gebaut...",
+    "deploying": "Bereitstellung läuft...",
+    "completed": "Erfolgreich abgeschlossen",
+    "failed": "Fehlgeschlagen"
+  },
+  "adapters": {
+    "containers": "Container-Laufzeitumgebung",
+    "firecracker": "Firecracker MicroVM",
+    "gvisor": "gVisor Sandbox",
+    "kata": "Kata Containers",
+    "osv": "OSv Unikernel",
+    "unikernel": "Unikernel",
+    "qemu": "QEMU Virtuelle Maschine",
+    "native": "Native Ausführung"
+  }
+}
