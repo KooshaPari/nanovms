@@ -1,0 +1,120 @@
+name: agileplus-pillar-scorecard
+
+on:
+  schedule:
+    # Weekly on Mondays at 06:00 UTC.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      pillar:
+        description: "Optional pillar id to focus the audit on"
+        required: false
+        type: string
+  pull_request:
+    paths:
+      - "agileplus/**"
+      - ".github/workflows/agileplus-pillar-scorecard.yml"
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  scorecard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      AUDIT_BIN: ${{ vars.AGILEPLUS_AUDIT_BIN || '.bin/agileplus-audit' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run pillar audit
+        id: audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -x "$AUDIT_BIN" ]]; then
+            "$AUDIT_BIN" --pillars 31 --repo . \
+              --output agileplus/pillars/31-pillar-scorecard.json
+          else
+            echo "::warning::AGILEPLUS_AUDIT_BIN not provided; skipping recompute"
+            exit 0
+          fi
+
+      - name: Validate scorecard JSON
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f agileplus/pillars/31-pillar-scorecard.json
+          python -m json.tool < agileplus/pillars/31-pillar-scorecard.json > /dev/null
+
+      - name: Summarize
+        id: summary
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os
+          with open("agileplus/pillars/31-pillar-scorecard.json") as f:
+              data = json.load(f)
+          s = data["summary"]
+          msg = (
+              f"Average {s['average']:.2f} (grade {s['grade_label']}) - "
+              f"red={s['by_band']['red']} yellow={s['by_band']['yellow']} "
+              f"green={s['by_band']['green']} gold={s['by_band']['gold']}"
+          )
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write(f"## AgilePlus 31-pillar scorecard\n\n{msg}\n\n")
+              for p in data["pillars"]:
+                  marker = {
+                      "red": "[RED]",
+                      "yellow": "[YEL]",
+                      "green": "[GRN]",
+                      "gold": "[GLD]",
+                  }[p["band"]]
+                  f.write(f"- {marker} **{p['name']}** ({p['id']}): {p['score']}\n")
+          PY
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const data = JSON.parse(
+              fs.readFileSync('agileplus/pillars/31-pillar-scorecard.json', 'utf8')
+            );
+            const s = data.summary;
+            const body = [
+              '### AgilePlus pillar scorecard',
+              '',
+              `Average **${s.average.toFixed(2)}** (grade \`${s.grade_label}\`).`,
+              `Bands: red=${s.by_band.red} | yellow=${s.by_band.yellow} | green=${s.by_band.green} | gold=${s.by_band.gold}.`,
+              '',
+              'Top pillars: ' + s.top_pillars.map(p => '`' + p + '`').join(', '),
+              'Weak pillars: ' + s.weak_pillars.map(p => '`' + p + '`').join(', '),
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agileplus-pillar-scorecard
+          path: agileplus/pillars/31-pillar-scorecard.json
+          retention-days: 90

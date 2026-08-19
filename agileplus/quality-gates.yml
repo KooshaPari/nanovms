@@ -1,0 +1,87 @@
+# AgilePlus quality gates for the `nanovms` repository.
+#
+# These gates are enforced by `.github/workflows/ci.yml` and the per-gate
+# workflows under `.github/workflows/`. A PR cannot merge to `main` unless
+# every gate with `required: true` is green.
+#
+# Each gate declares:
+#   id          unique identifier (used as PR status check name + label)
+#   name        human-readable name
+#   description one-line description
+#   pillar      the 31-pillar most affected by this gate
+#   required    whether merge is blocked on failure
+#   command     the local command that satisfies the gate
+#   floor       (optional) numeric floor for coverage-style gates
+
+version: 1
+
+gates:
+  - id: lint
+    name: Lint
+    description: Static analysis for Go, Rust, YAML, Markdown, and shell.
+    pillar: code-quality
+    required: true
+    command: |
+      golangci-lint run ./... &&
+      cargo clippy --all-targets --all-features -- -D warnings &&
+      yamllint . &&
+      dprint check &&
+      markdownlint '**/*.md'
+
+  - id: test
+    name: Test
+    description: Unit + integration tests for Go and Rust workspaces.
+    pillar: tests
+    required: true
+    command: |
+      go test ./... -race -count=1 &&
+      cargo test --workspace --all-features
+
+  - id: security
+    name: Security
+    description: Supply-chain and secret scanning.
+    pillar: security
+    required: true
+    command: |
+      cargo deny check &&
+      trivy fs --severity HIGH,CRITICAL --no-progress . &&
+      gitleaks detect --redact --no-banner
+
+  - id: build
+    name: Build
+    description: Release-mode build for both Go and Rust binaries.
+    pillar: build
+    required: true
+    command: |
+      cargo build --release --workspace &&
+      go build -o bin/nanovms ./cmd/nanovms
+
+  - id: docs-build
+    name: Docs Build
+    description: VitePress documentation site builds cleanly.
+    pillar: docs
+    required: false
+    command: |
+      cd docs && npm ci && npm run build
+
+  - id: coverage
+    name: Coverage
+    description: Test coverage above floor; tracked, not blocking.
+    pillar: tests
+    required: false
+    floor: 60
+    command: |
+      cargo llvm-cov --workspace --lcov --output-path coverage.lcov &&
+      go test ./... -coverprofile=coverage.out
+
+# Branch protection requirements (mirrored in GitHub settings):
+branch_protection:
+  required_status_checks:
+    - lint
+    - test
+    - security
+    - build
+  require_review: 1
+  dismiss_stale_reviews: true
+  require_linear_history: true
+  restrict_pushes: true

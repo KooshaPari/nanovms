@@ -1,0 +1,132 @@
+# AgilePlus pillar-based CODEOWNERS.
+#
+# Format mirrors GitHub's CODEOWNERS syntax. Each pillar owns a slice of the
+# repo so PRs that touch a path automatically request review from the
+# pillar owner. Owners listed here correspond to the 31 pillars in
+# `agileplus/pillars/31-pillar-scorecard.json`.
+
+# --- Code quality ---
+/.github/workflows/         @KooshaPari  # pillar: code-quality
+/rustfmt.toml               @KooshaPari  # pillar: code-quality
+/.editorconfig              @KooshaPari  # pillar: code-quality
+
+# --- Tests ---
+/tests/                     @KooshaPari  # pillar: tests
+**/*_test.go                @KooshaPari  # pillar: tests
+**/tests.rs                 @KooshaPari  # pillar: tests
+
+# --- Docs ---
+/docs/                      @KooshaPari  # pillar: docs
+/README.md                  @KooshaPari  # pillar: docs
+/CHANGELOG.md               @KooshaPari  # pillar: docs
+
+# --- CI/CD ---
+/.mergify.yml               @KooshaPari  # pillar: ci-cd
+/.circleci/                 @KooshaPari  # pillar: ci-cd
+/.github/                   @KooshaPari  # pillar: ci-cd
+
+# --- Security ---
+/SECURITY.md                @KooshaPari  # pillar: security
+/.gitleaks.toml             @KooshaPari  # pillar: security
+/.trufflehog.yml            @KooshaPari  # pillar: security
+/deny.toml                  @KooshaPari  # pillar: security
+
+# --- Architecture ---
+/SPEC.md                    @KooshaPari  # pillar: architecture
+/PLAN.md                    @KooshaPari  # pillar: architecture
+/ADR.md                     @KooshaPari  # pillar: architecture
+/docs/adr/                  @KooshaPari  # pillar: architecture
+
+# --- Performance ---
+/docs/performance.md        @KooshaPari  # pillar: performance
+/benches/                   @KooshaPari  # pillar: performance
+
+# --- DX ---
+/AGENTS.md                  @KooshaPari  # pillar: dx
+/CLAUDE.md                  @KooshaPari  # pillar: dx
+/justfile                   @KooshaPari  # pillar: dx
+/Makefile                   @KooshaPari  # pillar: dx
+/Taskfile.yml               @KooshaPari  # pillar: dx
+/mise.toml                  @KooshaPari  # pillar: dx
+
+# --- Releases ---
+/.goreleaser.yml            @KooshaPari  # pillar: releases
+/cliff.toml                 @KooshaPari  # pillar: releases
+/.github/workflows/release.yml  @KooshaPari  # pillar: releases
+
+# --- Monitoring ---
+/docs/monitoring.md         @KooshaPari  # pillar: monitoring
+/docs/observability.md      @KooshaPari  # pillar: monitoring
+
+# --- Dependencies ---
+/Cargo.toml                 @KooshaPari  # pillar: deps
+/go.mod                     @KooshaPari  # pillar: deps
+/package.json               @KooshaPari  # pillar: deps
+/renovate.json              @KooshaPari  # pillar: deps
+
+# --- Reviews ---
+/CODEOWNERS                 @KooshaPari  # pillar: reviews
+/agileplus/CODEOWNERS-pillars  @KooshaPari  # pillar: reviews
+
+# --- Branch Mgmt ---
+/.mgitignore                @KooshaPari  # pillar: branch-mgmt
+
+# --- Issue Tracking ---
+/.github/ISSUE_TEMPLATE/    @KooshaPari  # pillar: issue-tracking
+
+# --- Agile PM ---
+/agileplus/                 @KooshaPari  # pillar: agile-pm
+
+# --- Accessibility ---
+/docs/.vitepress/           @KooshaPari  # pillar: accessibility
+
+# --- i18n ---
+/locales/                   @KooshaPari  # pillar: i18n
+/docs/i18n-a11y.md          @KooshaPari  # pillar: i18n
+
+# --- Mobile ---
+/mobile/                    @KooshaPari  # pillar: mobile
+
+# --- API ---
+/docs/api/                  @KooshaPari  # pillar: api
+/schemas/                   @KooshaPari  # pillar: api
+
+# --- DB ---
+/docs/data-layer.md         @KooshaPari  # pillar: db
+
+# --- Errors ---
+/docs/error-handling.md     @KooshaPari  # pillar: errors
+
+# --- Logging ---
+/docs/logging.md            @KooshaPari  # pillar: logging
+
+# --- Config ---
+/docs/config.md             @KooshaPari  # pillar: config
+/test-config.yaml           @KooshaPari  # pillar: config
+
+# --- Env ---
+/terraform/                 @KooshaPari  # pillar: env
+/.devcontainer/             @KooshaPari  # pillar: env
+
+# --- Build ---
+/build.rs                   @KooshaPari  # pillar: build
+
+# --- Packaging ---
+/pkg/                       @KooshaPari  # pillar: pkg
+/desktop/                   @KooshaPari  # pillar: pkg
+/windows/                   @KooshaPari  # pillar: pkg
+
+# --- License ---
+/LICENSE                    @KooshaPari  # pillar: license
+
+# --- Community ---
+/FUNDING.yml                @KooshaPari  # pillar: community
+
+# --- Contributing ---
+/CONTRIBUTING.md            @KooshaPari  # pillar: contributing
+
+# --- Code of Conduct ---
+/CODE_OF_CONDUCT.md         @KooshaPari  # pillar: coc
+
+# --- Vuln Disclosure ---
+/SECURITY.md                @KooshaPari  # pillar: vuln-disc
