@@ -45,3 +45,11 @@
 /.github/workflows/ @KooshaPari
 /.github/dependabot.yml @KooshaPari
 /.github/FUNDING.yml @KooshaPari
+
+# AgilePlus Pillar Ownership (Pillar 15: Project Management)
+/agileplus/ @KooshaPari
+/agileplus/pillars/ @KooshaPari
+/agileplus/quality-gates.yml @KooshaPari
+
+# Pillar 30: Code of Conduct
+/CODE_OF_CONDUCT.md @KooshaPari
