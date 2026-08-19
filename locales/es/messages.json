@@ -1,0 +1,27 @@
+{
+  "welcome": "Bienvenido a nanovms",
+  "errors": {
+    "file_not_found": "Archivo no encontrado: {path}",
+    "permission_denied": "Permiso denegado: {path}",
+    "adapter_not_found": "Adaptador no encontrado: {adapter}",
+    "probe_failed": "Sondeo fallido: {reason}",
+    "build_failed": "Error de compilación: {reason}"
+  },
+  "status": {
+    "probing": "Sondeando capacidades del sustrato...",
+    "building": "Compilando unikernel...",
+    "deploying": "Desplegando...",
+    "completed": "Completado exitosamente",
+    "failed": "Falló"
+  },
+  "adapters": {
+    "containers": "Runtime de contenedor",
+    "firecracker": "MicroVM Firecracker",
+    "gvisor": "Sandbox gVisor",
+    "kata": "Contenedores Kata",
+    "osv": "Unikernel OSv",
+    "unikernel": "Unikernel",
+    "qemu": "Máquina virtual QEMU",
+    "native": "Ejecución nativa"
+  }
+}
