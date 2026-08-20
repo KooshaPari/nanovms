@@ -1,0 +1,367 @@
+---
+name: DORA Metrics Tracking
+
+on:
+  schedule:
+    # Runs every Monday at 08:00 UTC
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+    inputs:
+      lookback_days:
+        description: "Number of days to look back for metrics"
+        required: false
+        default: "7"
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  dora-metrics:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine lookback period
+        id: period
+        run: |
+          DAYS="${{ github.event.inputs.lookback_days || '7' }}"
+          START_DATE=$(date -u -d "${DAYS} days ago" +"%Y-%m-%dT%H:%M:%SZ")
+          END_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          START_DATE_HUMAN=$(date -u -d "${DAYS} days ago" +"%Y-%m-%d")
+          END_DATE_HUMAN=$(date -u +"%Y-%m-%d")
+          echo "start_date=${START_DATE}" >> "$GITHUB_OUTPUT"
+          echo "end_date=${END_DATE}" >> "$GITHUB_OUTPUT"
+          echo "start_date_human=${START_DATE_HUMAN}" >> "$GITHUB_OUTPUT"
+          echo "end_date_human=${END_DATE_HUMAN}" >> "$GITHUB_OUTPUT"
+          echo "days=${DAYS}" >> "$GITHUB_OUTPUT"
+
+      - name: Calculate Deployment Frequency
+        id: deploy_freq
+        env:
+          REPO: ${{ github.repository }}
+          START: ${{ steps.period.outputs.start_date }}
+          END: ${{ steps.period.outputs.end_date }}
+        run: |
+          # Count releases published in the lookback window
+          RELEASE_COUNT=$(gh api \
+            --method GET \
+            "/repos/${REPO}/releases" \
+            --paginate \
+            -q "[.[] | select(.published_at >= \"${START}\" and .published_at <= \"${END}\")] | length" \
+            2>/dev/null || echo "0")
+
+          # Count tags created in the lookback window
+          TAG_COUNT=$(gh api \
+            --method GET \
+            "/repos/${REPO}/git/refs/tags" \
+            --paginate \
+            -q "[.[] | select(.created_at >= \"${START}\" and .created_at <= \"${END}\")] | length" \
+            2>/dev/null || echo "0")
+
+          # Use the larger of releases or tags as deployment frequency
+          if [ "${RELEASE_COUNT}" -gt "${TAG_COUNT}" ]; then
+            DEPLOY_FREQ="${RELEASE_COUNT}"
+            DEPLOY_SOURCE="releases"
+          else
+            DEPLOY_FREQ="${TAG_COUNT}"
+            DEPLOY_SOURCE="tags"
+          fi
+
+          echo "count=${DEPLOY_FREQ}" >> "$GITHUB_OUTPUT"
+          echo "source=${DEPLOY_SOURCE}" >> "$GITHUB_OUTPUT"
+          echo "release_count=${RELEASE_COUNT}" >> "$GITHUB_OUTPUT"
+          echo "tag_count=${TAG_COUNT}" >> "$GITHUB_OUTPUT"
+          echo "### Deployment Frequency" >> "$GITHUB_STEP_SUMMARY"
+          echo "Releases: ${RELEASE_COUNT}, Tags: ${TAG_COUNT}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Calculate Lead Time for Changes
+        id: lead_time
+        env:
+          REPO: ${{ github.repository }}
+          START: ${{ steps.period.outputs.start_date }}
+          END: ${{ steps.period.outputs.end_date }}
+        run: |
+          # Get releases in the window
+          RELEASES=$(gh api \
+            --method GET \
+            "/repos/${REPO}/releases" \
+            --paginate \
+            -q "[.[] | select(.published_at >= \"${START}\" and .published_at <= \"${END}\")]")
+
+          LEAD_TIMES=()
+          RELEASE_COUNT=$(echo "${RELEASES}" | jq 'length')
+
+          if [ "${RELEASE_COUNT}" -gt 0 ]; then
+            for i in $(seq 0 $((RELEASE_COUNT - 1))); do
+              TAG=$(echo "${RELEASES}" | jq -r ".[${i}].tag_name")
+              PUBLISHED=$(echo "${RELEASES}" | jq -r ".[${i}].published_at")
+
+              # Try to find the first commit associated with this release tag
+              FIRST_COMMIT_DATE=$(gh api \
+                --method GET \
+                "/repos/${REPO}/commits?sha=${TAG}&per_page=1&order=asc" \
+                -q '.[0].commit.committer.date' \
+                2>/dev/null || echo "")
+
+              if [ -n "${FIRST_COMMIT_DATE}" ] && [ "${FIRST_COMMIT_DATE}" != "null" ]; then
+                FIRST_TS=$(date -d "${FIRST_COMMIT_DATE}" +%s 2>/dev/null || echo "")
+                LAST_TS=$(date -d "${PUBLISHED}" +%s 2>/dev/null || echo "")
+
+                if [ -n "${FIRST_TS}" ] && [ -n "${LAST_TS}" ]; then
+                  DIFF_SECONDS=$((LAST_TS - FIRST_TS))
+                  DIFF_HOURS=$((DIFF_SECONDS / 3600))
+                  LEAD_TIMES+=("${DIFF_HOURS}")
+                fi
+              fi
+            done
+          fi
+
+          # Calculate average lead time in hours
+          TOTAL_LT=${#LEAD_TIMES[@]}
+          if [ "${TOTAL_LT}" -gt 0 ]; then
+            SUM=0
+            for lt in "${LEAD_TIMES[@]}"; do
+              SUM=$((SUM + lt))
+            done
+            AVG_LT=$((SUM / TOTAL_LT))
+            AVG_LT_DAYS=$(echo "scale=1; ${AVG_LT} / 24" | bc)
+          else
+            AVG_LT=0
+            AVG_LT_DAYS="N/A"
+          fi
+
+          echo "avg_hours=${AVG_LT}" >> "$GITHUB_OUTPUT"
+          echo "avg_days=${AVG_LT_DAYS}" >> "$GITHUB_OUTPUT"
+          echo "releases_analyzed=${TOTAL_LT}" >> "$GITHUB_OUTPUT"
+          echo "### Lead Time" >> "$GITHUB_STEP_SUMMARY"
+          echo "Average: ${AVG_LT} hours (${AVG_LT_DAYS} days) across ${TOTAL_LT} releases" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Calculate Time to Restore Service
+        id: restore_time
+        env:
+          REPO: ${{ github.repository }}
+          START: ${{ steps.period.outputs.start_date_human }}
+        run: |
+          # Count incidents closed (issues labeled 'incident' or 'outage' or 'bug' closed in window)
+          INCIDENT_CLOSED=$(gh issue list \
+            --repo "${REPO}" \
+            --state closed \
+            --label "incident" \
+            --search "closed:>=${START}" \
+            --json number \
+            --jq 'length' \
+            2>/dev/null || echo "0")
+
+          OUTAGE_CLOSED=$(gh issue list \
+            --repo "${REPO}" \
+            --state closed \
+            --label "outage" \
+            --search "closed:>=${START}" \
+            --json number \
+            --jq 'length' \
+            2>/dev/null || echo "0")
+
+          BUG_CLOSED=$(gh issue list \
+            --repo "${REPO}" \
+            --state closed \
+            --label "bug" \
+            --search "closed:>=${START}" \
+            --json number \
+            --jq 'length' \
+            2>/dev/null || echo "0")
+
+          # Sum unique incident-like issues
+          TOTAL_RESTORED=$((INCIDENT_CLOSED + OUTAGE_CLOSED + BUG_CLOSED))
+
+          echo "incident_count=${INCIDENT_CLOSED}" >> "$GITHUB_OUTPUT"
+          echo "outage_count=${OUTAGE_CLOSED}" >> "$GITHUB_OUTPUT"
+          echo "bug_count=${BUG_CLOSED}" >> "$GITHUB_OUTPUT"
+          echo "total=${TOTAL_RESTORED}" >> "$GITHUB_OUTPUT"
+          echo "### Time to Restore" >> "$GITHUB_STEP_SUMMARY"
+          echo "Incidents: ${INCIDENT_CLOSED}, Outages: ${OUTAGE_CLOSED}, Bugs fixed: ${BUG_CLOSED}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Calculate Change Failure Rate
+        id: failure_rate
+        env:
+          REPO: ${{ github.repository }}
+          START: ${{ steps.period.outputs.start_date_human }}
+        run: |
+          # Count workflow runs in the lookback window
+          TOTAL_RUNS=$(gh api \
+            --method GET \
+            "/repos/${REPO}/actions/runs?created=>=${START}&status=completed&per_page=100" \
+            -q '.total_count' \
+            2>/dev/null || echo "0")
+
+          # Count failed runs
+          FAILED_RUNS=$(gh api \
+            --method GET \
+            "/repos/${REPO}/actions/runs?created=>=${START}&status=failure&per_page=100" \
+            -q '.total_count' \
+            2>/dev/null || echo "0")
+
+          # Count cancelled runs
+          CANCELLED_RUNS=$(gh api \
+            --method GET \
+            "/repos/${REPO}/actions/runs?created=>=${START}&status=cancelled&per_page=100" \
+            -q '.total_count' \
+            2>/dev/null || echo "0")
+
+          # Calculate failure rate percentage
+          if [ "${TOTAL_RUNS}" -gt 0 ]; then
+            FAILURE_RATE=$(echo "scale=1; (${FAILED_RUNS} + ${CANCELLED_RUNS}) * 100 / ${TOTAL_RUNS}" | bc)
+          else
+            FAILURE_RATE="N/A"
+          fi
+
+          echo "total=${TOTAL_RUNS}" >> "$GITHUB_OUTPUT"
+          echo "failed=${FAILED_RUNS}" >> "$GITHUB_OUTPUT"
+          echo "cancelled=${CANCELLED_RUNS}" >> "$GITHUB_OUTPUT"
+          echo "rate=${FAILURE_RATE}" >> "$GITHUB_OUTPUT"
+          echo "### Change Failure Rate" >> "$GITHUB_STEP_SUMMARY"
+          echo "Total runs: ${TOTAL_RUNS}, Failed: ${FAILED_RUNS}, Cancelled: ${CANCELLED_RUNS}, Rate: ${FAILURE_RATE}%" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Post DORA Metrics Issue
+        env:
+          REPO: ${{ github.repository }}
+          START_DATE: ${{ steps.period.outputs.start_date_human }}
+          END_DATE: ${{ steps.period.outputs.end_date_human }}
+          DEPLOY_FREQ: ${{ steps.deploy_freq.outputs.count }}
+          DEPLOY_SOURCE: ${{ steps.deploy_freq.outputs.source }}
+          RELEASE_COUNT: ${{ steps.deploy_freq.outputs.release_count }}
+          TAG_COUNT: ${{ steps.deploy_freq.outputs.tag_count }}
+          LEAD_TIME_HOURS: ${{ steps.lead_time.outputs.avg_hours }}
+          LEAD_TIME_DAYS: ${{ steps.lead_time.outputs.avg_days }}
+          LEAD_TIME_RELEASES: ${{ steps.lead_time.outputs.releases_analyzed }}
+          INCIDENT_COUNT: ${{ steps.restore_time.outputs.incident_count }}
+          OUTAGE_COUNT: ${{ steps.restore_time.outputs.outage_count }}
+          BUG_COUNT: ${{ steps.restore_time.outputs.bug_count }}
+          RESTORE_TOTAL: ${{ steps.restore_time.outputs.total }}
+          TOTAL_RUNS: ${{ steps.failure_rate.outputs.total }}
+          FAILED_RUNS: ${{ steps.failure_rate.outputs.failed }}
+          CANCELLED_RUNS: ${{ steps.failure_rate.outputs.cancelled }}
+          FAILURE_RATE: ${{ steps.failure_rate.outputs.rate }}
+        run: |
+          # Determine DORA performance tier for each metric
+          get_deploy_tier() {
+            local count=$1
+            if [ "${count}" -ge 7 ]; then
+              echo "Elite"
+            elif [ "${count}" -ge 1 ]; then
+              echo "High"
+            else
+              echo "Low"
+            fi
+          }
+
+          get_lead_tier() {
+            local hours=$1
+            if [ "${hours}" = "N/A" ] || [ "${hours}" = "0" ]; then
+              echo "N/A"
+            elif [ "${hours}" -le 24 ]; then
+              echo "Elite"
+            elif [ "${hours}" -le 168 ]; then
+              echo "High"
+            elif [ "${hours}" -le 720 ]; then
+              echo "Medium"
+            else
+              echo "Low"
+            fi
+          }
+
+          get_restore_tier() {
+            local count=$1
+            if [ "${count}" -le 1 ]; then
+              echo "Elite"
+            elif [ "${count}" -le 5 ]; then
+              echo "High"
+            elif [ "${count}" -le 10 ]; then
+              echo "Medium"
+            else
+              echo "Low"
+            fi
+          }
+
+          get_failure_tier() {
+            local rate=$1
+            if [ "${rate}" = "N/A" ]; then
+              echo "N/A"
+            else
+              IS_ELITE=$(echo "${rate} <= 5" | bc -l 2>/dev/null || echo 0)
+              IS_HIGH=$(echo "${rate} <= 10" | bc -l 2>/dev/null || echo 0)
+              IS_MED=$(echo "${rate} <= 20" | bc -l 2>/dev/null || echo 0)
+              if [ "${IS_ELITE}" = "1" ]; then
+                echo "Elite"
+              elif [ "${IS_HIGH}" = "1" ]; then
+                echo "High"
+              elif [ "${IS_MED}" = "1" ]; then
+                echo "Medium"
+              else
+                echo "Low"
+              fi
+            fi
+          }
+
+          DEPLOY_TIER=$(get_deploy_tier "${DEPLOY_FREQ}")
+          LEAD_TIER=$(get_lead_tier "${LEAD_TIME_HOURS}")
+          RESTORE_TIER=$(get_restore_tier "${RESTORE_TOTAL}")
+          FAILURE_TIER=$(get_failure_tier "${FAILURE_RATE}")
+
+          # Build the issue body using a here-document with proper variable expansion
+          ISSUE_BODY="## DORA Metrics Report
+
+          **Repository:** \`${REPO}\`
+          **Period:** ${START_DATE} to ${END_DATE} (${DEPLOY_FREQ} day lookback)
+          **Generated:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')
+
+          ---
+
+          ### Metrics Summary
+
+          | Metric | Value | Details | DORA Tier |
+          |--------|-------|---------|-----------|
+          | **Deployment Frequency** | ${DEPLOY_FREQ} / week | ${RELEASE_COUNT} releases, ${TAG_COUNT} tags (${DEPLOY_SOURCE}) | ${DEPLOY_TIER} |
+          | **Lead Time for Changes** | ${LEAD_TIME_HOURS} hrs (${LEAD_TIME_DAYS} days) | Based on ${LEAD_TIME_RELEASES} releases | ${LEAD_TIER} |
+          | **Time to Restore Service** | ${RESTORE_TOTAL} issues resolved | ${INCIDENT_COUNT} incidents, ${OUTAGE_COUNT} outages, ${BUG_COUNT} bugs fixed | ${RESTORE_TIER} |
+          | **Change Failure Rate** | ${FAILURE_RATE}% | ${FAILED_RUNS} failed + ${CANCELLED_RUNS} cancelled out of ${TOTAL_RUNS} runs | ${FAILURE_TIER} |
+
+          ---
+
+          ### DORA Performance Tiers
+
+          | Tier | Deployment Freq | Lead Time | Time to Restore | Change Failure Rate |
+          |------|----------------|-----------|-----------------|---------------------|
+          | **Elite** | Multiple per day | < 1 hour | < 1 hour | 0 - 5% |
+          | **High** | Between once per day and once per week | 1 day - 1 week | < 1 day | 5 - 10% |
+          | **Medium** | Between once per week and once per month | 1 week - 1 month | 1 day - 1 week | 10 - 20% |
+          | **Low** | Fewer than once per month | > 1 month | > 1 week | > 20% |
+
+          ---
+
+          ### Raw Data
+
+          - **Releases in period:** ${RELEASE_COUNT}
+          - **Tags in period:** ${TAG_COUNT}
+          - **CI Runs:** ${TOTAL_RUNS} total, ${FAILED_RUNS} failed, ${CANCELLED_RUNS} cancelled
+          - **Issues Resolved:** ${INCIDENT_COUNT} incident, ${OUTAGE_COUNT} outage, ${BUG_COUNT} bug
+
+          ---
+
+          *This report was automatically generated by the DORA Metrics workflow.*"
+
+          # Post the issue (try with labels first, fall back without)
+          gh issue create \
+            --repo "${REPO}" \
+            --title "DORA Metrics: ${START_DATE} to ${END_DATE}" \
+            --body "${ISSUE_BODY}" \
+            --label "metrics,dora-report" \
+            2>/dev/null || \
+          gh issue create \
+            --repo "${REPO}" \
+            --title "DORA Metrics: ${START_DATE} to ${END_DATE}" \
+            --body "${ISSUE_BODY}" \
+            2>/dev/null || echo "Warning: Could not create issue"
+
+          echo "DORA metrics issue created successfully"

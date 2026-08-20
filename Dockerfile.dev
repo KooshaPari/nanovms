@@ -1,0 +1,63 @@
+# Dockerfile.dev — NanoVMS development environment
+# Go 1.25 + Rust stable, with dev tools, linters, and test runners.
+# Usage: docker compose -f docker-compose.dev.yml up --build
+
+FROM golang:1.25-bookworm AS base
+
+# ── System dependencies ───────────────────────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    build-essential \
+    pkg-config \
+    libssl-dev \
+    libffi-dev \
+    git \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# ── Rust stable toolchain ────────────────────────────────────
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH="/usr/local/cargo/bin:${PATH}"
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- \
+    --default-toolchain stable \
+    --profile minimal \
+    --component rustfmt,clippy \
+    -y
+
+# ── Go dev tools ─────────────────────────────────────────────
+RUN go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest \
+    && go install golang.org/x/tools/cmd/goimports@latest \
+    && go install gotest.tools/gotestsum@latest \
+    && go install github.com/go-delve/delve/cmd/dlv@latest \
+    && go install github.com/golang/mock/mockgen@latest
+
+# ── Rust dev tools ───────────────────────────────────────────
+RUN cargo install cargo-deny cargo-nextest cargo-watch cargo-tarpaulin
+
+# ── Pre-commit + general dev utilities ───────────────────────
+RUN pip install --no-cache-dir pre-commit
+
+# ── Node.js (for vitest/playwright config in package.json) ───
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+
+# ── Pre-download Go modules ──────────────────────────────────
+COPY go.mod go.sum ./
+RUN go mod download 2>/dev/null || true
+
+# ── Pre-download Rust deps ───────────────────────────────────
+COPY Cargo.toml Cargo.lock rust-toolchain.toml rustfmt.toml deny.toml ./
+RUN mkdir -p crates/phenotype-manifest/src && echo 'fn main() {}' > crates/phenotype-manifest/src/main.rs \
+    && cargo fetch 2>/dev/null || true \
+    && rm -rf crates/phenotype-manifest/src
+
+# ── Pre-fetch Node deps ─────────────────────────────────────
+COPY package.json package-lock.json* ./
+RUN npm install 2>/dev/null || true
+
+# ── Default command ──────────────────────────────────────────
+CMD ["bash"]

@@ -1,0 +1,59 @@
+# docker-compose.dev.yml — NanoVMS development environment
+# Mounts source for hot-reload, caches Go/Rust/Node artifacts.
+# Usage: docker compose -f docker-compose.dev.yml up --build
+#        docker compose -f docker-compose.dev.yml exec dev bash
+
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      args:
+        BUILDKIT_INLINE_CACHE: "1"
+    container_name: nanovms-dev
+    working_dir: /workspace
+    volumes:
+      # ── Source mounts (hot-reload) ────────────────────────
+      - .:/workspace
+      # ── Go module cache ───────────────────────────────────
+      - go-pkg:/go/pkg/mod
+      - go-build-cache:/root/.cache/go-build
+      # ── Rust build cache ──────────────────────────────────
+      - cargo-registry:/usr/local/cargo/registry
+      - cargo-git:/usr/local/cargo/git
+      - cargo-target:/workspace/target
+      # ── Node modules ──────────────────────────────────────
+      - node-modules:/workspace/node_modules
+    environment:
+      - GOCACHE=/root/.cache/go-build
+      - GOMODCACHE=/go/pkg/mod
+      - CARGO_INCREMENTAL=1
+      - CARGO_NET_GIT_FETCH_WITH_CLI=true
+      - RUST_BACKTRACE=1
+      - CGO_ENABLED=1
+    ports:
+      - "8080:8080"   # API server
+      - "9090:9090"   # Debug (Delve)
+    # Keep container alive for interactive use
+    stdin_open: true
+    tty: true
+    healthcheck:
+      test: ["CMD", "go", "vet", "./..."]
+      interval: 120s
+      timeout: 60s
+      retries: 2
+      start_period: 30s
+
+volumes:
+  go-pkg:
+    driver: local
+  go-build-cache:
+    driver: local
+  cargo-registry:
+    driver: local
+  cargo-git:
+    driver: local
+  cargo-target:
+    driver: local
+  node-modules:
+    driver: local
