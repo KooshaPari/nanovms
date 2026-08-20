@@ -1,0 +1,14 @@
+[package]
+name = "nanovms-benches"
+version = "0.0.0"
+authors = ["Automatically generated"]
+publish = false
+edition = "2021"
+
+[[bench]]
+name = "ffi_throughput"
+path = "ffi_throughput.rs"
+harness = false
+
+[dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }

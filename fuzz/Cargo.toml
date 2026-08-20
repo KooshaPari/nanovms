@@ -1,0 +1,23 @@
+[package]
+name = "nanovms-fuzz"
+version = "0.0.0"
+authors = ["Automatically generated"]
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+# Depend on the crate under test (adjust the path if the FFI library lives
+# elsewhere in the workspace).
+[dependencies.ffi_utils]
+path = "../crates/ffi_utils"
+
+[[bin]]
+name = "fuzz_process"
+path = "fuzz_targets/fuzz_process.rs"
+test = false
+doc = false
