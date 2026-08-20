@@ -43,7 +43,7 @@ jobs:
       slo_target: '99.5'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Calculate burn rate
         id: burn_rate
@@ -388,7 +388,7 @@ jobs:
 
       - name: Upload burn rate JSON artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: slo-burn-rate-report
           path: /tmp/slo-report.json
