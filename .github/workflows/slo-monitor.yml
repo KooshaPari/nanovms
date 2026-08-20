@@ -28,6 +28,19 @@ env:
 jobs:
   slo-monitor:
     runs-on: ubuntu-latest
+    outputs:
+      burn_rate: ${{ steps.burn_rate.outputs.burn_rate }}
+      severity: ${{ steps.alert.outputs.severity }}
+      success_rate: ${{ steps.burn_rate.outputs.success_rate }}
+      failure_rate: ${{ steps.burn_rate.outputs.failure_rate }}
+      total_runs: ${{ steps.burn_rate.outputs.total_runs }}
+      failed_runs: ${{ steps.burn_rate.outputs.failed_runs }}
+      budget_consumed_pct: ${{ steps.burn_rate.outputs.budget_consumed_pct }}
+      budget_remaining_pct: ${{ steps.burn_rate.outputs.budget_remaining_pct }}
+      budget_consumed_min: ${{ steps.burn_rate.outputs.budget_consumed_min }}
+      budget_remaining_min: ${{ steps.burn_rate.outputs.budget_remaining_min }}
+      projected_exhaustion: ${{ steps.burn_rate.outputs.projected_exhaustion }}
+      slo_target: '99.5'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -349,3 +362,34 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
           echo "*Generated at $(date -u +%Y-%m-%dT%H:%M:%SZ)*" >> $GITHUB_STEP_SUMMARY
+
+      - name: Write burn rate JSON
+        if: always()
+        run: |
+          cat > /tmp/slo-report.json << JSONEOF
+          {
+            "repository": "${{ github.repository }}",
+            "run_id": "${{ github.run_id }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "slo_target": "99.5",
+            "burn_rate": "${{ steps.burn_rate.outputs.burn_rate }}",
+            "severity": "${{ steps.alert.outputs.severity }}",
+            "success_rate": "${{ steps.burn_rate.outputs.success_rate }}",
+            "failure_rate": "${{ steps.burn_rate.outputs.failure_rate }}",
+            "total_runs": "${{ steps.burn_rate.outputs.total_runs }}",
+            "failed_runs": "${{ steps.burn_rate.outputs.failed_runs }}",
+            "budget_consumed_pct": "${{ steps.burn_rate.outputs.budget_consumed_pct }}",
+            "budget_remaining_pct": "${{ steps.burn_rate.outputs.budget_remaining_pct }}",
+            "budget_consumed_min": "${{ steps.burn_rate.outputs.budget_consumed_min }}",
+            "budget_remaining_min": "${{ steps.burn_rate.outputs.budget_remaining_min }}",
+            "projected_exhaustion": "${{ steps.burn_rate.outputs.projected_exhaustion }}"
+          }
+          JSONEOF
+
+      - name: Upload burn rate JSON artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: slo-burn-rate-report
+          path: /tmp/slo-report.json
+          retention-days: 30

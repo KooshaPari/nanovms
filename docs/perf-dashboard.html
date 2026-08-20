@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>nanovms — Performance Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+:root {
+  --bg: #0d1117; --surface: #161b22; --border: #30363d;
+  --text: #e6edf3; --muted: #8b949e; --accent: #58a6ff;
+  --ok: #3fb950; --warn: #d29922; --crit: #f85149; --improve: #58a6ff;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: var(--bg); color: var(--text); padding: 2rem; line-height: 1.5;
+}
+h1 { font-size: 1.8rem; margin-bottom: .3rem; }
+.subtitle { color: var(--muted); font-size: .9rem; margin-bottom: 2rem; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.2rem; margin-bottom: 2rem; }
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 1.2rem; position: relative;
+}
+.card h3 { font-size: 1rem; margin-bottom: .8rem; }
+.card .value { font-size: 2rem; font-weight: 600; margin-bottom: .2rem; }
+.card .baseline { color: var(--muted); font-size: .85rem; }
+.chart-container {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;
+}
+.chart-container h2 { font-size: 1.1rem; margin-bottom: 1rem; }
+canvas { max-height: 300px; }
+.badge {
+  display: inline-block; padding: 2px 8px; border-radius: 12px;
+  font-size: .75rem; font-weight: 600; margin-left: 8px;
+}
+.badge-ok { background: rgba(63,185,80,0.15); color: var(--ok); }
+.badge-warn { background: rgba(210,153,34,0.15); color: var(--warn); }
+.badge-crit { background: rgba(248,81,73,0.15); color: var(--crit); }
+.badge-improve { background: rgba(88,166,255,0.15); color: var(--improve); }
+.badge-muted { background: rgba(139,148,158,0.15); color: var(--muted); }
+table.summary {
+  width: 100%; border-collapse: collapse; margin-bottom: 2rem;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  overflow: hidden;
+}
+table.summary th, table.summary td {
+  padding: .6rem 1rem; text-align: left; border-bottom: 1px solid var(--border);
+}
+table.summary th {
+  background: rgba(88,166,255,0.08); font-size: .85rem;
+  text-transform: uppercase; letter-spacing: .05em;
+}
+table.summary tr:last-child td { border-bottom: none; }
+table.summary tr:hover td { background: rgba(88,166,255,0.04); }
+.footer {
+  color: var(--muted); font-size: .8rem; margin-top: 2rem;
+  padding-top: 1rem; border-top: 1px solid var(--border);
+}
+</style>
+</head>
+<body>
+<h1>nanovms Performance Dashboard</h1>
+<div class="subtitle">
+  Schema vN/A &middot; Last updated unknown &middot; Retention 90 days
+  &middot; Generated 2026-08-20T09:16:42Z
+</div>
+
+<!-- KPI Cards -->
+<div class="grid">
+      <div class="card">
+        <h3>Sandbox Creation (ms)<span class="badge badge-ok">● 0.0%</span></h3>
+        <div class="value">350 ms</div>
+        <div class="baseline">Baseline: 350 ms</div>
+      </div>
+      <div class="card">
+        <h3>VM Boot (ms)<span class="badge badge-ok">● 0.0%</span></h3>
+        <div class="value">4,200 ms</div>
+        <div class="baseline">Baseline: 4,200 ms</div>
+      </div>
+      <div class="card">
+        <h3>API Response (ms)<span class="badge badge-ok">● 0.0%</span></h3>
+        <div class="value">150 ms</div>
+        <div class="baseline">Baseline: 150 ms</div>
+      </div>
+      <div class="card">
+        <h3>Memory Usage (MB)<span class="badge badge-ok">● 0.0%</span></h3>
+        <div class="value">128 MB</div>
+        <div class="baseline">Baseline: 128 MB</div>
+      </div>
+      <div class="card">
+        <h3>Throughput (req/s)<span class="badge badge-ok">● 0.0%</span></h3>
+        <div class="value">1,200 req/s</div>
+        <div class="baseline">Baseline: 1,200 req/s</div>
+      </div>
+</div>
+
+<!-- Summary Table -->
+<table class="summary">
+  <thead><tr><th>Metric</th><th>Latest</th><th>Baseline</th><th>Delta</th></tr></thead>
+  <tbody>
+      <tr><td>Sandbox Creation (ms)</td><td>350 ms</td><td>350 ms</td><td><span class="badge badge-ok">● 0.0%</span></td></tr>
+      <tr><td>VM Boot (ms)</td><td>4,200 ms</td><td>4,200 ms</td><td><span class="badge badge-ok">● 0.0%</span></td></tr>
+      <tr><td>API Response (ms)</td><td>150 ms</td><td>150 ms</td><td><span class="badge badge-ok">● 0.0%</span></td></tr>
+      <tr><td>Memory Usage (MB)</td><td>128 MB</td><td>128 MB</td><td><span class="badge badge-ok">● 0.0%</span></td></tr>
+      <tr><td>Throughput (req/s)</td><td>1,200 req/s</td><td>1,200 req/s</td><td><span class="badge badge-ok">● 0.0%</span></td></tr>
+  </tbody>
+</table>
+
+<!-- Per-Metric Trend Charts -->
+    <div class="chart-container">
+      <h2>Sandbox Creation (ms)</h2>
+      <canvas id="chart-sandbox-creation-ms"></canvas>
+    </div>
+    <div class="chart-container">
+      <h2>VM Boot (ms)</h2>
+      <canvas id="chart-vm-boot-ms"></canvas>
+    </div>
+    <div class="chart-container">
+      <h2>API Response (ms)</h2>
+      <canvas id="chart-api-response-ms"></canvas>
+    </div>
+    <div class="chart-container">
+      <h2>Memory Usage (MB)</h2>
+      <canvas id="chart-memory-usage-mb"></canvas>
+    </div>
+    <div class="chart-container">
+      <h2>Throughput (req/s)</h2>
+      <canvas id="chart-throughput-rps"></canvas>
+    </div>
+
+<div class="footer">
+  Auto-generated by <code>agileplus/generate-perf-dashboard.py</code> &middot;
+  Data source: <code>agileplus/perf-trend-history.json</code>
+</div>
+
+<script>
+(function() {
+    new Chart(document.getElementById('chart-sandbox-creation-ms'), {
+      type: 'line',
+      data: {
+        labels: ["2026-08-19"],
+        datasets: [{
+          label: 'Sandbox Creation (ms)',
+          data: [350],
+          borderColor: '#58a6ff',
+          backgroundColor: '#58a6ff22',
+          tension: 0.3,
+          fill: true,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' } },
+          y: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' } }
+        }
+      }
+    });
+
+    new Chart(document.getElementById('chart-vm-boot-ms'), {
+      type: 'line',
+      data: {
+        labels: ["2026-08-19"],
+        datasets: [{
+          label: 'VM Boot (ms)',
+          data: [4200],
+          borderColor: '#3fb950',
+          backgroundColor: '#3fb95022',
+          tension: 0.3,
+          fill: true,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' } },
+          y: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' } }
+        }
+      }
+    });
+
+    new Chart(document.getElementById('chart-api-response-ms'), {
+      type: 'line',
+      data: {
+        labels: ["2026-08-19"],
+        datasets: [{
+          label: 'API Response (ms)',
+          data: [150],
+          borderColor: '#d29922',
+          backgroundColor: '#d2992222',
+          tension: 0.3,
+          fill: true,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' } },
+          y: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' } }
+        }
+      }
+    });
+
+    new Chart(document.getElementById('chart-memory-usage-mb'), {
+      type: 'line',
+      data: {
+        labels: ["2026-08-19"],
+        datasets: [{
+          label: 'Memory Usage (MB)',
+          data: [128],
+          borderColor: '#f85149',
+          backgroundColor: '#f8514922',
+          tension: 0.3,
+          fill: true,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' } },
+          y: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' } }
+        }
+      }
+    });
+
+    new Chart(document.getElementById('chart-throughput-rps'), {
+      type: 'line',
+      data: {
+        labels: ["2026-08-19"],
+        datasets: [{
+          label: 'Throughput (req/s)',
+          data: [1200],
+          borderColor: '#bc8cff',
+          backgroundColor: '#bc8cff22',
+          tension: 0.3,
+          fill: true,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' } },
+          y: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' } }
+        }
+      }
+    });
+
+})();
+</script>
+</body>
+</html>
