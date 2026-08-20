@@ -1,0 +1,80 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+    spike_limit_mib: 64
+  batch:
+    send_batch_size: 10000
+    timeout: 5s
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: sandbox
+        action: upsert
+      - key: sandbox.runtime
+        value: nanovms
+        action: upsert
+      - key: sandbox.type
+        value: microvm
+        action: upsert
+      - key: os.type
+        value: unikernel
+        action: upsert
+
+connectors:
+  spanmetrics:
+    histogram:
+      explicit:
+        buckets: [1ms, 5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s]
+    dimensions:
+      - name: service.name
+      - name: sandbox.name
+      - name: sandbox.status
+
+exporters:
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    resource_to_telemetry_conversion:
+      enabled: true
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+  debug:
+    verbosity: detailed
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+service:
+  extensions: [health_check, zpages]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlp/jaeger]
+    traces/spanmetrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [prometheus, debug]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [loki, debug]

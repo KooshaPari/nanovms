@@ -7,6 +7,18 @@ name: Chaos Testing
 on:
   push:
     branches: [main]
+    inputs:
+      mode:
+        description: "Run mode: 'fast' (critical tests only) or 'full' (all suites)"
+        required: false
+        default: "full"
+        type: choice
+        options:
+          - full
+          - fast
+  pull_request:
+    branches: [main]
+    types: [labeled, opened, synchronize, reopened]
   schedule:
     - cron: "0 3 1 * *" # Monthly on the 1st at 03:00 UTC
   workflow_dispatch:
@@ -34,14 +46,37 @@ env:
   GO_VERSION: "1.25"
 
 jobs:
+  # Gate job for PR label check - only runs chaos tests when 'chaos' label is present
+  chaos-gate-check:
+    name: Chaos Gate Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Check for chaos label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = context.payload.pull_request.labels.map(l => l.name);
+            if (!labels.includes('chaos')) {
+              core.info('No "chaos" label found - skipping chaos tests');
+              core.setOutput('skip', 'true');
+            } else {
+              core.info('"chaos" label found - running chaos tests');
+              core.setOutput('skip', 'false');
+            }
+
   network-chaos:
     name: Network Chaos Tests
+    needs: [chaos-gate-check]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     if: >-
-      github.event.inputs.scenario == 'all' ||
-      github.event.inputs.scenario == 'network' ||
-      github.event_name == 'push'
+      ((needs.chaos-gate-check.result == 'skipped' && github.event_name != 'pull_request') ||
+       needs.chaos-gate-check.outputs.skip == 'false' ||
+       github.event_name == 'schedule' ||
+       (github.event_name == 'workflow_dispatch' &&
+        (github.event.inputs.scenario == 'all' || github.event.inputs.scenario == 'network'))) &&
+      (github.event_name != 'push' || inputs.mode != 'fast')
 
     steps:
       - name: Checkout repository
@@ -90,12 +125,16 @@ jobs:
 
   resource-chaos:
     name: Resource Chaos Tests
+    needs: [chaos-gate-check]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     if: >-
-      github.event.inputs.scenario == 'all' ||
-      github.event.inputs.scenario == 'resource' ||
-      github.event_name == 'push'
+      ((needs.chaos-gate-check.result == 'skipped' && github.event_name != 'pull_request') ||
+       needs.chaos-gate-check.outputs.skip == 'false' ||
+       github.event_name == 'schedule' ||
+       (github.event_name == 'workflow_dispatch' &&
+        (github.event.inputs.scenario == 'all' || github.event.inputs.scenario == 'resource'))) &&
+      (github.event_name != 'push' || inputs.mode != 'fast')
 
     steps:
       - name: Checkout repository
@@ -165,12 +204,16 @@ jobs:
 
   dependency-chaos:
     name: Service Dependency Chaos Tests
+    needs: [chaos-gate-check]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     if: >-
-      github.event.inputs.scenario == 'all' ||
-      github.event.inputs.scenario == 'dependency' ||
-      github.event_name == 'push'
+      (needs.chaos-gate-check.result == 'skipped' && github.event_name != 'pull_request') ||
+      needs.chaos-gate-check.outputs.skip == 'false' ||
+      github.event_name == 'push' ||
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.scenario == 'all' || github.event.inputs.scenario == 'dependency'))
 
     steps:
       - name: Checkout repository

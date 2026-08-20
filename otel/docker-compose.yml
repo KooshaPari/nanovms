@@ -1,0 +1,69 @@
+version: "3.8"
+
+services:
+  collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: nanovms-otel-collector
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./collector-config.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8889:8889"   # Prometheus metrics
+      - "13133:13133" # Health check
+      - "55679:55679" # zPages
+    depends_on:
+      - jaeger
+      - prometheus
+      - loki
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: nanovms-jaeger
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "16686:16686" # Jaeger UI
+      - "14250:14250"
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: nanovms-prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+
+  loki:
+    image: grafana/loki:latest
+    container_name: nanovms-loki
+    volumes:
+      - ./loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: nanovms-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+      - loki
+
+volumes:
+  prometheus-data:
+  loki-data:
+  grafana-data:

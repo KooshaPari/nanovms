@@ -1,0 +1,233 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "title": "Sandbox Request Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "lineWidth": 2
+          },
+          "unit": "reqps"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(otel_spanmetrics_latency_count[5m])) by (service_name)",
+          "legendFormat": "{{service_name}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Sandbox Latency (p95)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "lineWidth": 2
+          },
+          "unit": "s"
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(otel_spanmetrics_latency_bucket[5m])) by (le, service_name))",
+          "legendFormat": "{{service_name}} p95",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(otel_spanmetrics_latency_bucket[5m])) by (le, service_name))",
+          "legendFormat": "{{service_name}} p50",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "title": "Sandbox Error Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "fixedColor": "red", "mode": "fixed" },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "lineWidth": 2
+          },
+          "unit": "percentunit"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(otel_spanmetrics_latency_count{http_status_code=~\"5..\"}[5m])) by (service_name) / sum(rate(otel_spanmetrics_latency_count[5m])) by (service_name)",
+          "legendFormat": "{{service_name}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Active Sandboxes",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "red", "value": 100 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(nanovms_sandboxes_active)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Sandbox Lifecycle Events",
+      "type": "timeseries",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(nanovms_sandbox_created_total[5m]))",
+          "legendFormat": "Created",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(nanovms_sandbox_destroyed_total[5m]))",
+          "legendFormat": "Destroyed",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "title": "Collector Memory Usage",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "lineWidth": 2
+          },
+          "unit": "bytes"
+        }
+      },
+      "targets": [
+        {
+          "expr": "process_resident_memory_bytes",
+          "legendFormat": "Resident Memory",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Collector CPU Usage",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "lineWidth": 2
+          },
+          "unit": "percentunit"
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(process_cpu_seconds_total[5m])",
+          "legendFormat": "CPU Usage",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Sandbox Logs (Loki)",
+      "type": "logs",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+      "targets": [
+        {
+          "expr": "{job=\"nanovms\"}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Dropped Spans",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "fixedColor": "orange", "mode": "fixed" },
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 60,
+            "lineWidth": 0
+          },
+          "unit": "short"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(otelcol_exporter_send_failed_spans_total[5m])) by (exporter)",
+          "legendFormat": "{{exporter}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["nanovms", "sandbox", "otel", "observability"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "NanoVMs Overview",
+  "uid": "nanovms-otel-overview",
+  "version": 1
+}
