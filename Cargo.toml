@@ -13,6 +13,8 @@ members = [
     "mobile/macos-tray",
     "mobile/android-companion",
     "windows/scm-host",
+    "fuzz",
+    "benches",
 ]
 
 # Workspace-level metadata so downstream `cargo metadata` consumers see the
