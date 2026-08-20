@@ -1,0 +1,23 @@
+{
+  "runs": [
+    {
+      "timestamp": "2026-08-19T00:00:00Z",
+      "commit_sha": "initial",
+      "baseline": true,
+      "metrics": {
+        "sandbox_creation_ms": 350,
+        "vm_boot_ms": 4200,
+        "api_response_ms": 150,
+        "memory_usage_mb": 128,
+        "throughput_rps": 1200
+      }
+    }
+  ],
+  "baselines": {
+    "sandbox_creation_ms": 350,
+    "vm_boot_ms": 4200,
+    "api_response_ms": 150,
+    "memory_usage_mb": 128,
+    "throughput_rps": 1200
+  }
+}
