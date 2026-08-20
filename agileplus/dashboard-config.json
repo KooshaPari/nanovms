@@ -1,0 +1,340 @@
+{
+  "$schema": "https://grafana.com/dashboards/schema",
+  "uid": "nanovms-platform",
+  "title": "nanovms Platform Dashboard",
+  "description": "Comprehensive performance dashboard for nanovms multi-region deployment",
+  "tags": ["nanovms", "platform", "multi-region"],
+  "timezone": "utc",
+  "editable": true,
+  "refresh": "30s",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "region",
+        "type": "custom",
+        "label": "Region",
+        "query": "us-east-1,us-west-2,eu-west-1,eu-central-1,ap-southeast-1,ap-northeast-1",
+        "current": { "text": "All", "value": "$__all" },
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "refresh": 1
+      },
+      {
+        "name": "environment",
+        "type": "custom",
+        "label": "Environment",
+        "query": "production,staging,development",
+        "current": { "text": "production", "value": "production" }
+      },
+      {
+        "name": "service",
+        "type": "query",
+        "label": "Service",
+        "query": "label_values(nanovms_requests_total, service)",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Request Latency (p50 / p95 / p99)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, rate(nanovms_requests_duration_seconds_bucket{region=~\"$region\"}[$__rate_interval]))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(nanovms_requests_duration_seconds_bucket{region=~\"$region\"}[$__rate_interval]))",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, rate(nanovms_requests_duration_seconds_bucket{region=~\"$region\"}[$__rate_interval]))",
+          "legendFormat": "p99"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.1 },
+              { "color": "red", "value": 0.5 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "tooltip": { "mode": "multi" },
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Throughput (requests/sec)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(nanovms_requests_total{region=~\"$region\"}[$__rate_interval]))",
+          "legendFormat": "Total RPS"
+        },
+        {
+          "expr": "sum(rate(nanovms_requests_total{region=~\"$region\",status=~\"2..\"}[$__rate_interval]))",
+          "legendFormat": "Success"
+        },
+        {
+          "expr": "sum(rate(nanovms_requests_total{region=~\"$region\",status=~\"5..\"}[$__rate_interval]))",
+          "legendFormat": "5xx"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 100 },
+              { "color": "green", "value": 500 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Error Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(nanovms_requests_total{region=~\"$region\",status=~\"4..|5..\"}[$__rate_interval])) / sum(rate(nanovms_requests_total{region=~\"$region\"}[$__rate_interval])) * 100",
+          "legendFormat": "Error %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Resource Saturation",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "process_resident_memory_bytes{job=~\"nanovms.*\"}",
+          "legendFormat": "Memory (RSS)"
+        },
+        {
+          "expr": "rate(process_cpu_seconds_total{job=~\"nanovms.*\"}[$__rate_interval])",
+          "legendFormat": "CPU Usage"
+        },
+        {
+          "expr": "go_goroutines{job=~\"nanovms.*\"}",
+          "legendFormat": "Goroutines"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 70 },
+              { "color": "red", "value": 90 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Sandbox Lifecycle",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "rate(nanovms_sandboxes_deploys_total{region=~\"$region\"}[$__rate_interval])",
+          "legendFormat": "Deploys/s"
+        },
+        {
+          "expr": "rate(nanovms_sandboxes_stops_total{region=~\"$region\"}[$__rate_interval])",
+          "legendFormat": "Stops/s"
+        },
+        {
+          "expr": "rate(nanovms_sandboxes_errors_total{region=~\"$region\"}[$__rate_interval])",
+          "legendFormat": "Errors/s"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "ops" }
+      }
+    },
+    {
+      "id": 6,
+      "title": "VM Boot Latency",
+      "type": "histogram",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "expr": "nanovms_vm_boot_duration_seconds_bucket{region=~\"$region\"}",
+          "legendFormat": "{{le}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.5 },
+              { "color": "red", "value": 2 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Active Connections",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 24 },
+      "targets": [
+        {
+          "expr": "nanovms_connections_active{region=~\"$region\"}",
+          "legendFormat": "Connections"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 500 },
+              { "color": "red", "value": 1000 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "Queue Depth",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 24 },
+      "targets": [
+        {
+          "expr": "nanovms_queue_depth{region=~\"$region\"}",
+          "legendFormat": "Queue"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "red", "value": 200 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "Region Comparison",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 28 },
+      "targets": [
+        {
+          "expr": "sum by (region) (rate(nanovms_requests_total{region=~\"$region\"}[$__rate_interval]))",
+          "legendFormat": "{{region}} RPS",
+          "instant": true,
+          "format": "table"
+        }
+      ]
+    }
+  ],
+  "alerting": {
+    "rules": [
+      {
+        "title": "High Error Rate",
+        "condition": "A",
+        "frequency": "1m",
+        "for": "5m",
+        "message": "Error rate above 5% in region {{ .labels.region }}",
+        "annotations": { "severity": "critical" }
+      },
+      {
+        "title": "High Latency p99",
+        "condition": "A",
+        "frequency": "1m",
+        "for": "5m",
+        "message": "p99 latency above 500ms in region {{ .labels.region }}",
+        "annotations": { "severity": "warning" }
+      },
+      {
+        "title": "Sandbox Deploy Failures",
+        "condition": "A",
+        "frequency": "5m",
+        "for": "2m",
+        "message": "Sandbox deploy error rate elevated in {{ .labels.region }}",
+        "annotations": { "severity": "warning" }
+      },
+      {
+        "title": "High Memory Usage",
+        "condition": "A",
+        "frequency": "1m",
+        "for": "10m",
+        "message": "Memory usage above 90% on {{ .labels.instance }}",
+        "annotations": { "severity": "critical" }
+      }
+    ]
+  },
+  "annotations": {
+    "list": [
+      {
+        "name": "Deployments",
+        "datasource": "Prometheus",
+        "query": "nanovms_deployment_event",
+        "iconColor": "green",
+        "textFormat": "Deployed: {{ .labels.version }}"
+      }
+    ]
+  },
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "version": 1,
+  "links": [
+    { "title": "Chaos Test Results", "url": "/d/chaos-results", "type": "link" },
+    { "title": "Alert Rules", "url": "/alerting/list", "type": "link" }
+  ]
+}

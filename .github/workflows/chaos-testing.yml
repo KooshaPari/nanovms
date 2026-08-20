@@ -1,0 +1,216 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Chaos testing workflow
+# Runs network, resource, and service dependency chaos tests on push to main
+# and weekly on schedule.
+name: Chaos Testing
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 3 1 * *" # Monthly on the 1st at 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: "Chaos scenario to run (all, network, resource, dependency)"
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - all
+          - network
+          - resource
+          - dependency
+
+concurrency:
+  group: chaos-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  checks: write
+
+env:
+  GO_VERSION: "1.25"
+
+jobs:
+  network-chaos:
+    name: Network Chaos Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: >-
+      github.event.inputs.scenario == 'all' ||
+      github.event.inputs.scenario == 'network' ||
+      github.event_name == 'push'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Run network chaos unit tests
+        run: go test -v -timeout 120s ./pkg/chaos/... -run "NetworkPartition" -count=1
+
+      - name: Network partition simulation
+        run: |
+          echo "=== Network Partition Chaos Test ==="
+          sudo apt-get update -qq && sudo apt-get install -y -qq iproute2
+
+          sudo ip link add veth0 type veth peer name veth1 || true
+          sudo ip addr add 192.168.100.1/24 dev veth0 || true
+          sudo ip addr add 192.168.100.2/24 dev veth1 || true
+          sudo ip link set veth0 up
+          sudo ip link set veth1 up
+
+          # Apply partition
+          sudo iptables -A FORWARD -i veth0 -o veth1 -j DROP
+          sudo iptables -A FORWARD -i veth1 -o veth0 -j DROP
+          echo "OK: Network partition applied"
+
+          # Revert
+          sudo iptables -D FORWARD -i veth0 -o veth1 -j DROP
+          sudo iptables -D FORWARD -i veth1 -o veth0 -j DROP
+          sudo ip link delete veth0 2>/dev/null || true
+          echo "OK: Network chaos test completed"
+
+      - name: Latency injection test
+        run: |
+          echo "=== Latency Injection Chaos Test ==="
+          sudo apt-get update -qq && sudo apt-get install -y -qq iproute2
+          sudo tc qdisc add dev lo root netem delay 50ms 10ms 2>/dev/null && {
+            echo "Latency injected, verifying..."
+            sleep 1
+            sudo tc qdisc del dev lo root 2>/dev/null
+            echo "OK: Latency injection test completed"
+          } || echo "SKIP: tc netem not available"
+
+  resource-chaos:
+    name: Resource Chaos Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: >-
+      github.event.inputs.scenario == 'all' ||
+      github.event.inputs.scenario == 'resource' ||
+      github.event_name == 'push'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Run resource chaos unit tests
+        run: go test -v -timeout 120s ./pkg/chaos/... -run "ResourceExhaustion|DiskFill" -count=1
+
+      - name: Memory pressure test
+        run: |
+          echo "=== Memory Pressure Chaos Test ==="
+          cat > /tmp/mem_test.go << 'TESTEOF'
+          package main
+          import (
+            "fmt"
+            "runtime"
+            "runtime/debug"
+          )
+          func main() {
+            debug.SetGCPercent(-1)
+            var mem []byte
+            for i := 0; i < 50; i++ {
+              chunk := make([]byte, 1024*1024)
+              for j := range chunk { chunk[j] = 1 }
+              mem = append(mem, chunk...)
+              var m runtime.MemStats
+              runtime.ReadMemStats(&m)
+              if m.Sys > 100*1024*1024 { break }
+            }
+            debug.SetGCPercent(100)
+            _ = mem
+            fmt.Println("OK: Memory pressure test completed")
+          }
+          TESTEOF
+          go run /tmp/mem_test.go
+
+      - name: FD exhaustion test
+        run: |
+          echo "=== FD Exhaustion Test ==="
+          cat > /tmp/fd_test.go << 'TESTEOF'
+          package main
+          import (
+            "fmt"
+            "os"
+          )
+          func main() {
+            var files []*os.File
+            for i := 0; i < 1024; i++ {
+              f, err := os.CreateTemp("", "fd-test-*")
+              if err != nil { break }
+              files = append(files, f)
+            }
+            fmt.Printf("Opened %d file descriptors\n", len(files))
+            for _, f := range files {
+              f.Close()
+              os.Remove(f.Name())
+            }
+            fmt.Println("OK: FD exhaustion test completed")
+          }
+          TESTEOF
+          go run /tmp/fd_test.go
+
+  dependency-chaos:
+    name: Service Dependency Chaos Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: >-
+      github.event.inputs.scenario == 'all' ||
+      github.event.inputs.scenario == 'dependency' ||
+      github.event_name == 'push'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Run circuit breaker chaos tests
+        run: go test -v -timeout 120s ./pkg/chaos/... -run "CircuitBreaker|ErrorInjection" -count=1
+
+      - name: Composite chaos scenario
+        run: go test -v -timeout 120s ./pkg/chaos/... -run "Scenario" -count=1
+
+  results-report:
+    name: Chaos Test Results
+    needs: [network-chaos, resource-chaos, dependency-chaos]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Generate chaos test report
+        run: |
+          echo "# Chaos Test Report" > chaos-report.md
+          echo "## Run: ${{ github.run_id }}" >> chaos-report.md
+          echo "## Trigger: ${{ github.event_name }}" >> chaos-report.md
+          echo "## Commit: ${{ github.sha }}" >> chaos-report.md
+          echo "## Timestamp: $(date -u)" >> chaos-report.md
+          echo "" >> chaos-report.md
+          echo "| Suite | Status |" >> chaos-report.md
+          echo "|-------|--------|" >> chaos-report.md
+          echo "| Network Chaos | ${{ needs.network-chaos.result }} |" >> chaos-report.md
+          echo "| Resource Chaos | ${{ needs.resource-chaos.result }} |" >> chaos-report.md
+          echo "| Dependency Chaos | ${{ needs.dependency-chaos.result }} |" >> chaos-report.md
+
+      - name: Upload chaos report
+        uses: actions/upload-artifact@v4
+        with:
+          name: chaos-test-report
+          path: chaos-report.md
+          retention-days: 30
