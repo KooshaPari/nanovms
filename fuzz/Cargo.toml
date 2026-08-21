@@ -1,0 +1,6 @@
+[package]
+name = "nanovms-capability-contract-fuzz"
+edition = "2021"
+[[bin]]
+name = "fuzz_target"
+path = "fuzz_target.rs"
