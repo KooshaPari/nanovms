@@ -16,6 +16,4 @@ jobs:
       - uses: googleapis/release-please-action@v4
         with:
           release-type: simple
-          default-branch: main
-          changelog-types: |
-            [{"type":"feat","section":"Features"},{"type":"fix","section":"Bug Fixes"},{"type":"perf","section":"Performance"},{"type":"docs","section":"Documentation"},{"type":"chore","section":"Miscellaneous"}]
+          target-branch: main
