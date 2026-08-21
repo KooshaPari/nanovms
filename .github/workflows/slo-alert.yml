@@ -19,7 +19,7 @@ jobs:
     steps:
       - name: Download burn rate artifact
         id: download
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: slo-burn-rate-report
           run-id: ${{ github.event.workflow_run.id }}
@@ -78,7 +78,7 @@ jobs:
 
       - name: Send Slack alert
         if: steps.report.outputs.report_found != 'false' && steps.report.outputs.severity != 'OK' && steps.report.outputs.severity != 'INFO'
-        uses: slackapi/slack-github-action@v2.0.0
+        uses: slackapi/slack-github-action@v4.0.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
@@ -208,7 +208,7 @@ jobs:
 
       - name: Post email notification via GitHub issue
         if: steps.report.outputs.report_found != 'false' && steps.report.outputs.severity != 'OK'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const severity = '${{ steps.report.outputs.severity }}';

@@ -15,10 +15,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: "1.3.0"
 
@@ -32,7 +32,7 @@ jobs:
         run: terraform validate
 
       - name: Setup TFLint
-        uses: terraform-linters/setup-tflint@v4
+        uses: terraform-linters/setup-tflint@v6
 
       - name: Run TFLint
         run: tflint --init && tflint
@@ -43,7 +43,7 @@ jobs:
           working_directory: terraform
 
       - name: Setup Infracost
-        uses: infracost/actions/setup@v3
+        uses: infracost/actions/setup@v4
 
       - name: Run Infracost
         run: infracost breakdown --path . --out json > infracost-output.json
@@ -51,7 +51,7 @@ jobs:
           INFRACOST_API_KEY: ${{ secrets.INFRACOST_API_KEY }}
 
       - name: Infracost Comment on PR
-        uses: infracost/actions/comment@v3
+        uses: infracost/actions/comment@v4
         with:
           path: infracost-output.json
           behavior: update
