@@ -96,7 +96,89 @@ export interface BacklogItem {
 }
 
 // ─── View ────────────────────────────────────────────────────────────────────
-export type View = "dashboard" | "specs" | "scorecards" | "sprints" | "quality-gates";
+export type View =
+  | "dashboard"
+  | "specs"
+  | "scorecards"
+  | "sprints"
+  | "quality-gates"
+  | "validation"
+  | "compare"
+  | "backlog";
+
+// ─── Spec Validation ──────────────────────────────────────────────────────
+export type ValidationSeverity = "pass" | "warn" | "fail";
+
+export interface ValidationCheck {
+  id: string;
+  label: string;
+  section: string; // required section name in the spec
+  severity: ValidationSeverity;
+  message: string;
+}
+
+export interface SpecValidation {
+  specId: string;
+  checks: ValidationCheck[];
+  score: number; // 0-100
+  validatedAt: string;
+}
+
+// ─── Trend Data ─────────────────────────────────────────────────────────────
+export interface TrendPoint {
+  date: string; // ISO date string
+  pillarScores: Record<string, number>; // pillarId → score
+  overall: number;
+}
+
+export interface TrendData {
+  pillarId: string;
+  points: TrendPoint[];
+}
+
+// ─── Pillar Comparison ──────────────────────────────────────────────────────
+export type DiffDirection = "improved" | "regressed" | "same";
+
+export interface ComparisonEntry {
+  pillarId: string;
+  pillarName: string;
+  leftScore: number;
+  rightScore: number;
+  delta: number;
+  direction: DiffDirection;
+}
+
+export interface ComparisonData {
+  leftLabel: string;
+  rightLabel: string;
+  entries: ComparisonEntry[];
+  overallLeft: number;
+  overallRight: number;
+  overallDelta: number;
+}
+
+// ─── Backlog Board ──────────────────────────────────────────────────────────
+export interface BacklogBoardItem {
+  id: string;
+  title: string;
+  priority: Priority;
+  points: number;
+  assignee: string;
+  pillar?: string;
+  specId?: string;
+  createdAt: string;
+}
+
+// ─── Gate History ────────────────────────────────────────────────────────────
+export interface GateRun {
+  id: string;
+  gateId: string;
+  gateName: string;
+  status: "pass" | "fail";
+  triggeredBy: string;
+  durationMs: number;
+  runAt: string;
+}
 
 // ─── IPC Response ────────────────────────────────────────────────────────────
 export interface IpcResponse<T = unknown> {

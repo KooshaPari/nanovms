@@ -232,6 +232,87 @@ async function localStorageFallback<T>(
     case "gates:status": {
       return { ok: true, data: lsGet("gates_status", []) as T };
     }
+    case "gates:history": {
+      return { ok: true, data: lsGet("gates_history", []) as T };
+    }
+
+    // ─── Spec Validation ──────────────────────────────────────────────
+    case "validation:run": {
+      // Validation runs client-side in SpecValidator component
+      return { ok: true, data: undefined as T };
+    }
+
+    // ─── Version History ──────────────────────────────────────────────
+    case "versions:list": {
+      const specId = d?.specId as string;
+      const versions = lsGet<Record<string, unknown>[]>(`versions:${specId}`, []);
+      return { ok: true, data: versions as T };
+    }
+    case "versions:save": {
+      const specId = d?.specId as string;
+      const versions = lsGet<Record<string, unknown>[]>(`versions:${specId}`, []);
+      const newVersion = {
+        id: uid(),
+        specId,
+        timestamp: nowISO(),
+        title: d?.title ?? "",
+        content: d?.content ?? "",
+        wordCount: d?.wordCount ?? 0,
+      };
+      versions.unshift(newVersion);
+      if (versions.length > 50) versions.length = 50;
+      lsSet(`versions:${specId}`, versions);
+      return { ok: true, data: newVersion as T };
+    }
+
+    // ─── Comparison Data ──────────────────────────────────────────────
+    case "comparison:snapshots": {
+      return { ok: true, data: lsGet("comparison_snapshots", []) as T };
+    }
+    case "comparison:snapshot:save": {
+      const snapshots = lsGet<Array<Record<string, unknown>>>("comparison_snapshots", []);
+      snapshots.push({
+        label: d?.label ?? "Snapshot",
+        date: nowISO(),
+        scores: d?.scores ?? {},
+      });
+      lsSet("comparison_snapshots", snapshots);
+      return { ok: true, data: undefined as T };
+    }
+
+    // ─── Backlog Board ────────────────────────────────────────────────
+    case "backlog:board:list": {
+      return { ok: true, data: lsGet("backlog_board", []) as T };
+    }
+    case "backlog:board:create": {
+      const board = lsGet<Array<Record<string, unknown>>>("backlog_board", []);
+      const newItem = {
+        id: uid(),
+        title: d?.title ?? "New item",
+        priority: d?.priority ?? "P2",
+        points: d?.points ?? 3,
+        assignee: d?.assignee ?? "Unassigned",
+        pillar: d?.pillar ?? undefined,
+        specId: d?.specId ?? undefined,
+        createdAt: nowISO(),
+      };
+      board.push(newItem);
+      lsSet("backlog_board", board);
+      return { ok: true, data: newItem as T };
+    }
+    case "backlog:board:update": {
+      const board = lsGet<Array<Record<string, unknown>>>("backlog_board", []);
+      const idx = board.findIndex((b) => b.id === d?.id);
+      if (idx === -1) return { ok: false, error: "Board item not found" };
+      board[idx] = { ...board[idx], ...(d?.updates as object) };
+      lsSet("backlog_board", board);
+      return { ok: true, data: board[idx] as T };
+    }
+    case "backlog:board:delete": {
+      const board = lsGet<Array<Record<string, unknown>>>("backlog_board", []);
+      lsSet("backlog_board", board.filter((b) => b.id !== d?.id));
+      return { ok: true, data: undefined as T };
+    }
 
     // ─── Filesystem ───────────────────────────────────────────────────
     case "fs:read": {

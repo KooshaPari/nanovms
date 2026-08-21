@@ -16,6 +16,11 @@ const SPRINT_DATA_PATH = join(AGILEPLUS_DIR, ".desktop", "sprint-data.json");
 const BACKLOG_DATA_PATH = join(AGILEPLUS_DIR, ".desktop", "backlog-data.json");
 const GATES_STATUS_PATH = join(AGILEPLUS_DIR, ".desktop", "gates-status.json");
 const PILLARS_DATA_PATH = join(AGILEPLUS_DIR, ".desktop", "pillars-data.json");
+const SPEC_SNAPSHOTS_DIR = join(AGILEPLUS_DIR, ".desktop", "spec-snapshots");
+const GATES_HISTORY_PATH = join(AGILEPLUS_DIR, ".desktop", "gates-history.json");
+const TREND_DATA_PATH = join(AGILEPLUS_DIR, ".desktop", "trend-data.json");
+const COMPARISON_SNAPSHOTS_PATH = join(AGILEPLUS_DIR, ".desktop", "comparison-snapshots.json");
+const BACKLOG_BOARD_PATH = join(AGILEPLUS_DIR, ".desktop", "backlog-board.json");
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function ensureDir(dir: string): void {
@@ -320,6 +325,110 @@ const handlers: Record<string, Handler> = {
   "gates:status": async () => {
     const data = loadJson<Record<string, unknown>[]>(GATES_STATUS_PATH, []);
     return { ok: true, data };
+  },
+
+  "gates:history": async () => {
+    const data = loadJson<Record<string, unknown>[]>(GATES_HISTORY_PATH, []);
+    return { ok: true, data };
+  },
+
+  // ─── Spec Snapshots (version history) ────────────────────────────
+  "versions:list": async (payload) => {
+    const specId = payload.specId as string;
+    if (!specId) return { ok: true, data: [] };
+    const filePath = join(SPEC_SNAPSHOTS_DIR, `${specId}.json`);
+    const data = loadJson<Record<string, unknown>[]>(filePath, []);
+    return { ok: true, data };
+  },
+
+  "versions:save": async (payload) => {
+    const specId = payload.specId as string;
+    if (!specId) return { ok: false, error: "No specId" };
+    ensureDir(SPEC_SNAPSHOTS_DIR);
+    const filePath = join(SPEC_SNAPSHOTS_DIR, `${specId}.json`);
+    const versions = loadJson<Record<string, unknown>[]>(filePath, []);
+    const newVersion = {
+      id: uid(),
+      specId,
+      timestamp: nowISO(),
+      title: payload.title ?? "",
+      content: payload.content ?? "",
+      wordCount: payload.wordCount ?? 0,
+    };
+    versions.unshift(newVersion);
+    if (versions.length > 50) versions.length = 50;
+    saveJson(filePath, versions);
+    return { ok: true, data: newVersion };
+  },
+
+  // ─── Comparison Snapshots ─────────────────────────────────────────
+  "comparison:snapshots": async () => {
+    const data = loadJson<Record<string, unknown>[]>(COMPARISON_SNAPSHOTS_PATH, []);
+    return { ok: true, data };
+  },
+
+  "comparison:snapshot:save": async (payload) => {
+    const snapshots = loadJson<Record<string, unknown>[]>(COMPARISON_SNAPSHOTS_PATH, []);
+    snapshots.push({
+      label: payload.label ?? "Snapshot",
+      date: nowISO(),
+      scores: payload.scores ?? {},
+    });
+    saveJson(COMPARISON_SNAPSHOTS_PATH, snapshots);
+    return { ok: true };
+  },
+
+  // ─── Trend Data ──────────────────────────────────────────────────
+  "trend:data": async () => {
+    const data = loadJson<Record<string, unknown>[]>(TREND_DATA_PATH, []);
+    return { ok: true, data };
+  },
+
+  "trend:data:save": async (payload) => {
+    saveJson(TREND_DATA_PATH, payload.points ?? []);
+    return { ok: true };
+  },
+
+  // ─── Backlog Board ───────────────────────────────────────────────
+  "backlog:board:list": async () => {
+    const data = loadJson<Record<string, unknown>[]>(BACKLOG_BOARD_PATH, []);
+    return { ok: true, data };
+  },
+
+  "backlog:board:create": async (payload) => {
+    const board = loadJson<Record<string, unknown>[]>(BACKLOG_BOARD_PATH, []);
+    const newItem = {
+      id: uid(),
+      title: payload.title ?? "New item",
+      priority: payload.priority ?? "P2",
+      points: payload.points ?? 3,
+      assignee: payload.assignee ?? "Unassigned",
+      pillar: payload.pillar ?? undefined,
+      specId: payload.specId ?? undefined,
+      createdAt: nowISO(),
+    };
+    board.push(newItem);
+    saveJson(BACKLOG_BOARD_PATH, board);
+    return { ok: true, data: newItem };
+  },
+
+  "backlog:board:update": async (payload) => {
+    const id = payload.id as string;
+    const updates = payload.updates as Record<string, unknown>;
+    const board = loadJson<Record<string, unknown>[]>(BACKLOG_BOARD_PATH, []);
+    const idx = board.findIndex((b) => b.id === id);
+    if (idx === -1) return { ok: false, error: "Board item not found" };
+    board[idx] = { ...board[idx], ...updates };
+    saveJson(BACKLOG_BOARD_PATH, board);
+    return { ok: true, data: board[idx] };
+  },
+
+  "backlog:board:delete": async (payload) => {
+    const id = payload.id as string;
+    const board = loadJson<Record<string, unknown>[]>(BACKLOG_BOARD_PATH, []);
+    const filtered = board.filter((b) => b.id !== id);
+    saveJson(BACKLOG_BOARD_PATH, filtered);
+    return { ok: true };
   },
 
   // ─── Filesystem ─────────────────────────────────────────────────────

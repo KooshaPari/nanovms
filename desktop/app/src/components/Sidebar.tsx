@@ -5,6 +5,9 @@ import {
   HiOutlineChartBar,
   HiOutlineClock,
   HiOutlineShieldCheck,
+  HiOutlineCheckCircle,
+  HiOutlineAdjustments,
+  HiOutlineViewGrid,
 } from "react-icons/hi";
 
 interface Props {
@@ -16,6 +19,9 @@ const NAV_ITEMS: { key: View; label: string; icon: React.ReactNode }[] = [
   { key: "dashboard", label: "Dashboard", icon: <HiOutlineViewBoards /> },
   { key: "specs", label: "Specs", icon: <HiOutlineDocumentText /> },
   { key: "scorecards", label: "Scorecards", icon: <HiOutlineChartBar /> },
+  { key: "validation", label: "Validation", icon: <HiOutlineCheckCircle /> },
+  { key: "compare", label: "Compare", icon: <HiOutlineAdjustments /> },
+  { key: "backlog", label: "Backlog Board", icon: <HiOutlineViewGrid /> },
   { key: "sprints", label: "Sprints", icon: <HiOutlineClock /> },
   { key: "quality-gates", label: "Quality Gates", icon: <HiOutlineShieldCheck /> },
 ];

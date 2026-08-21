@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import type { PillarScore, ScorecardData, Pillar, IpcResponse } from "../types";
+import PillarComparison from "./PillarComparison";
+import TrendChart from "./TrendChart";
 
 interface Props {
   onDataChange: () => void;
@@ -69,6 +71,9 @@ export default function PillarScorecard({ onDataChange, request }: Props) {
     gold: pillars.filter((p) => p.band === "gold").length,
   };
 
+  const [showComparison, setShowComparison] = useState(false);
+  const [showTrends, setShowTrends] = useState(false);
+
   const CATEGORY_ORDER = ["performance", "reliability", "security", "developer-experience", "operations"];
   const CATEGORY_LABELS: Record<string, string> = {
     performance: "Performance",
@@ -100,14 +105,22 @@ export default function PillarScorecard({ onDataChange, request }: Props) {
             )}
           </p>
         </div>
-        <div className="scorecard__overall">
-          <span className="scorecard__overall-label">Overall</span>
-          <span className={`scorecard__overall-value ${gradeColor(grade)}`}>
-            {average > 0 ? average.toFixed(1) : "\u2014"}
-          </span>
-          <span className={`scorecard__overall-grade ${gradeColor(grade)}`}>
-            {grade}
-          </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div className="scorecard__overall">
+            <span className="scorecard__overall-label">Overall</span>
+            <span className={`scorecard__overall-value ${gradeColor(grade)}`}>
+              {average > 0 ? average.toFixed(1) : "\u2014"}
+            </span>
+            <span className={`scorecard__overall-grade ${gradeColor(grade)}`}>
+              {grade}
+            </span>
+          </div>
+          <button className="btn btn--sm" onClick={() => setShowComparison(true)}>
+            Compare
+          </button>
+          <button className="btn btn--sm" onClick={() => setShowTrends(!showTrends)}>
+            {showTrends ? "Hide Trends" : "Trends"}
+          </button>
         </div>
       </div>
 
@@ -159,6 +172,31 @@ export default function PillarScorecard({ onDataChange, request }: Props) {
           <p>No pillar scores loaded. Run the pillar scorecard workflow or import data.</p>
         </div>
       )}
+
+      {/* Trend Chart */}
+      {showTrends && (
+        <div className="scorecard__trend-section">
+          <TrendChart request={request} />
+        </div>
+      )}
+
+      {/* Comparison Modal */}
+      {showComparison && (
+        <div className="scorecard__comparison-overlay" onClick={() => setShowComparison(false)}>
+          <div className="scorecard__comparison-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="scorecard__comparison-header">
+              <h3>Pillar Comparison</h3>
+              <button className="btn btn--sm" onClick={() => setShowComparison(false)}>Close</button>
+            </div>
+            <PillarComparison
+              onDataChange={onDataChange}
+              request={request}
+              rightLabel="Current"
+              rightScores={Object.fromEntries(pillars.map((p) => [p.id, p.score]))}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -180,6 +218,13 @@ function PillarBar({ pillar, onChange }: { pillar: Pillar; onChange: (id: string
 
   const pct = (pillar.score / 10) * 100;
   const targetPct = (pillar.target / 10) * 100;
+
+  // Trend indicator: compare score to target for a simple up/down/neutral arrow
+  const trendDirection = pillar.score > pillar.target + 0.5
+    ? "up"
+    : pillar.score < pillar.target - 0.5
+      ? "down"
+      : "neutral";
 
   return (
     <div className="scorecard__bar-row">
@@ -212,6 +257,12 @@ function PillarBar({ pillar, onChange }: { pillar: Pillar; onChange: (id: string
         </span>
       )}
       <span className="scorecard__bar-target-val">/ {pillar.target}</span>
+      <span
+        className={`scorecard__bar-trend scorecard__bar-trend--${trendDirection}`}
+        title={trendDirection === "up" ? "Above target" : trendDirection === "down" ? "Below target" : "Near target"}
+      >
+        {trendDirection === "up" ? "\u2191" : trendDirection === "down" ? "\u2193" : "\u2192"}
+      </span>
     </div>
   );
 }

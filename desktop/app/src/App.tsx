@@ -7,6 +7,10 @@ import SpecEditor from "./components/SpecEditor";
 import PillarScorecard from "./components/PillarScorecard";
 import SprintTracker from "./components/SprintTracker";
 import QualityGates from "./components/QualityGates";
+import SpecValidator from "./components/SpecValidator";
+import PillarComparison from "./components/PillarComparison";
+import BacklogBoard from "./components/BacklogBoard";
+import GateHistory from "./components/GateHistory";
 
 export default function App() {
   const [view, setView] = useState<View>("dashboard");
@@ -31,10 +35,23 @@ export default function App() {
         return <SpecEditor onDataChange={onDataChange} request={request} key={`specs-${tick}`} />;
       case "scorecards":
         return <PillarScorecard onDataChange={onDataChange} request={request} key={`scorecards-${tick}`} />;
+      case "validation":
+        return <SpecValidator onDataChange={onDataChange} request={request} key={`validation-${tick}`} />;
+      case "compare":
+        return <PillarComparison onDataChange={onDataChange} request={request} key={`compare-${tick}`} />;
+      case "backlog":
+        return <BacklogBoard onDataChange={onDataChange} request={request} key={`backlog-${tick}`} />;
       case "sprints":
         return <SprintTracker onDataChange={onDataChange} request={request} key={`sprints-${tick}`} />;
       case "quality-gates":
-        return <QualityGates onDataChange={onDataChange} request={request} key={`gates-${tick}`} />;
+        return (
+          <div key={`gates-${tick}`}>
+            <QualityGates onDataChange={onDataChange} request={request} />
+            <div style={{ marginTop: 24 }}>
+              <GateHistory request={request} />
+            </div>
+          </div>
+        );
     }
   };
 
@@ -58,6 +75,9 @@ function viewTitle(view: View): string {
     dashboard: "Dashboard",
     specs: "Specs",
     scorecards: "31-Pillar Scorecards",
+    validation: "Spec Validation",
+    compare: "Pillar Comparison",
+    backlog: "Backlog Board",
     sprints: "Sprint Tracker",
     "quality-gates": "Quality Gates",
   };
