@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0](https://github.com/KooshaPari/nanovms/compare/v0.1.0...v0.2.0) (2026-08-21)
+
+
+### Features
+
+* add Docker/gVisor/Firecracker sandbox adapters, i18n locales, perf baselines ([384fadf](https://github.com/KooshaPari/nanovms/commit/384fadf672a91363a6cb5003c11dde1e756726f1))
+* add e2e tests, release-please, SBOM workflow, and i18n locales ([5da5475](https://github.com/KooshaPari/nanovms/commit/5da5475e2fcdab286b42d623e999801171624544))
+* **ci:** add Docker-in-Docker integration tests, perf trend tracking, and SLA/SLO docs ([34acb5a](https://github.com/KooshaPari/nanovms/commit/34acb5a92427ae654150e83075fc7bcfdaeb192a))
+* **desktop:** M1 - AgilePlus desktop shell with spec editor, pillar scorecards, and sprint tracker ([69aeb05](https://github.com/KooshaPari/nanovms/commit/69aeb0562d9da7f7d96e334132bf3adb3a3bfc0a))
+* **devex:** add ADRs, DORA metrics, Docker dev env, and incident response playbook ([b7a3113](https://github.com/KooshaPari/nanovms/commit/b7a3113c2b328a17d5421a5c63fba240723feaa5))
+* **i18n:** add internationalization scaffolding with English locale ([123874b](https://github.com/KooshaPari/nanovms/commit/123874b9623f7469b70259d59ccfa643b14e3631))
+* **infra:** add OpenTelemetry, chaos testing, perf dashboard, and multi-region docs ([657d7c6](https://github.com/KooshaPari/nanovms/commit/657d7c65612c7f396336e65b44797bc705aac466))
+* **security:** add Trivy scan, issue templates, benchmarks, and wire i18n into agentctl ([191f8a3](https://github.com/KooshaPari/nanovms/commit/191f8a3fc17c6a7cd627a35602ab0462b4a8bdcc))
+* **sre:** add chaos CI gate, Terraform IaC, SLO burn rate alerting, and OTel collector config ([f248d7f](https://github.com/KooshaPari/nanovms/commit/f248d7f2bd59d2268614f749df3a085b6e4d6f56))
+* **sre:** add SLO alerting, OTel deployment scripts, terraform validate CI ([23ee367](https://github.com/KooshaPari/nanovms/commit/23ee3672ff35c1fdc9dc66cd446e33818282fa2a))
+* **sre:** add SLO monitoring, Terraform CI validation, and performance dashboard ([c19e6ea](https://github.com/KooshaPari/nanovms/commit/c19e6ea5bf162deefa94ec63934850e0a1b4bbb8))
+* **testing:** add adapter integration tests, fuzz harnesses, 3 new locales, and codeowners verification ([54653f9](https://github.com/KooshaPari/nanovms/commit/54653f920112e01c992736bf7fddae882f7bc30b))
+* **tests:** expand test coverage for runtime, orchestrate, and sandbox registry; add metrics + observability ([e5a4f00](https://github.com/KooshaPari/nanovms/commit/e5a4f007cda428d564e9698ba1927c2dd2afaa9f))
+* **validation:** M2 - Spec validation, trend charts, version history, backlog board, gate history, and pillar comparison ([4fc6f19](https://github.com/KooshaPari/nanovms/commit/4fc6f192437f2a90270744386ef2c6a1a1be5dd8))
+
+
+### Bug Fixes
+
+* **ci:** remove invalid release-please inputs (default-branch, changelog-types) ([ad020a3](https://github.com/KooshaPari/nanovms/commit/ad020a3cf4e78f7c4aa862dfa5299d482261e504))
+
 ## [Unreleased]
 
 ### Added
