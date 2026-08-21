@@ -1,4 +1,13 @@
-name: Deploy OTel Collector (NanoVMS)
+# OpenTelemetry Collector — Production Deployment
+# ================================================
+# Deploys the OTel collector stack to a cloud environment.
+# Supports two modes:
+#   1. GitHub-hosted runner (self-contained Docker Compose)
+#   2. Remote host via SSH (AWS EC2, GCP CE, or any Linux host)
+#
+# Triggered via workflow_dispatch with environment selection.
+
+name: Deploy OTel Collector (nanovms)
 
 on:
   workflow_dispatch:
@@ -10,15 +19,179 @@ on:
         type: choice
         options:
           - sandbox
+          - staging
           - production
+      deploy_mode:
+        description: 'Deployment mode'
+        required: true
+        default: 'runner'
+        type: choice
+        options:
+          - runner
+          - remote-ssh
+      production_flag:
+        description: 'Use production compose file'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+env:
+  HEALTH_TIMEOUT: 90
 
 jobs:
-  deploy:
+  # ── Validate ──────────────────────────────────────────────────────
+  validate:
+    name: Validate OTel Configuration
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment }}
-    
+    timeout-minutes: 5
     steps:
-      - name: Checkout repository
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate collector config
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/otel/collector-config.yaml:/etc/otelcol/config.yaml:ro" \
+            otel/opentelemetry-collector-contrib:latest \
+            --config=/etc/otelcol/config.yaml --dry-run
+
+      - name: Validate docker-compose syntax
+        run: |
+          cd otel
+          docker compose config --quiet
+
+      - name: Validate production compose syntax
+        run: |
+          cd otel
+          docker compose -f docker-compose.production.yml config --quiet
+
+  # ── Deploy on GitHub-hosted runner ────────────────────────────────
+  deploy-runner:
+    name: Deploy to Runner (${{ github.event.inputs.environment }})
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.event.inputs.deploy_mode == 'runner'
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy OTel stack
+        run: |
+          chmod +x scripts/deploy-otel.sh
+          if [ "${{ github.event.inputs.production_flag }}" = "true" ]; then
+            ./scripts/deploy-otel.sh --production
+          else
+            ./scripts/deploy-otel.sh
+          fi
+
+      - name: Verify all endpoints
+        run: |
+          echo "Verifying endpoints …"
+          sleep 5
+
+          check() {
+            local label="$1" url="$2"
+            if curl -sf "${url}" &>/dev/null; then
+              echo "  [OK]   ${label}"
+            else
+              echo "  [WARN] ${label} — unreachable"
+            fi
+          }
+
+          check "Collector"  "http://localhost:13133/"
+          check "OTLP HTTP"  "http://localhost:4318/v1/traces"
+          check "Jaeger UI"  "http://localhost:16686/"
+          check "Prometheus" "http://localhost:9090/-/healthy"
+          check "Loki"       "http://localhost:3100/ready"
+          check "Grafana"    "http://localhost:3000/api/health"
+          check "zPages"     "http://localhost:55679/"
+
+      - name: Send test trace
+        run: |
+          curl -s -X POST http://localhost:4318/v1/traces \
+            -H "Content-Type: application/json" \
+            -d '{
+              "resourceSpans": [{
+                "resource": {
+                  "attributes": [
+                    {"key": "service.name", "value": {"stringValue": "nanovms-deploy-test"}},
+                    {"key": "deploy.env", "value": {"stringValue": "${{ github.event.inputs.environment }}"}},
+                    {"key": "sandbox.type", "value": {"stringValue": "microvm"}}
+                  ]
+                },
+                "scopeSpans": [{
+                  "scope": {"name": "deploy-test"},
+                  "spans": [{
+                    "traceId": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
+                    "spanId": "a1b2c3d4e5f6a7b8",
+                    "name": "deploy-verification-span",
+                    "kind": 1,
+                    "startTimeUnixNano": "1700000000000000000",
+                    "endTimeUnixNano": "1700000001000000000",
+                    "status": {"code": 1}
+                  }]
+                }]
+              }]
+            }'
+          echo "Test trace sent."
+
+      - name: Send test log to Loki
+        run: |
+          curl -s -X POST http://localhost:4318/v1/logs \
+            -H "Content-Type: application/json" \
+            -d '{
+              "resourceLogs": [{
+                "resource": {
+                  "attributes": [
+                    {"key": "service.name", "value": {"stringValue": "nanovms-deploy-test"}},
+                    {"key": "sandbox.type", "value": {"stringValue": "microvm"}}
+                  ]
+                },
+                "scopeLogs": [{
+                  "scope": {"name": "deploy-test"},
+                  "logRecords": [{
+                    "timeUnixNano": "1700000000000000000",
+                    "severityNumber": 9,
+                    "severityText": "INFO",
+                    "body": {"stringValue": "deploy verification log"},
+                    "attributes": [
+                      {"key": "deploy.env", "value": {"stringValue": "${{ github.event.inputs.environment }}"}}
+                    ]
+                  }]
+                }]
+              }]
+            }'
+          echo "Test log sent."
+
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          docker compose -f otel/docker-compose.yml logs --tail=200
+
+      - name: Cleanup
+        if: always()
+        run: |
+          chmod +x scripts/stop-otel.sh
+          if [ "${{ github.event.inputs.production_flag }}" = "true" ]; then
+            ./scripts/stop-otel.sh --production
+          else
+            ./scripts/stop-otel.sh
+          fi
+
+  # ── Deploy via SSH to remote host ─────────────────────────────────
+  deploy-remote:
+    name: Deploy to Remote (${{ github.event.inputs.environment }})
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.event.inputs.deploy_mode == 'remote-ssh'
+    timeout-minutes: 15
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup SSH key
@@ -29,26 +202,34 @@ jobs:
       - name: Add host to known_hosts
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Create remote directory
         run: |
-          ssh root@${{ secrets.DEPLOY_HOST }} "mkdir -p /opt/nanovms/deploy"
+          ssh "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "mkdir -p /opt/nanovms/otel"
 
-      - name: Copy deployment files
+      - name: Copy OTel configuration and scripts
         run: |
-          scp deploy/otel-collector.sh root@${{ secrets.DEPLOY_HOST }}:/opt/nanovms/deploy/
-          scp deploy/otel-collector.service root@${{ secrets.DEPLOY_HOST }}:/opt/nanovms/deploy/
+          scp -r otel/* \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/nanovms/otel/"
+          scp scripts/deploy-otel.sh scripts/stop-otel.sh scripts/otel-status.sh \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/nanovms/otel/"
 
-      - name: Install and start service
+      - name: Deploy on remote host
         run: |
-          ssh root@${{ secrets.DEPLOY_HOST }} " \
-            cp /opt/nanovms/deploy/otel-collector.service /etc/systemd/system/ && \
-            systemctl daemon-reload && \
-            systemctl enable --now otel-collector && \
-            systemctl status otel-collector --no-pager \
+          DEPLOY_FLAG=""
+          if [ "${{ github.event.inputs.production_flag }}" = "true" ]; then
+            DEPLOY_FLAG="--production"
+          fi
+          ssh "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" " \
+            cd /opt/nanovms/otel && \
+            chmod +x deploy-otel.sh stop-otel.sh otel-status.sh && \
+            ./deploy-otel.sh ${DEPLOY_FLAG} \
           "
 
-      - name: Verify deployment
+      - name: Verify remote deployment
         run: |
-          ssh root@${{ secrets.DEPLOY_HOST }} "curl -s http://localhost:13133/ || echo 'Health check pending...'"
+          ssh "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" " \
+            curl -sf http://localhost:13133/ && echo 'Remote collector is healthy' \
+          "

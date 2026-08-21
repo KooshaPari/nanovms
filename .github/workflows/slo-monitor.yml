@@ -393,3 +393,186 @@ jobs:
           name: slo-burn-rate-report
           path: /tmp/slo-report.json
           retention-days: 30
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: slo-monitor
+    if: always()
+    steps:
+      - name: Check available secrets
+        id: secrets
+        run: |
+          HAS_SLACK="false"
+          HAS_PD="false"
+          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+            HAS_SLACK="true"
+          fi
+          if [ -n "${{ secrets.PAGERDUTY_KEY }}" ]; then
+            HAS_PD="true"
+          fi
+          echo "has_slack=${HAS_SLACK}" >> "$GITHUB_OUTPUT"
+          echo "has_pagerduty=${HAS_PD}" >> "$GITHUB_OUTPUT"
+          echo "Slack configured: ${HAS_SLACK}"
+          echo "PagerDuty configured: ${HAS_PD}"
+
+      - name: Send Slack notification
+        if: steps.secrets.outputs.has_slack == 'true'
+        run: |
+          REPO="${{ github.repository }}"
+          SEVERITY="${{ needs.slo-monitor.outputs.severity }}"
+          BURN_RATE="${{ needs.slo-monitor.outputs.burn_rate }}"
+          SUCCESS_RATE="${{ needs.slo-monitor.outputs.success_rate }}"
+          CONSUMED="${{ needs.slo-monitor.outputs.budget_consumed_pct }}"
+          REMAINING="${{ needs.slo-monitor.outputs.budget_remaining_pct }}"
+          EXHAUSTION="${{ needs.slo-monitor.outputs.projected_exhaustion }}"
+          SLO_TARGET="${{ needs.slo-monitor.outputs.slo_target }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          # Determine color and emoji based on severity
+          case "${SEVERITY}" in
+            PAGE) COLOR="#ff0000"; SLACK_EMOJI=":rotating_light:" ;;
+            WARN) COLOR="#ff9900"; SLACK_EMOJI=":warning:" ;;
+            INFO) COLOR="#ffff00"; SLACK_EMOJI=":information_source:" ;;
+            *)    COLOR="#00ff00"; SLACK_EMOJI=":white_check_mark:" ;;
+          esac
+
+          PAYLOAD=$(cat <<SLACKEOF
+          {
+            "attachments": [
+              {
+                "color": "${COLOR}",
+                "blocks": [
+                  {
+                    "type": "header",
+                    "text": {
+                      "type": "plain_text",
+                      "text": "${SLACK_EMOJI} SLO Burn Rate Alert - ${REPO}"
+                    }
+                  },
+                  {
+                    "type": "section",
+                    "fields": [
+                      { "type": "mrkdwn", "text": "*Severity:*\n${SEVERITY}" },
+                      { "type": "mrkdwn", "text": "*Burn Rate:*\n${BURN_RATE}x" },
+                      { "type": "mrkdwn", "text": "*Success Rate:*\n${SUCCESS_RATE}% (SLO: ${SLO_TARGET}%)" },
+                      { "type": "mrkdwn", "text": "*Budget Consumed:*\n${CONSUMED}%" },
+                      { "type": "mrkdwn", "text": "*Budget Remaining:*\n${REMAINING}%" },
+                      { "type": "mrkdwn", "text": "*Projected Exhaustion:*\n${EXHAUSTION}" }
+                    ]
+                  },
+                  {
+                    "type": "actions",
+                    "elements": [
+                      {
+                        "type": "button",
+                        "text": { "type": "plain_text", "text": "View Workflow Run" },
+                        "url": "${RUN_URL}"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+          SLACKEOF
+          )
+
+          curl -sf -X POST \
+            -H 'Content-type: application/json' \
+            --data "${PAYLOAD}" \
+            "${{ secrets.SLACK_WEBHOOK_URL }}"
+
+          echo "Slack notification sent successfully"
+
+      - name: Create PagerDuty incident
+        if: steps.secrets.outputs.has_pagerduty == 'true' && needs.slo-monitor.outputs.severity == 'PAGE'
+        run: |
+          REPO="${{ github.repository }}"
+          BURN_RATE="${{ needs.slo-monitor.outputs.burn_rate }}"
+          SUCCESS_RATE="${{ needs.slo-monitor.outputs.success_rate }}"
+          CONSUMED="${{ needs.slo-monitor.outputs.budget_consumed_pct }}"
+          EXHAUSTION="${{ needs.slo-monitor.outputs.projected_exhaustion }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          PAYLOAD=$(cat <<PDEOF
+          {
+            "routing_key": "${{ secrets.PAGERDUTY_KEY }}",
+            "event_action": "trigger",
+            "payload": {
+              "summary": "SLO Burn Rate ${BURN_RATE}x - ${REPO}",
+              "severity": "critical",
+              "source": "slo-monitor",
+              "component": "ci-slo",
+              "group": "${REPO}",
+              "class": "slo-burn-rate",
+              "custom_details": {
+                "burn_rate": "${BURN_RATE}x",
+                "success_rate": "${SUCCESS_RATE}%",
+                "budget_consumed": "${CONSUMED}%",
+                "projected_exhaustion": "${EXHAUSTION}",
+                "workflow_url": "${RUN_URL}"
+              }
+            }
+          }
+          PDEOF
+          )
+
+          curl -sf -X POST \
+            -H "Content-Type: application/json" \
+            --data "${PAYLOAD}" \
+            "https://events.pagerduty.com/v2/enqueue"
+
+          echo "PagerDuty incident created successfully"
+
+      - name: Post notification summary
+        if: always()
+        run: |
+          SEVERITY="${{ needs.slo-monitor.outputs.severity }}"
+          BURN_RATE="${{ needs.slo-monitor.outputs.burn_rate }}"
+          SUCCESS_RATE="${{ needs.slo-monitor.outputs.success_rate }}"
+          CONSUMED="${{ needs.slo-monitor.outputs.budget_consumed_pct }}"
+          REMAINING="${{ needs.slo-monitor.outputs.budget_remaining_pct }}"
+          CONSUMED_MIN="${{ needs.slo-monitor.outputs.budget_consumed_min }}"
+          REMAINING_MIN="${{ needs.slo-monitor.outputs.budget_remaining_min }}"
+          EXHAUSTION="${{ needs.slo-monitor.outputs.projected_exhaustion }}"
+          SLO_TARGET="${{ needs.slo-monitor.outputs.slo_target }}"
+          SLACK_STATUS="${{ steps.secrets.outputs.has_slack }}"
+          PD_STATUS="${{ steps.secrets.outputs.has_pagerduty }}"
+
+          {
+            echo "## Alerting Channel Summary"
+            echo ""
+            echo "| Channel | Status |"
+            echo "|---------|--------|"
+
+            if [ "${SLACK_STATUS}" = "true" ]; then
+              echo "| **Slack** | Notification sent |"
+            else
+              echo "| **Slack** | Not configured (missing \`SLACK_WEBHOOK_URL\` secret) |"
+            fi
+
+            if [ "${PD_STATUS}" = "true" ] && [ "${SEVERITY}" = "PAGE" ]; then
+              echo "| **PagerDuty** | Incident created (burn rate >= 14.4x) |"
+            elif [ "${PD_STATUS}" = "true" ]; then
+              echo "| **PagerDuty** | Not triggered (burn rate < 14.4x, severity: ${SEVERITY}) |"
+            else
+              echo "| **PagerDuty** | Not configured (missing \`PAGERDUTY_KEY\` secret) |"
+            fi
+
+            echo ""
+            echo "### Current SLO Status"
+            echo ""
+            echo "| Metric | Value |"
+            echo "|--------|-------|"
+            echo "| **SLO Target** | ${SLO_TARGET}% CI success rate |"
+            echo "| **Current Success Rate** | ${SUCCESS_RATE}% |"
+            echo "| **Error Budget Consumed** | ${CONSUMED_MIN} min (${CONSUMED}%) |"
+            echo "| **Remaining Budget** | ${REMAINING_MIN} min (${REMAINING}%) |"
+            echo "| **Current Burn Rate** | ${BURN_RATE}x |"
+            echo "| **Projected Exhaustion** | ${EXHAUSTION} |"
+            echo ""
+            echo "**Alert Severity:** ${SEVERITY}"
+            echo ""
+            echo "---"
+            echo "*Generated at $(date -u +%Y-%m-%dT%H:%M:%SZ)*"
+          } >> $GITHUB_STEP_SUMMARY
