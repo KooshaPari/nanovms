@@ -1,0 +1,54 @@
+name: Deploy OTel Collector (NanoVMS)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'sandbox'
+        type: choice
+        options:
+          - sandbox
+          - production
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Add host to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Create remote directory
+        run: |
+          ssh root@${{ secrets.DEPLOY_HOST }} "mkdir -p /opt/nanovms/deploy"
+
+      - name: Copy deployment files
+        run: |
+          scp deploy/otel-collector.sh root@${{ secrets.DEPLOY_HOST }}:/opt/nanovms/deploy/
+          scp deploy/otel-collector.service root@${{ secrets.DEPLOY_HOST }}:/opt/nanovms/deploy/
+
+      - name: Install and start service
+        run: |
+          ssh root@${{ secrets.DEPLOY_HOST }} " \
+            cp /opt/nanovms/deploy/otel-collector.service /etc/systemd/system/ && \
+            systemctl daemon-reload && \
+            systemctl enable --now otel-collector && \
+            systemctl status otel-collector --no-pager \
+          "
+
+      - name: Verify deployment
+        run: |
+          ssh root@${{ secrets.DEPLOY_HOST }} "curl -s http://localhost:13133/ || echo 'Health check pending...'"

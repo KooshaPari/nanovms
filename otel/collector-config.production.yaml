@@ -1,0 +1,182 @@
+# NanoVMS Production OTel Collector Configuration
+# ================================================
+# Hardened for production workloads with TLS, memory safety, and observability
+# of the collector itself. Pin this file to a specific version and audit
+# changes via pull request.
+#
+# Environment-specific overrides are loaded via ${ENV_VAR} syntax and
+# supplied by the deployment scripts or Kubernetes Secrets/ConfigMaps.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: ${OTEL_COLLECTOR_GRPC_ENDPOINT:0.0.0.0:4317}
+        transport: tcp
+        max_recv_msg_size_mib: 4
+        read_buffer_size: 524288
+      http:
+        endpoint: ${OTEL_COLLECTOR_HTTP_ENDPOINT:0.0.0.0:4318}
+        max_request_body_size: 5242880
+    cors:
+      allowed_origins:
+        - ${OTEL_CORS_ORIGIN:http://localhost:3000}
+    include_metadata: true
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: ${OTEL_MEM_LIMIT_MIB:512}
+    spike_limit_mib: ${OTEL_MEM_SPIKE_MIB:128}
+    percentage_limit: 80
+
+  batch:
+    send_batch_size: ${OTEL_BATCH_SIZE:8192}
+    send_batch_max_size: ${OTEL_BATCH_MAX_SIZE:16384}
+    timeout: ${OTEL_BATCH_TIMEOUT:5s}
+    linger: 1s
+
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: ${OTEL_ENV:production}
+        action: upsert
+      - key: sandbox.runtime
+        value: nanovms
+        action: upsert
+      - key: sandbox.type
+        value: microvm
+        action: upsert
+      - key: os.type
+        value: unikernel
+        action: upsert
+      - key: service.version
+        value: ${OTEL_SERVICE_VERSION:unknown}
+        action: upsert
+      - key: service.instance.id
+        value: ${OTEL_INSTANCE_ID:unknown}
+        action: upsert
+
+  attributes:
+    actions:
+      - key: http.request.header.authorization
+        action: delete
+      - key: http.request.header.cookie
+        action: delete
+      - key: db.statement
+        action: hash
+      - key: user.id
+        action: hash
+
+  tail_sampling:
+    decision_wait: 10s
+    num_traces: 100000
+    expected_new_traces_per_sec: 1000
+    policies:
+      # Always sample errors
+      - name: errors
+        type: status_code
+        status_code:
+          status_codes: [ERROR]
+      # Sample slow requests (>1s)
+      - name: slow-requests
+        type: latency
+        latency:
+          threshold_ms: 1000
+      # Probabilistic: sample 10% of successful requests
+      - name: probabilistic
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: ${OTEL_SAMPLING_PERCENTAGE:10}
+
+connectors:
+  spanmetrics:
+    histogram:
+      explicit:
+        buckets: [1ms, 5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2s, 5s]
+    dimensions:
+      - name: service.name
+      - name: sandbox.name
+      - name: sandbox.status
+      - name: http.method
+      - name: http.status_code
+    dimensions_cache_size: 10000
+    aggregation_temporality: cumulative
+    namespace: nanovms.spanmetrics
+
+exporters:
+  otlp/jaeger:
+    endpoint: ${JAEGER_ENDPOINT:jaeger:4317}
+    tls:
+      insecure: ${OTEL_TLS_INSECURE:false}
+      cert_file: ${OTEL_TLS_CERT:}
+      key_file: ${OTEL_TLS_KEY:}
+      ca_file: ${OTEL_TLS_CA:}
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+    sending_queue:
+      enabled: true
+      num_consumers: 10
+      queue_size: 5000
+
+  prometheus:
+    endpoint: ${OTEL_PROM_ENDPOINT:0.0.0.0:8889}
+    namespace: nanovms
+    resource_to_telemetry_conversion:
+      enabled: true
+    send_timestamps: true
+    metric_expiration: 60s
+
+  loki:
+    endpoint: ${LOKI_ENDPOINT:http://loki:3100/loki/api/v1/push}
+    tenant: ${OTEL_LOKI_TENANT:nanovms}
+    labels:
+      attributes:
+        service.name: service
+        sandbox.name: sandbox
+        deployment.environment: env
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+
+  debug:
+    verbosity: ${OTEL_DEBUG_VERBOSITY:basic}
+
+extensions:
+  health_check:
+    endpoint: ${OTEL_HEALTH_ENDPOINT:0.0.0.0:13133}
+  zpages:
+    endpoint: 0.0.0.0:55679
+  pprof:
+    endpoint: 0.0.0.0:1777
+
+service:
+  extensions: [health_check, zpages, pprof]
+  telemetry:
+    logs:
+      level: ${OTEL_LOG_LEVEL:info}
+    metrics:
+      level: detailed
+      address: 0.0.0.0:8888
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, tail_sampling, batch]
+      exporters: [otlp/jaeger]
+    traces/spanmetrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [spanmetrics]
+    metrics:
+      receivers: [otlp, spanmetrics]
+      processors: [memory_limiter, resource, batch]
+      exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, attributes, batch]
+      exporters: [loki, debug]

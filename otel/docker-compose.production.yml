@@ -1,0 +1,272 @@
+# NanoVMS Production OTel Stack
+# ==============================
+# Production-grade deployment with pinned versions, TLS, resource limits,
+# health checks, and secrets management.
+#
+# Usage:
+#   cp .env.production.template .env.production   # fill in secrets
+#   docker compose -f docker-compose.production.yml --env-file .env.production up -d
+#
+# Prerequisites:
+#   - Docker 24+ and Docker Compose v2
+#   - Valid TLS certificates (or generate self-signed via otel-collector-setup.sh)
+#   - .env.production populated with cluster secrets
+
+name: nanovms-otel
+
+services:
+  # ---------------------------------------------------------------
+  # OpenTelemetry Collector (Contrib)
+  # ---------------------------------------------------------------
+  collector:
+    image: otel/opentelemetry-collector-contrib:0.108.0
+    container_name: nanovms-otel-collector
+    restart: unless-stopped
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./collector-config.production.yaml:/etc/otelcol/config.yaml:ro
+      - ./certs:/etc/otelcol/certs:ro
+      - collector-logs:/var/log/otelcol
+    ports:
+      - "${OTEL_GRPC_PORT:-4317}:4317"
+      - "${OTEL_HTTP_PORT:-4318}:4318"
+      - "127.0.0.1:${OTEL_PROM_PORT:-8889}:8889"   # metrics — host-only
+      - "127.0.0.1:${OTEL_HEALTH_PORT:-13133}:13133" # health — host-only
+      - "127.0.0.1:${OTEL_ZPAGES_PORT:-55679}:55679" # zpages — host-only
+    environment:
+      OTEL_ENV: ${OTEL_ENV:-production}
+      OTEL_SERVICE_VERSION: ${OTEL_SERVICE_VERSION:-0.1.0}
+      OTEL_INSTANCE_ID: ${OTEL_INSTANCE_ID:-nanovms-collector-1}
+      OTEL_MEM_LIMIT_MIB: ${OTEL_MEM_LIMIT_MIB:-512}
+      OTEL_MEM_SPIKE_MIB: ${OTEL_MEM_SPIKE_MIB:-128}
+      OTEL_BATCH_SIZE: ${OTEL_BATCH_SIZE:-8192}
+      OTEL_BATCH_MAX_SIZE: ${OTEL_BATCH_MAX_SIZE:-16384}
+      OTEL_BATCH_TIMEOUT: ${OTEL_BATCH_TIMEOUT:-5s}
+      OTEL_SAMPLING_PERCENTAGE: ${OTEL_SAMPLING_PERCENTAGE:-10}
+      OTEL_TLS_INSECURE: ${OTEL_TLS_INSECURE:-false}
+      OTEL_TLS_CERT: /etc/otelcol/certs/collector.crt
+      OTEL_TLS_KEY: /etc/otelcol/certs/collector.key
+      OTEL_TLS_CA: /etc/otelcol/certs/ca.crt
+      JAEGER_ENDPOINT: jaeger:4317
+      LOKI_ENDPOINT: http://loki:3100/loki/api/v1/push
+      OTEL_LOG_LEVEL: ${OTEL_LOG_LEVEL:-info}
+      OTEL_DEBUG_VERBOSITY: ${OTEL_DEBUG_VERBOSITY:-basic}
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: "1.0"
+        reservations:
+          memory: 512m
+          cpus: "0.5"
+    networks:
+      - otel-internal
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:13133"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+    depends_on:
+      jaeger:
+        condition: service_healthy
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------
+  # Jaeger (all-in-one)
+  # ---------------------------------------------------------------
+  jaeger:
+    image: jaegertracing/all-in-one:1.60
+    container_name: nanovms-jaeger
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+      COLLECTOR_OTLP_GRPC_HOST_PORT: "0.0.0.0:14250"
+      COLLECTOR_OTLP_HTTP_HOST_PORT: "0.0.0.0:14268"
+      SPAN_STORAGE_TYPE: ${JAEGER_STORAGE_TYPE:-badger}
+      BADGER_DIRECTORY_VALUE: /badger/data
+      BADGER_DIRECTORY_KEY: /badger/key
+      BADGER_EPHEMERAL: "false"
+    volumes:
+      - jaeger-data:/badger
+    ports:
+      - "127.0.0.1:${JAEGER_UI_PORT:-16686}:16686"   # Jaeger UI — host-only
+    networks:
+      - otel-internal
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:14269/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: "0.5"
+        reservations:
+          memory: 256m
+          cpus: "0.25"
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------
+  # Prometheus
+  # ---------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: nanovms-prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+      - "--storage.tsdb.retention.size=10GB"
+      - "--web.enable-lifecycle"
+      - "--web.enable-admin-api"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:${PROM_PORT:-9090}:9090"
+    networks:
+      - otel-internal
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: "0.5"
+        reservations:
+          memory: 256m
+          cpus: "0.25"
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------
+  # Loki
+  # ---------------------------------------------------------------
+  loki:
+    image: grafana/loki:3.1.1
+    container_name: nanovms-loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    ports:
+      - "127.0.0.1:${LOKI_PORT:-3100}:3100"
+    networks:
+      - otel-internal
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3100/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "0.5"
+        reservations:
+          memory: 128m
+          cpus: "0.1"
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------
+  # Grafana
+  # ---------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: nanovms-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:3000}
+      GF_SECURITY_COOKIE_SECURE: "true"
+      GF_SECURITY_COOKIE_SAMESITE: strict
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
+    networks:
+      - otel-internal
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.5"
+        reservations:
+          memory: 128m
+          cpus: "0.1"
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+# ---------------------------------------------------------------
+# Networks
+# ---------------------------------------------------------------
+networks:
+  otel-internal:
+    driver: bridge
+    name: nanovms-otel-internal
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+# ---------------------------------------------------------------
+# Volumes
+# ---------------------------------------------------------------
+volumes:
+  prometheus-data:
+    name: nanovms-prometheus-data
+  loki-data:
+    name: nanovms-loki-data
+  grafana-data:
+    name: nanovms-grafana-data
+  jaeger-data:
+    name: nanovms-jaeger-data
+  collector-logs:
+    name: nanovms-collector-logs

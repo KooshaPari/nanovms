@@ -1,0 +1,485 @@
+# ============================================================================
+# otel-collector.yaml — Kubernetes deployment for NanoVMS OTel Collector
+# ============================================================================
+#
+# Deploys a production-grade OTel Collector as a Deployment + Service within
+# the nvms namespace. Designed to co-exist with the nvms-daemon DaemonSet.
+#
+# Usage:
+#   kubectl apply -f deploy/k8s/otel-collector.yaml
+#   kubectl delete -f deploy/k8s/otel-collector.yaml
+#
+# Prerequisites:
+#   - nvms namespace exists (from nvms-daemon.yaml)
+#   - TLS secrets created (see deploy/otel/otel-collector-setup.sh)
+# ============================================================================
+
+---
+# ---------------------------------------------------------------
+# Namespace (idempotent — no-op if already exists)
+# ---------------------------------------------------------------
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nvms
+  labels:
+    app.kubernetes.io/part-of: nanovms
+
+---
+# ---------------------------------------------------------------
+# ConfigMap: OTel Collector configuration
+# ---------------------------------------------------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+  namespace: nvms
+  labels:
+    app.kubernetes.io/name: otel-collector
+    app.kubernetes.io/component: observability
+data:
+  config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+            transport: tcp
+            max_recv_msg_size_mib: 4
+          http:
+            endpoint: 0.0.0.0:4318
+            max_request_body_size: 5242880
+        cors:
+          allowed_origins:
+            - "*"
+        include_metadata: true
+
+    processors:
+      memory_limiter:
+        check_interval: 1s
+        limit_mib: 512
+        spike_limit_mib: 128
+        percentage_limit: 80
+
+      batch:
+        send_batch_size: 8192
+        send_batch_max_size: 16384
+        timeout: 5s
+        linger: 1s
+
+      resource:
+        attributes:
+          - key: deployment.environment
+            value: production
+            action: upsert
+          - key: sandbox.runtime
+            value: nanovms
+            action: upsert
+          - key: sandbox.type
+            value: microvm
+            action: upsert
+          - key: os.type
+            value: unikernel
+            action: upsert
+          - key: k8s.cluster.name
+            value: nanovms
+            action: upsert
+
+      tail_sampling:
+        decision_wait: 10s
+        num_traces: 100000
+        expected_new_traces_per_sec: 1000
+        policies:
+          - name: errors
+            type: status_code
+            status_code:
+              status_codes: [ERROR]
+          - name: slow-requests
+            type: latency
+            latency:
+              threshold_ms: 1000
+          - name: probabilistic
+            type: probabilistic
+            probabilistic:
+              sampling_percentage: 10
+
+      attributes:
+        actions:
+          - key: http.request.header.authorization
+            action: delete
+          - key: http.request.header.cookie
+            action: delete
+          - key: db.statement
+            action: hash
+          - key: user.id
+            action: hash
+
+    connectors:
+      spanmetrics:
+        histogram:
+          explicit:
+            buckets: [1ms, 5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2s, 5s]
+        dimensions:
+          - name: service.name
+          - name: sandbox.name
+          - name: sandbox.status
+          - name: http.method
+          - name: http.status_code
+        dimensions_cache_size: 10000
+        namespace: nanovms.spanmetrics
+
+    exporters:
+      otlp/jaeger:
+        endpoint: jaeger-collector.nvms:4317
+        tls:
+          insecure: true
+        retry_on_failure:
+          enabled: true
+          initial_interval: 5s
+          max_interval: 30s
+          max_elapsed_time: 300s
+        sending_queue:
+          enabled: true
+          num_consumers: 10
+          queue_size: 5000
+
+      prometheus:
+        endpoint: 0.0.0.0:8889
+        namespace: nanovms
+        resource_to_telemetry_conversion:
+          enabled: true
+        send_timestamps: true
+        metric_expiration: 60s
+
+      debug:
+        verbosity: basic
+
+    extensions:
+      health_check:
+        endpoint: 0.0.0.0:13133
+      zpages:
+        endpoint: 0.0.0.0:55679
+      pprof:
+        endpoint: 0.0.0.0:1777
+
+    service:
+      extensions: [health_check, zpages, pprof]
+      telemetry:
+        logs:
+          level: info
+        metrics:
+          level: detailed
+          address: 0.0.0.0:8888
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, resource, tail_sampling, batch]
+          exporters: [otlp/jaeger]
+        traces/spanmetrics:
+          receivers: [otlp]
+          processors: [memory_limiter, resource, batch]
+          exporters: [spanmetrics]
+        metrics:
+          receivers: [otlp, spanmetrics]
+          processors: [memory_limiter, resource, batch]
+          exporters: [prometheus]
+        logs:
+          receivers: [otlp]
+          processors: [memory_limiter, resource, attributes, batch]
+          exporters: [debug]
+
+---
+# ---------------------------------------------------------------
+# Secret: TLS certificates (placeholder — replace with actual)
+# ---------------------------------------------------------------
+apiVersion: v1
+kind: Secret
+metadata:
+  name: otel-collector-tls
+  namespace: nvms
+  labels:
+    app.kubernetes.io/name: otel-collector
+    app.kubernetes.io/component: observability
+type: kubernetes.io/tls
+data: {}
+  # Populated by deploy script or external secret manager:
+  #   tls.crt: <base64-encoded>
+  #   tls.key: <base64-encoded>
+  #   ca.crt:  <base64-encoded>
+
+---
+# ---------------------------------------------------------------
+# ServiceAccount
+# ---------------------------------------------------------------
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: otel-collector
+  namespace: nvms
+  labels:
+    app.kubernetes.io/name: otel-collector
+    app.kubernetes.io/component: observability
+
+---
+# ---------------------------------------------------------------
+# ClusterRole: Prometheus scrape permissions
+# ---------------------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: otel-collector
+  labels:
+    app.kubernetes.io/name: otel-collector
+    app.kubernetes.io/component: observability
+rules:
+  # Resource detection — read node/pod metadata
+  - apiGroups: [""]
+    resources: ["pods", "namespaces", "nodes", "services"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+
+---
+# ---------------------------------------------------------------
+# ClusterRoleBinding
+# ---------------------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: otel-collector
+  labels:
+    app.kubernetes.io/name: otel-collector
+    app.kubernetes.io/component: observability
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: otel-collector
+subjects:
+  - kind: ServiceAccount
+    name: otel-collector
+    namespace: nvms
+
+---
+# ---------------------------------------------------------------
+# Deployment
+# ---------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  namespace: nvms
+  labels:
+    app.kubernetes.io/name: otel-collector
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/part-of: nanovms
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: otel-collector
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: otel-collector
+        app.kubernetes.io/component: observability
+        app.kubernetes.io/part-of: nanovms
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8889"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: otel-collector
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: collector
+          image: otel/opentelemetry-collector-contrib:0.108.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - "--config=/etc/otelcol/config.yaml"
+          ports:
+            - name: otlp-grpc
+              containerPort: 4317
+              protocol: TCP
+            - name: otlp-http
+              containerPort: 4318
+              protocol: TCP
+            - name: metrics
+              containerPort: 8889
+              protocol: TCP
+            - name: health
+              containerPort: 13133
+              protocol: TCP
+            - name: zpages
+              containerPort: 55679
+              protocol: TCP
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: OTEL_INSTANCE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/otelcol/config.yaml
+              subPath: config.yaml
+              readOnly: true
+            - name: tls-certs
+              mountPath: /etc/otelcol/certs
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 13133
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 13133
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 2
+          startupProbe:
+            httpGet:
+              path: /
+              port: 13133
+            failureThreshold: 30
+            periodSeconds: 2
+      volumes:
+        - name: config
+          configMap:
+            name: otel-collector-config
+        - name: tls-certs
+          secret:
+            secretName: otel-collector-tls
+            optional: true
+        - name: tmp
+          emptyDir: {}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: otel-collector
+
+---
+# ---------------------------------------------------------------
+# Service: OTLP receivers (internal)
+# ---------------------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+  namespace: nvms
+  labels:
+    app.kubernetes.io/name: otel-collector
+    app.kubernetes.io/component: observability
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: otel-collector
+  ports:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: otlp-grpc
+      protocol: TCP
+    - name: otlp-http
+      port: 4318
+      targetPort: otlp-http
+      protocol: TCP
+    - name: metrics
+      port: 8889
+      targetPort: metrics
+      protocol: TCP
+
+---
+# ---------------------------------------------------------------
+# Service: Health check (internal)
+# ---------------------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector-health
+  namespace: nvms
+  labels:
+    app.kubernetes.io/name: otel-collector
+    app.kubernetes.io/component: observability
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: otel-collector
+  ports:
+    - name: health
+      port: 13133
+      targetPort: health
+      protocol: TCP
+
+---
+# ---------------------------------------------------------------
+# PodDisruptionBudget
+# ---------------------------------------------------------------
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: otel-collector
+  namespace: nvms
+  labels:
+    app.kubernetes.io/name: otel-collector
+    app.kubernetes.io/component: observability
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: otel-collector
+
+---
+# ---------------------------------------------------------------
+# ServiceMonitor (Prometheus Operator CRD — optional)
+# ---------------------------------------------------------------
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: otel-collector
+  namespace: nvms
+  labels:
+    app.kubernetes.io/name: otel-collector
+    app.kubernetes.io/component: observability
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: otel-collector
+  endpoints:
+    - port: metrics
+      interval: 15s
+      path: /metrics

@@ -1,0 +1,16 @@
+[Unit]
+Description=OpenTelemetry Collector for NanoVMS Sandbox
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/nanovms/deploy
+ExecStart=/opt/nanovms/deploy/otel-collector.sh up
+ExecStop=/opt/nanovms/deploy/otel-collector.sh down
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

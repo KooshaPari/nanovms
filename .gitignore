@@ -73,6 +73,7 @@ coverage/
 **/temp/
 .env.*
 !.env.example
+!.env.production.template
 **/.env.*.local
 .worktrees/
 .claude/worktrees/
