@@ -13,7 +13,6 @@ package sandbox
 import "github.com/kooshapari/nanovms/internal/ports"
 
 var _ ports.SandboxPort = (*Adapter)(nil)
-var _ ports.SandboxPort = (*gvisorAdapter)(nil)
 var _ ports.SandboxPort = (*landlockAdapter)(nil)
 var _ ports.SandboxPort = (*seccompAdapter)(nil)
 var _ ports.SandboxPort = (*wasmtimeAdapter)(nil)

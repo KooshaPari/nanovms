@@ -133,3 +133,4 @@ nanovms
 
 # Worktrees (local dev isolation)
 .worktrees/
+"agentctl.exe"  
