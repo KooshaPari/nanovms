@@ -20,6 +20,10 @@ import (
 	nvmsruntime "github.com/kooshapari/nanovms/pkg/runtime"
 )
 
+// ResourceManifest is a type alias for gpu.ResourceManifest, allowing the
+// orchestrate package to reference it without the gpu. prefix.
+type ResourceManifest = gpu.ResourceManifest
+
 const (
 	EvaluationActionVersion = "nanovms.io/evaluation-action/v1"
 	ExternalEngineDocker    = "docker"
