@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
-	"strings"
 
 	"github.com/kooshapari/nanovms/internal/domain"
 	"github.com/kooshapari/nanovms/internal/ports"
@@ -164,24 +163,37 @@ func (a *Adapter) Status(ctx context.Context, id string) (domain.SandboxStatus, 
 
 // Exec executes a command in the VM.
 func (a *Adapter) Exec(ctx context.Context, id string, cmd []string, stdin io.Reader, stdout, stderr io.Writer) error {
+	if len(cmd) == 0 {
+		return fmt.Errorf("no command provided for exec")
+	}
 	switch a.Name() {
 	case "firecracker":
-		// Firecracker uses vsock for commands
-		firecrackerCmd := exec.CommandContext(ctx, "ssh", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "root@localhost", "-p", "22", strings.Join(cmd, " "))
+		// Firecracker uses vsock for commands — ssh takes a single command string,
+		// but we pass it as the last argv element, not via bash -c.
+		sshArgs := []string{"-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null",
+			"root@localhost", "-p", "22", cmd[0]}
+		sshArgs = append(sshArgs, cmd[1:]...)
+		firecrackerCmd := exec.CommandContext(ctx, "ssh", sshArgs...)
 		firecrackerCmd.Stdin = stdin
 		firecrackerCmd.Stdout = stdout
 		firecrackerCmd.Stderr = stderr
 		return firecrackerCmd.Run()
 
 	case "hyperkit":
-		cmd := exec.CommandContext(ctx, a.hyperkitPath, "exec", id, "--", "/bin/bash", "-c", strings.Join(cmd, " "))
-		cmd.Stdin = stdin
-		cmd.Stdout = stdout
-		cmd.Stderr = stderr
-		return cmd.Run()
+		// Pass cmd as direct argv — no shell interpolation
+		hyperkitArgs := []string{"exec", id, "--"}
+		hyperkitArgs = append(hyperkitArgs, cmd...)
+		execCmd := exec.CommandContext(ctx, a.hyperkitPath, hyperkitArgs...)
+		execCmd.Stdin = stdin
+		execCmd.Stdout = stdout
+		execCmd.Stderr = stderr
+		return execCmd.Run()
 
 	default: // lima/colima
-		execCmd := exec.CommandContext(ctx, a.limaPath, "shell", id, "/bin/bash", "-c", strings.Join(cmd, " "))
+		// Lima shell: pass cmd as direct argv — no shell interpolation
+		limaArgs := []string{"shell", id}
+		limaArgs = append(limaArgs, cmd...)
+		execCmd := exec.CommandContext(ctx, a.limaPath, limaArgs...)
 		execCmd.Stdin = stdin
 		execCmd.Stdout = stdout
 		execCmd.Stderr = stderr

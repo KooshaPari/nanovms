@@ -194,12 +194,12 @@ func TestAdapterInfoHasSecurity(t *testing.T) {
 // actually invoking the Start path on a CI host.
 func TestAdapterLifecycleReturnsImmediately(t *testing.T) {
 	noopAdapters := map[string]bool{
-		"wasm":     true,
-		"landlock": true,
-		"seccomp":  true,
 		"native":   true,
 		"kvm":      true,
 		"applevz":  true,
+		// landlock and seccomp are NOT no-ops anymore:
+		// landlock returns an error on unsupported platforms (correct behavior)
+		// seccomp returns an error instead of silently disabling the tier (correct behavior)
 	}
 	for _, c := range allAdapterCases() {
 		if !noopAdapters[c.name] {

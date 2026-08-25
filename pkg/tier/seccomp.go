@@ -45,7 +45,15 @@ func (a *SeccompAdapter) Deploy(ctx context.Context, config domain.SandboxConfig
 }
 
 // Start applies the configured seccomp profile to the calling thread.
-func (a *SeccompAdapter) Start(_ context.Context, _ string) error { return nil }
+// Currently returns an error indicating the filter is not yet compiled;
+// a production implementation would compile the BPF program from the
+// profile and attach it via seccomp(SECCOMP_SET_MODE_FILTER).
+func (a *SeccompAdapter) Start(_ context.Context, _ string) error {
+	// TODO: compile BPF program from profile JSON/YAML, attach via prctl.
+	// Currently a no-op for safety — returning nil would deliver zero
+	// isolation despite advertising it.
+	return fmt.Errorf("seccomp: BPF filter compilation not yet implemented; tier disabled for safety")
+}
 
 // Stop is a no-op for seccomp: the policy is in-process and immutable.
 func (a *SeccompAdapter) Stop(_ context.Context, _ string) error { return nil }

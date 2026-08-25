@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
-	"strings"
 )
 
 // WindowsTier represents the Windows virtualization tier.
@@ -245,9 +244,15 @@ func (a *Adapter) Delete(ctx context.Context, name string) error {
 
 // Exec executes a command in the sandbox.
 func (a *Adapter) Exec(ctx context.Context, name string, cmd []string, stdin io.Reader, stdout, stderr io.Writer) error {
+	if len(cmd) == 0 {
+		return fmt.Errorf("no command provided for exec")
+	}
 	switch a.defaultTier {
 	case WindowsTierWSL:
-		execCmd := exec.CommandContext(ctx, a.wslPath, "-d", name, "--", "bash", "-c", strings.Join(cmd, " "))
+		// Pass cmd as direct argv — no shell interpolation
+		wslArgs := []string{"-d", name, "--", cmd[0]}
+		wslArgs = append(wslArgs, cmd[1:]...)
+		execCmd := exec.CommandContext(ctx, a.wslPath, wslArgs...)
 		execCmd.Stdin = stdin
 		execCmd.Stdout = stdout
 		execCmd.Stderr = stderr

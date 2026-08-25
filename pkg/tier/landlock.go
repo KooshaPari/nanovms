@@ -45,14 +45,20 @@ func (a *LandlockAdapter) Deploy(ctx context.Context, config domain.SandboxConfi
 	return newSandbox("landlock", config.Name, domain.SandboxTypeLandlock, "", &config), nil
 }
 
-// Start restricts the current thread to the Landlock ruleset derived from
-// the sandbox's mount list.
+// Start applies the Landlock ruleset to the current thread using real
+// kernel syscalls via the sandbox.landlockRestrictSelf entry point.
 func (a *LandlockAdapter) Start(_ context.Context, _ string) error {
-	// We delegate the real restriction to the internal adapter when
-	// the ruleset is final; for now a no-op stand-in matches the
-	// upstream landlock.go semantics where Start is invoked on the
-	// kernel syscall path.
-	_ = sandbox.NewAdapter
+	// Build the default read-only ruleset (deny write to everything except /tmp)
+	// and apply it to the calling thread. The ruleset fd is closed internally.
+	rulesetFd, err := sandbox.BuildLandlockRulesetDefault()
+	if err != nil {
+		return fmt.Errorf("landlock: failed to build ruleset: %w", err)
+	}
+
+	// Apply restriction to calling thread
+	if err := sandbox.LandlockRestrictSelf(rulesetFd); err != nil {
+		return fmt.Errorf("landlock: failed to restrict self: %w", err)
+	}
 	return nil
 }
 

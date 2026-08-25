@@ -239,26 +239,31 @@ func (a *Adapter) Exec(ctx context.Context, id string, cmd []string, stdin io.Re
 }
 
 func (a *Adapter) execNative(ctx context.Context, id string, cmd []string, stdin io.Reader, stdout, stderr io.Writer) error {
+	if len(cmd) == 0 {
+		return fmt.Errorf("no command provided")
+	}
 	if strings.HasPrefix(id, "devenv-wasm-") {
-		// WASM execution via wasmtime
-		if len(cmd) == 0 {
-			return fmt.Errorf("no command provided for WASM sandbox")
-		}
-		args := []string{"wasmtime", "--dir", "/"}
+		// WASM execution via wasmtime — pass cmd as direct argv (no shell)
+		args := []string{"--dir", "/"}
 		args = append(args, cmd...)
-		return a.syscalls.Run(ctx, args[0], args[1:], stdin, stdout, stderr)
+		return a.syscalls.Run(ctx, "wasmtime", args, stdin, stdout, stderr)
 	} else if strings.Contains(id, "devenv-") {
-		// Execute in namespace
-		args := []string{"--user", "--map-root-user", "--mount", "--ipc", "--pid", "--fork", "bash", "-c", strings.Join(cmd, " ")}
-		return a.syscalls.Run(ctx, "unshare", args, stdin, stdout, stderr)
+		// Execute in namespace — use nsenter-style argv, not bash -c
+		nsArgs := []string{"--user", "--map-root-user", "--mount", "--ipc", "--pid", "--fork", cmd[0]}
+		nsArgs = append(nsArgs, cmd[1:]...)
+		return a.syscalls.Run(ctx, "unshare", nsArgs, stdin, stdout, stderr)
 	} else {
-		return a.syscalls.Run(ctx, "bash", []string{"-c", strings.Join(cmd, " ")}, stdin, stdout, stderr)
+		// Direct exec — no shell interpolation
+		return a.syscalls.Run(ctx, cmd[0], cmd[1:], stdin, stdout, stderr)
 	}
 }
 
 func (a *Adapter) execMicroVM(ctx context.Context, id string, cmd []string, stdin io.Reader, stdout, stderr io.Writer) error {
-	// Execute via VM's vsock or console
-	return a.syscalls.Run(ctx, "bash", []string{"-c", strings.Join(cmd, " ")}, stdin, stdout, stderr)
+	if len(cmd) == 0 {
+		return fmt.Errorf("no command provided for microVM")
+	}
+	// Execute via VM's vsock or console — direct argv, no shell
+	return a.syscalls.Run(ctx, cmd[0], cmd[1:], stdin, stdout, stderr)
 }
 
 func (a *Adapter) execWASM(ctx context.Context, id string, cmd []string, stdin io.Reader, stdout, stderr io.Writer) error {
@@ -280,13 +285,7 @@ func (a *Adapter) ListImages(ctx context.Context) ([]string, error) {
 
 // ApplySandboxProfile applies a sandbox security profile (seccomp/landlock).
 func (a *Adapter) ApplySandboxProfile(ctx context.Context, id string, profile string) error {
-	// Apply seccomp profile
-	return a.syscalls.Run(
-		ctx,
-		"ip",
-		[]string{"netns", "exec", id, "bash", "-c", fmt.Sprintf("echo %s > /proc/self/status", profile)},
-		nil,
-		nil,
-		nil,
-	)
+	// Apply seccomp profile via prctl — no shell needed
+	// TODO: compile BPF program from profile, attach via seccomp(SECCOMP_SET_MODE_FILTER)
+	return fmt.Errorf("seccomp profile application not yet implemented (profile=%s)", profile)
 }
