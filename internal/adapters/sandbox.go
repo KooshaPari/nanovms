@@ -3,11 +3,14 @@
 package adapters
 
 import (
+	"context"
 	"fmt"
+	"io"
 
 	"github.com/kooshapari/nanovms/internal/adapters/firecracker"
 	"github.com/kooshapari/nanovms/internal/adapters/gvisor"
 	"github.com/kooshapari/nanovms/internal/adapters/podman"
+	"github.com/kooshapari/nanovms/internal/domain"
 	"github.com/kooshapari/nanovms/internal/ports"
 )
 
@@ -20,9 +23,48 @@ func NewProvider(name string, tier int) (ports.SandboxPort, error) {
 		return NewSandboxPort(tier)
 	case "podman":
 		return podman.NewAdapter(), nil
+	case "apple-containers":
+		return &stubAdapter{name: "apple-containers", tier: tier}, nil
+	case "wsl-containers":
+		return &stubAdapter{name: "wsl-containers", tier: tier}, nil
 	default:
-		return nil, fmt.Errorf("unsupported provider %q (supported: tier, podman)", name)
+		return nil, fmt.Errorf("unsupported provider %q (supported: tier, podman, apple-containers, wsl-containers)", name)
 	}
+}
+
+// stubAdapter is a placeholder for backends that are not yet implemented.
+// It satisfies the SandboxPort interface but returns errors on lifecycle operations.
+type stubAdapter struct {
+	name string
+	tier int
+}
+
+func (s *stubAdapter) Create(_ context.Context, _ domain.SandboxConfig) (*domain.Sandbox, error) {
+	return nil, fmt.Errorf("%s: adapter not yet implemented", s.name)
+}
+func (s *stubAdapter) Start(_ context.Context, _ string) error {
+	return fmt.Errorf("%s: adapter not yet implemented", s.name)
+}
+func (s *stubAdapter) Stop(_ context.Context, _ string, _ bool) error {
+	return fmt.Errorf("%s: adapter not yet implemented", s.name)
+}
+func (s *stubAdapter) Delete(_ context.Context, _ string) error {
+	return fmt.Errorf("%s: adapter not yet implemented", s.name)
+}
+func (s *stubAdapter) Get(_ context.Context, _ string) (*domain.Sandbox, error) {
+	return nil, fmt.Errorf("%s: adapter not yet implemented", s.name)
+}
+func (s *stubAdapter) List(_ context.Context) ([]*domain.Sandbox, error) {
+	return nil, fmt.Errorf("%s: adapter not yet implemented", s.name)
+}
+func (s *stubAdapter) Logs(_ context.Context, _ string, _ bool) (io.ReadCloser, error) {
+	return nil, fmt.Errorf("%s: adapter not yet implemented", s.name)
+}
+func (s *stubAdapter) Exec(_ context.Context, _ string, _ []string) (io.ReadCloser, error) {
+	return nil, fmt.Errorf("%s: adapter not yet implemented", s.name)
+}
+func (s *stubAdapter) Metrics(_ context.Context, _ string) (*domain.SandboxMetrics, error) {
+	return nil, fmt.Errorf("%s: adapter not yet implemented", s.name)
 }
 
 // NewSandboxPort returns the appropriate SandboxPort implementation for the
