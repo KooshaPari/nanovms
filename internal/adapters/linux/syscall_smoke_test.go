@@ -124,7 +124,7 @@ func TestSyscallSmokeNamespaceRunnerOrder(t *testing.T) {
 			Run(
 				gomock.Any(),
 				gomock.Eq("unshare"),
-				gomock.Eq([]string{"--user", "--map-root-user", "--mount", "--ipc", "--pid", "--fork", "bash", "-c", "echo smoke"}),
+				gomock.Eq([]string{"--user", "--map-root-user", "--mount", "--ipc", "--pid", "--fork", "echo", "smoke"}),
 				gomock.Nil(),
 				gomock.AssignableToTypeOf(io.Writer(&stdoutBuffer)),
 				gomock.AssignableToTypeOf(io.Writer(&stderrBuffer)),
@@ -190,7 +190,7 @@ func TestSyscallSmokeExecNativePropagatesEPERM(t *testing.T) {
 		Run(
 			gomock.Any(),
 			gomock.Eq("unshare"),
-			gomock.Eq([]string{"--user", "--map-root-user", "--mount", "--ipc", "--pid", "--fork", "bash", "-c", "echo fail"}),
+			gomock.Eq([]string{"--user", "--map-root-user", "--mount", "--ipc", "--pid", "--fork", "echo", "fail"}),
 			gomock.Nil(),
 			gomock.AssignableToTypeOf(io.Writer(&stdoutBuffer)),
 			gomock.AssignableToTypeOf(io.Writer(&stderrBuffer)),

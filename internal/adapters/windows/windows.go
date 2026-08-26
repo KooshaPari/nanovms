@@ -5,7 +5,19 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"regexp"
 )
+
+// validateVMName ensures the VM name contains only safe characters.
+// Rejects names that could enable PowerShell command injection.
+func validateVMName(name string) error {
+	// Allow alphanumeric, hyphens, and underscores only
+	matched, _ := regexp.MatchString(`^[a-zA-Z0-9_-]+$`, name)
+	if !matched {
+		return fmt.Errorf("invalid VM name %q: must contain only alphanumeric characters, hyphens, or underscores", name)
+	}
+	return nil
+}
 
 // WindowsTier represents the Windows virtualization tier.
 type WindowsTier string
@@ -112,6 +124,11 @@ func (a *Adapter) createNativeSandbox(ctx context.Context, name string, config *
 	// Use Windows Sandbox (requires Windows 10/11 Pro/Enterprise)
 	sandboxName := fmt.Sprintf("devenv-%s", name)
 
+	// Validate name to prevent PowerShell injection
+	if err := validateVMName(sandboxName); err != nil {
+		return "", fmt.Errorf("invalid sandbox name: %w", err)
+	}
+
 	// Create Windows Sandbox configuration
 	sandboxCfg := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <Configuration>
@@ -126,9 +143,9 @@ func (a *Adapter) createNativeSandbox(ctx context.Context, name string, config *
   <MemoryInMB>4096</MemoryInMB>
 </Configuration>`, config.WorkDir)
 
-	// For Hyper-V VMs, use PowerShell to create and manage
-	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-Command",
-		`New-VM -Name '`+sandboxName+`' -MemoryStartupBytes 4GB -BootDevice VHD -Generation 2; Start-VM -Name '`+sandboxName+`'`)
+	// For Hyper-V VMs, use PowerShell with validated name
+	psScript := fmt.Sprintf("New-VM -Name '%s' -MemoryStartupBytes 4GB -BootDevice VHD -Generation 2; Start-VM -Name '%s'", sandboxName, sandboxName)
+	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-Command", psScript)
 
 	if err := cmd.Run(); err != nil {
 		// Fallback to Windows Sandbox if Hyper-V is not available
@@ -193,6 +210,11 @@ func (a *Adapter) createMicroVMSandbox(ctx context.Context, name string, config 
 
 // Start starts a sandbox instance.
 func (a *Adapter) Start(ctx context.Context, name string) error {
+	// Validate name to prevent PowerShell injection
+	if err := validateVMName(name); err != nil {
+		return err
+	}
+
 	switch a.defaultTier {
 	case WindowsTierNative:
 		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-Command",
@@ -210,6 +232,11 @@ func (a *Adapter) Start(ctx context.Context, name string) error {
 
 // Stop stops a running sandbox instance.
 func (a *Adapter) Stop(ctx context.Context, name string) error {
+	// Validate name to prevent PowerShell injection
+	if err := validateVMName(name); err != nil {
+		return err
+	}
+
 	switch a.defaultTier {
 	case WindowsTierNative:
 		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-Command",
@@ -227,6 +254,11 @@ func (a *Adapter) Stop(ctx context.Context, name string) error {
 
 // Delete deletes a sandbox instance.
 func (a *Adapter) Delete(ctx context.Context, name string) error {
+	// Validate name to prevent PowerShell injection
+	if err := validateVMName(name); err != nil {
+		return err
+	}
+
 	switch a.defaultTier {
 	case WindowsTierNative:
 		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-Command",

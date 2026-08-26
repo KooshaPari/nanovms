@@ -289,10 +289,22 @@ func resolveStartCommand(config *domain.SandboxConfig) []string {
 }
 
 func mergeEnvironment(env map[string]string) []string {
-	if len(env) == 0 {
-		return os.Environ()
+	// Safe environment variable allowlist — prevents leaking secrets,
+	// LD_PRELOAD, and other sensitive host variables into sandboxes.
+	safeVars := []string{
+		"HOME", "USER", "SHELL", "LANG", "LC_ALL", "LC_CTYPE",
+		"PATH", "TMPDIR", "TMP", "TEMP",
+		"TERM", "COLORTERM", "NO_COLOR",
+		"USERPROFILE", "APPDATA", "LOCALAPPDATA", // Windows
+		"SystemRoot", "windir", "ProgramFiles",     // Windows
 	}
-	merged := append([]string(nil), os.Environ()...)
+
+	merged := make([]string, 0, len(safeVars)+len(env))
+	for _, key := range safeVars {
+		if val, ok := os.LookupEnv(key); ok {
+			merged = append(merged, key+"="+val)
+		}
+	}
 	for key, value := range env {
 		merged = append(merged, key+"="+value)
 	}
