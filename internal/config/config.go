@@ -59,8 +59,8 @@ func (c *Config) Validate() error {
 	if strings.TrimSpace(c.Image) == "" {
 		return errors.New("image is required")
 	}
-	if c.Tier < 1 || c.Tier > 3 {
-		return errors.New("tier must be between 1 and 3")
+	if c.Tier < 1 || c.Tier > 30 {
+		return errors.New("tier must be between 1 and 30")
 	}
 	if c.CPU < 1 {
 		return errors.New("cpu must be at least 1")

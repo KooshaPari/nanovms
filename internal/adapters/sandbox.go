@@ -69,7 +69,7 @@ func (s *stubAdapter) Metrics(_ context.Context, _ string) (*domain.SandboxMetri
 
 // NewSandboxPort returns the appropriate SandboxPort implementation for the
 // given tier: 1 = WASM (not yet migrated to SandboxPort), 2 = gVisor, 3 = Firecracker.
-// For tier 1, it returns an error until a WASM SandboxPort adapter is created.
+// Tiers 4-30 return a stub adapter until a real implementation is wired.
 func NewSandboxPort(tier int) (ports.SandboxPort, error) {
 	switch tier {
 	case 1:
@@ -79,6 +79,11 @@ func NewSandboxPort(tier int) (ports.SandboxPort, error) {
 	case 3:
 		return firecracker.NewAdapter(), nil
 	default:
-		return nil, fmt.Errorf("unsupported tier: %d", tier)
+		if tier < 4 || tier > 30 {
+			return nil, fmt.Errorf("unsupported tier: %d (valid range: 1-30)", tier)
+		}
+		// Tiers 4-30: return a stub that advertises the tier but fails on lifecycle ops
+		// until a real adapter is implemented.
+		return &stubAdapter{name: fmt.Sprintf("tier-%d", tier), tier: tier}, nil
 	}
 }

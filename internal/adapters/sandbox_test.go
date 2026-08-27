@@ -13,7 +13,10 @@ func TestNewSandboxPort(t *testing.T) {
 		{2, false}, // gVisor
 		{3, false}, // Firecracker
 		{0, true},  // invalid
-		{4, true},  // invalid
+		{4, false}, // tiers 4-30 return stub adapters
+		{15, false},
+		{30, false},
+		{31, true}, // out of range
 	}
 	for _, tt := range tests {
 		port, err := NewSandboxPort(tt.tier)

@@ -138,7 +138,12 @@ func (e *Engine) Deploy(ctx context.Context, tierLevel int, config domain.Sandbo
 	case 3:
 		sandbox, err = e.tier3.Deploy(ctx, config)
 	default:
-		return nil, fmt.Errorf("unsupported tier level: %d", tierLevel)
+		// Tiers 4-30: route through the generic SandboxPort adapter layer.
+		port, portErr := adapters.NewSandboxPort(tierLevel)
+		if portErr != nil {
+			return nil, fmt.Errorf("tier %d: %w", tierLevel, portErr)
+		}
+		sandbox, err = port.Create(ctx, config)
 	}
 
 	if err != nil {
@@ -167,7 +172,11 @@ func (e *Engine) Stop(ctx context.Context, tierLevel int, id string) error {
 		}
 		return fmt.Errorf("tier3 stop not available for id=%s", id)
 	default:
-		return fmt.Errorf("unsupported tier level: %d", tierLevel)
+		port, portErr := adapters.NewSandboxPort(tierLevel)
+		if portErr != nil {
+			return fmt.Errorf("tier %d: %w", tierLevel, portErr)
+		}
+		return port.Stop(ctx, id, false)
 	}
 }
 
@@ -184,7 +193,11 @@ func (e *Engine) Delete(ctx context.Context, tierLevel int, id string) error {
 		}
 		return fmt.Errorf("tier3 delete not available for id=%s", id)
 	default:
-		return fmt.Errorf("unsupported tier level: %d", tierLevel)
+		port, portErr := adapters.NewSandboxPort(tierLevel)
+		if portErr != nil {
+			return fmt.Errorf("tier %d: %w", tierLevel, portErr)
+		}
+		return port.Delete(ctx, id)
 	}
 }
 
