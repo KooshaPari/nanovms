@@ -82,6 +82,7 @@ jobs:
           echo "ANDROID_NDK_HOME=${ANDROID_NDK_HOME}" >> "${GITHUB_ENV}"
           # Also expose the NDK clang++ so cc-rs / libfuzzer-sys can find it
           echo "CXX_aarch64-linux-android=${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang++" >> "${GITHUB_ENV}"
+          echo "AR_aarch64-linux-android=${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar" >> "${GITHUB_ENV}"
           mkdir -p .cargo
           {
             echo '[target.aarch64-linux-android]'
