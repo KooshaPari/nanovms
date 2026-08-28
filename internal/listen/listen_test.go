@@ -14,7 +14,7 @@ func TestNewUDSDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewUDS: %v", err)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 
 	sock := filepath.Join(dir, "routed.sock")
 	if _, err := os.Stat(sock); err != nil {
@@ -45,7 +45,7 @@ func TestNewUDSStaleRemoval(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewUDS over stale: %v", err)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 
 	if _, err := os.Stat(sock); err != nil {
 		t.Fatalf("stale socket not replaced: %v", err)

@@ -14,9 +14,6 @@ import (
 
 func TestNewEngine(t *testing.T) {
 	e := NewEngine()
-	if e == nil {
-		t.Fatal("NewEngine returned nil")
-	}
 	if e.tier1 == nil {
 		t.Error("tier1 adapter not set")
 	}

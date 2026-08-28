@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"strings"
-
 	"github.com/kooshapari/nanovms/internal/adapters"
 	"github.com/kooshapari/nanovms/internal/config"
 	"github.com/kooshapari/nanovms/internal/domain"
@@ -244,7 +242,3 @@ func detectPlatform() string {
 	}
 }
 
-// isLinux checks if the current platform is Linux.
-func isLinux() bool {
-	return strings.Contains(detectPlatform(), "linux")
-}

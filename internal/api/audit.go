@@ -1,8 +1,6 @@
 package api
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -25,14 +23,6 @@ type AuditEntry struct {
 	Provider        string `json:"provider,omitempty"`
 	Isolation       string `json:"isolation,omitempty"`
 	Error           string `json:"error,omitempty"`
-}
-
-func newAuditRequestID() string {
-	var value [16]byte
-	if _, err := rand.Read(value[:]); err != nil {
-		return ""
-	}
-	return hex.EncodeToString(value[:])
 }
 
 const (

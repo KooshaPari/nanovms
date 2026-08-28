@@ -83,7 +83,7 @@ func (c *Client) ListSandboxes(ctx context.Context) ([]SandboxInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("list sandboxes: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("list sandboxes: HTTP %d", resp.StatusCode)
 	}
@@ -114,7 +114,7 @@ func (c *Client) Exec(ctx context.Context, id string, cmd []string) (io.ReadClos
 		return nil, fmt.Errorf("exec %s: %w", id, err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, fmt.Errorf("exec %s: HTTP %d", id, resp.StatusCode)
 	}
 	return resp.Body, nil
@@ -133,7 +133,7 @@ func (c *Client) Logs(ctx context.Context, id string, follow bool) (io.ReadClose
 		return nil, fmt.Errorf("logs %s: %w", id, err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, fmt.Errorf("logs %s: HTTP %d", id, resp.StatusCode)
 	}
 	return resp.Body, nil
@@ -154,7 +154,7 @@ func (c *Client) PortForward(ctx context.Context, id string, localPort, remotePo
 	if err != nil {
 		return "", fmt.Errorf("port-forward %s: %w", id, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var result struct {
 		LocalAddress string `json:"local_address"`

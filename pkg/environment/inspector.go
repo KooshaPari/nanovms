@@ -73,11 +73,7 @@ func (inspector HostToolkitInspector) ResolveToolkit(ctx context.Context, reques
 	if err != nil {
 		return ResolvedToolkit{}, err
 	}
-	return ResolvedToolkit{
-		Root:       resolved.Root,
-		Executable: resolved.Executable,
-		Version:    resolved.Version,
-	}, nil
+	return ResolvedToolkit(resolved), nil
 }
 
 func (inspector HostToolkitInspector) resolveToolkit(ctx context.Context, request ToolkitDiscoveryRequest) (resolvedToolkit, error) {

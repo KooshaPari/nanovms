@@ -4,9 +4,7 @@
 package tier
 
 import (
-	"context"
 	"fmt"
-	"sort"
 	"time"
 
 	"github.com/kooshapari/nanovms/internal/domain"
@@ -26,10 +24,6 @@ type baseAdapter struct {
 // embed *baseAdapter automatically satisfy Adapter.Info().
 func (b *baseAdapter) Info() TierInfo { return b.info }
 
-// defaultProbe always succeeds. Concrete adapters should override this
-// with a real check (kernel feature, $PATH lookup, etc.).
-func (b *baseAdapter) defaultProbe() error { return nil }
-
 // newSandbox is a small constructor used by every tier's Deploy method to
 // keep the ID format and field population consistent. It deliberately does
 // NOT call Start — that's the adapter's responsibility.
@@ -43,29 +37,6 @@ func newSandbox(tier, name string, kind domain.SandboxType, flavor domain.VMFlav
 		Config:    config,
 		CreatedAt: time.Now(),
 	}
-}
-
-// noopLifecycle provides no-op Start/Stop/Delete implementations suitable
-// for lightweight tiers (e.g. native, seccomp) where lifecycle is implicit
-// in the calling process. Tiers that need a real process to manage should
-// override these.
-type noopLifecycle struct{}
-
-// Start is a no-op for tiers where lifecycle is implicit.
-func (noopLifecycle) Start(_ context.Context, _ string) error { return nil }
-
-// Stop is a no-op for tiers where lifecycle is implicit.
-func (noopLifecycle) Stop(_ context.Context, _ string) error { return nil }
-
-// Delete is a no-op for tiers where lifecycle is implicit.
-func (noopLifecycle) Delete(_ context.Context, _ string) error { return nil }
-
-// sortStrings is a small helper used by tier metadata lists so the output
-// of `nvms tier info` is deterministic.
-func sortStrings(in []string) []string {
-	out := append([]string(nil), in...)
-	sort.Strings(out)
-	return out
 }
 
 // registerDefaultTiers populates r with the canonical set of 30 tiers.

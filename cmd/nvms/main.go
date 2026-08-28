@@ -84,7 +84,7 @@ Subcommands:
 		if err != nil {
 			log.Fatal(err)
 		}
-		defer out.Close()
+		defer func() { _ = out.Close() }()
 		if _, err := io.Copy(os.Stdout, out); err != nil {
 			log.Fatal(err)
 		}
@@ -97,7 +97,7 @@ Subcommands:
 		if err != nil {
 			log.Fatal(err)
 		}
-		defer out.Close()
+		defer func() { _ = out.Close() }()
 		if _, err := io.Copy(os.Stdout, out); err != nil {
 			log.Fatal(err)
 		}
@@ -237,7 +237,7 @@ func serveCmd(args []string) {
 		}
 		log.Printf("Listening on UDS %s", *socketPath)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 
 	// Create sandbox adapter for the requested tier
 	adapter, err := adapters.NewProvider(strings.ToLower(strings.TrimSpace(*provider)), *tier)

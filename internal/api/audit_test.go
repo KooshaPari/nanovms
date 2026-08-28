@@ -10,7 +10,7 @@ import (
 func TestAuditLoggerAppendAndQuery(t *testing.T) {
 	dir := t.TempDir()
 	l := NewAuditLogger(dir)
-	defer l.Close()
+	defer func() { _ = l.Close() }()
 
 	// Append entries with varying timestamps.
 	base := time.Now().UTC()
@@ -40,7 +40,7 @@ func TestAuditLoggerAppendAndQuery(t *testing.T) {
 func TestAuditLoggerFilterByProvider(t *testing.T) {
 	dir := t.TempDir()
 	l := NewAuditLogger(dir)
-	defer l.Close()
+	defer func() { _ = l.Close() }()
 
 	ts := time.Now().UTC().Format(time.RFC3339)
 	l.Append(AuditEntry{Timestamp: ts, Provider: "firecracker"})
@@ -56,7 +56,7 @@ func TestAuditLoggerFilterByProvider(t *testing.T) {
 func TestAuditLoggerFilterByTimeRange(t *testing.T) {
 	dir := t.TempDir()
 	l := NewAuditLogger(dir)
-	defer l.Close()
+	defer func() { _ = l.Close() }()
 
 	base := time.Date(2026, 7, 7, 10, 0, 0, 0, time.UTC)
 	l.Append(AuditEntry{Timestamp: base.Format(time.RFC3339)})
@@ -74,7 +74,7 @@ func TestAuditLoggerFilterByTimeRange(t *testing.T) {
 func TestAuditLoggerJSONLOutput(t *testing.T) {
 	dir := t.TempDir()
 	l := NewAuditLogger(dir)
-	defer l.Close()
+	defer func() { _ = l.Close() }()
 
 	l.Append(AuditEntry{
 		Timestamp:  time.Now().UTC().Format(time.RFC3339),
@@ -98,7 +98,7 @@ func TestAuditLoggerJSONLOutput(t *testing.T) {
 func TestAuditLoggerNoDir(t *testing.T) {
 	// Passing empty string should not panic.
 	l := NewAuditLogger("")
-	defer l.Close()
+	defer func() { _ = l.Close() }()
 	l.Append(AuditEntry{
 		Timestamp:  time.Now().UTC().Format(time.RFC3339),
 		Method:     "POST",
@@ -121,7 +121,7 @@ func TestAuditLoggerRotation(t *testing.T) {
 	defer func() { MaxJSONLLenBytes = origMax }()
 
 	l := NewAuditLogger(dir)
-	defer l.Close()
+	defer func() { _ = l.Close() }()
 
 	// Append enough entries to trigger rotation (small payload ~100 bytes each).
 	payload := AuditEntry{
@@ -158,7 +158,7 @@ func TestAuditLoggerRotation(t *testing.T) {
 func TestAuditLoggerRingBufferWrap(t *testing.T) {
 	dir := t.TempDir()
 	l := NewAuditLogger(dir)
-	defer l.Close()
+	defer func() { _ = l.Close() }()
 
 	// Overfill the ring buffer by 20%.
 	total := int(float64(MaxInMemoryEntries) * 1.2)
@@ -181,7 +181,7 @@ func TestAuditLoggerRingBufferWrap(t *testing.T) {
 func TestAuditLoggerPagination(t *testing.T) {
 	dir := t.TempDir()
 	l := NewAuditLogger(dir)
-	defer l.Close()
+	defer func() { _ = l.Close() }()
 
 	ts := time.Now().UTC().Format(time.RFC3339)
 	for i := 0; i < 20; i++ {

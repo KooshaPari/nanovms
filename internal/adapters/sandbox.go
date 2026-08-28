@@ -8,7 +8,6 @@ import (
 	"io"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/kooshapari/nanovms/internal/adapters/firecracker"
 	"github.com/kooshapari/nanovms/internal/adapters/gvisor"
@@ -208,7 +207,3 @@ func NewSandboxPort(tierID int) (ports.SandboxPort, error) {
 	}
 }
 
-// generateSandboxID creates a unique sandbox identifier.
-func generateSandboxID() string {
-	return fmt.Sprintf("sbx-%d", time.Now().UnixNano())
-}

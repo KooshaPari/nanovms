@@ -618,7 +618,7 @@ func TestHostInspectionWithInventorySkipsDuplicateNvidiaSMI(t *testing.T) {
 }
 
 func TestEvaluationExecuteReusesScopedInventory(t *testing.T) {
-	request, _, runner, reservations := validEvaluationFixture(t)
+	request, _, _, reservations := validEvaluationFixture(t)
 	request.ResourceManifest.Artifact.CompiledKernels = true
 	device := gpu.Device{
 		UUID: testUUID, Name: "NVIDIA GeForce RTX 3090 Ti", Architecture: "Ampere",
@@ -626,7 +626,7 @@ func TestEvaluationExecuteReusesScopedInventory(t *testing.T) {
 		Observations: []gpu.Observation{{Scope: gpu.ScopeWindowsHost, Index: 0}},
 	}
 	request.ResourceManifest.GPUs = []gpu.Device{device}
-	runner = &fakeEvaluationRunner{
+	runner := &fakeEvaluationRunner{
 		request: &request,
 		result:  gpu.CommandResult{ExitCode: 0, Duration: 25 * time.Millisecond, Stdout: []byte("ok")},
 	}

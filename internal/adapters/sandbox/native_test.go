@@ -21,9 +21,6 @@ func TestNativeSandboxAdapterCreate(t *testing.T) {
 
 func TestNewNativeSandbox(t *testing.T) {
 	adapter := NewNativeSandbox("bwrap")
-	if adapter == nil {
-		t.Fatal("NewNativeSandbox returned nil")
-	}
 	if adapter.tool != "bwrap" {
 		t.Fatalf("expected tool=bwrap, got %s", adapter.tool)
 	}

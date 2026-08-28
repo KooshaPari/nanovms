@@ -79,7 +79,7 @@ func metricsForSandbox(ctx context.Context, sb *domain.Sandbox) (*domain.Sandbox
 	for _, line := range strings.Split(string(statusData), "\n") {
 		if strings.HasPrefix(line, "VmRSS:") {
 			var kb int
-			fmt.Sscanf(line, "VmRSS: %d kB", &kb)
+			_, _ = fmt.Sscanf(line, "VmRSS: %d kB", &kb)
 			metrics.MemoryUsage = int64(kb) * 1024
 		}
 	}
@@ -91,8 +91,8 @@ func metricsForSandbox(ctx context.Context, sb *domain.Sandbox) (*domain.Sandbox
 	fields := strings.Split(string(statData), " ")
 	if len(fields) > 21 {
 		var utime, stime int64
-		fmt.Sscanf(fields[13], "%d", &utime)
-		fmt.Sscanf(fields[14], "%d", &stime)
+		_, _ = fmt.Sscanf(fields[13], "%d", &utime)
+		_, _ = fmt.Sscanf(fields[14], "%d", &stime)
 		// Convert clock ticks to percentage (simplified: %CPU = (utime+stime)/CLK_TCK)
 		metrics.CPUUsage = float64(utime+stime) / 100.0 // 100 ticks/sec assumption
 	}

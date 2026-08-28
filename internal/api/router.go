@@ -294,7 +294,7 @@ func (h Handlers) handleExec(w http.ResponseWriter, r *http.Request, id string) 
 	w.Header().Set("Content-Type", "application/x-ndjson")
 	w.WriteHeader(http.StatusOK)
 	_, _ = io.Copy(w, out)
-	out.Close()
+	_ = out.Close()
 }
 
 func (h Handlers) handleLogs(w http.ResponseWriter, r *http.Request, id string) {
@@ -311,7 +311,7 @@ func (h Handlers) handleLogs(w http.ResponseWriter, r *http.Request, id string) 
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
 	_, _ = io.Copy(w, out)
-	out.Close()
+	_ = out.Close()
 }
 
 // portForwarder is implemented by adapters that support port-forwarding.

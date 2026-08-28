@@ -81,7 +81,7 @@ func main() {
 	in := os.Stdin
 	out := io.Writer(os.Stdout)
 	if len(os.Args) > 1 && os.Args[1] == "-h" {
-		fmt.Fprintln(out, "agentctl: JSON-in/JSON-out Omniroute-compatible dispatcher. Read stdin, write stdout.")
+		_, _ = fmt.Fprintln(out, "agentctl: JSON-in/JSON-out Omniroute-compatible dispatcher. Read stdin, write stdout.")
 		os.Exit(0)
 	}
 	scanner := bufio.NewScanner(in)

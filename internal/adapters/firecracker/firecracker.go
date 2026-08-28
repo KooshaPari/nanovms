@@ -64,16 +64,16 @@ func (a *Adapter) Stop(ctx context.Context, id string, force bool) error {
 		if force {
 			sig = "SIGKILL"
 		}
-		exec.CommandContext(ctx, "kill", "-"+sig, fmt.Sprintf("%d", cmd.Process.Pid)).Run()
-		cmd.Wait()
+		_ = exec.CommandContext(ctx, "kill", "-"+sig, fmt.Sprintf("%d", cmd.Process.Pid)).Run()
+		_ = cmd.Wait()
 	}
-	os.Remove("/tmp/fc-" + id + ".sock")
+	_ = os.Remove("/tmp/fc-" + id + ".sock")
 	a.vms[id].Status = domain.SandboxStatusStopped
 	return nil
 }
 
 func (a *Adapter) Delete(ctx context.Context, id string) error {
-	a.Stop(ctx, id, true)
+	_ = a.Stop(ctx, id, true)
 	a.mu.Lock()
 	delete(a.vms, id)
 	delete(a.cmds, id)
@@ -156,7 +156,7 @@ func (a *Adapter) Metrics(_ context.Context, id string) (*domain.SandboxMetrics,
 	if cmd != nil && cmd.Process != nil && cmd.Process.Pid > 0 {
 		if b, err := os.ReadFile(fmt.Sprintf("/proc/%d/status", cmd.Process.Pid)); err == nil {
 			var memKB int64
-			fmt.Sscanf(string(b), "VmRSS: %d kB", &memKB)
+			_, _ = fmt.Sscanf(string(b), "VmRSS: %d kB", &memKB)
 			m.MemoryUsage = memKB * 1024
 		}
 	}

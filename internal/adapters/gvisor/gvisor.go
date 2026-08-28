@@ -45,7 +45,7 @@ func (a *Adapter) Start(ctx context.Context, id string) error {
 		return fmt.Errorf("runsc run: %w", err)
 	}
 	wcmd := exec.CommandContext(ctx, bin, "wait", id)
-	wcmd.Start()
+	_ = wcmd.Start()
 	a.cmds[id] = wcmd
 	a.sandboxes[id].Status = domain.SandboxStatusRunning
 	return nil
@@ -66,7 +66,7 @@ func (a *Adapter) Stop(ctx context.Context, id string, force bool) error {
 }
 
 func (a *Adapter) Delete(ctx context.Context, id string) error {
-	a.Stop(ctx, id, true)
+	_ = a.Stop(ctx, id, true)
 	a.mu.Lock()
 	delete(a.sandboxes, id)
 	delete(a.cmds, id)
@@ -141,7 +141,7 @@ func (a *Adapter) Metrics(_ context.Context, id string) (*domain.SandboxMetrics,
 	m := &domain.SandboxMetrics{SandboxID: id}
 	bin, _ := exec.LookPath("runsc")
 	if out, err := exec.Command(bin, "events", "--stats", id).Output(); err == nil {
-		fmt.Sscanf(string(out), "%f", &m.CPUUsage)
+		_, _ = fmt.Sscanf(string(out), "%f", &m.CPUUsage)
 	}
 	return m, nil
 }

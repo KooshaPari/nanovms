@@ -245,7 +245,7 @@ func (store *ReservationStore) writeState(state *reservationState) error {
 		return fmt.Errorf("create reservation transaction: %w", err)
 	}
 	tempName := temp.Name()
-	defer os.Remove(tempName)
+	defer func() { _ = os.Remove(tempName) }()
 	if err := temp.Chmod(0o600); err != nil {
 		_ = temp.Close()
 		return err

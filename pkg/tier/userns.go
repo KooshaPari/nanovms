@@ -77,7 +77,7 @@ func (a *UserNSAdapter) Probe(_ context.Context) error {
 	if err != nil {
 		return fmt.Errorf("userns: %s not readable: %w", a.uidMapPath, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	stat, err := f.Stat()
 	if err != nil {
 		return fmt.Errorf("userns: %s stat failed: %w", a.uidMapPath, err)

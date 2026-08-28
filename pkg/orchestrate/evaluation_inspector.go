@@ -62,11 +62,7 @@ func (inspector HostEvaluationInspector) ResolveToolkit(ctx context.Context, req
 	if err != nil {
 		return ResolvedToolkit{}, err
 	}
-	return ResolvedToolkit{
-		Root:       resolved.Root,
-		Executable: resolved.Executable,
-		Version:    resolved.Version,
-	}, nil
+	return ResolvedToolkit(resolved), nil
 }
 
 type toolkitCandidateGroup struct {
@@ -98,18 +94,18 @@ func (inspector HostEvaluationInspector) InspectWithInventory(
 	}
 	pipe := strings.TrimSpace(request.PodmanPipe)
 	if pipe == "" {
-		return EvaluationInspection{}, fmt.Errorf("Podman pipe is required for inspection")
+		return EvaluationInspection{}, fmt.Errorf("podman pipe is required for inspection")
 	}
 	info, err := inspector.runWithEnv(ctx, request.WSLDistribution, map[string]string{"DOCKER_HOST": pipe}, "podman", "info", "--format", "json")
 	if err != nil {
-		return EvaluationInspection{}, fmt.Errorf("Podman inspection failed: %w", err)
+		return EvaluationInspection{}, fmt.Errorf("podman inspection failed: %w", err)
 	}
 	if info.ExitCode != 0 {
-		return EvaluationInspection{}, fmt.Errorf("Podman inspection failed: podman info exited %d", info.ExitCode)
+		return EvaluationInspection{}, fmt.Errorf("podman inspection failed: podman info exited %d", info.ExitCode)
 	}
 	var infoDocument map[string]any
 	if err := json.Unmarshal(info.Stdout, &infoDocument); err != nil || len(infoDocument) == 0 {
-		return EvaluationInspection{}, fmt.Errorf("Podman inspection returned malformed JSON")
+		return EvaluationInspection{}, fmt.Errorf("podman inspection returned malformed JSON")
 	}
 
 	var inventory gpu.ScopedInventory

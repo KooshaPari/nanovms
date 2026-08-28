@@ -111,9 +111,6 @@ func TestAdapterDeployForNativeOnly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("native Deploy: %v", err)
 	}
-	if sb == nil {
-		t.Fatalf("native Deploy returned nil sandbox")
-	}
 	if sb.ID == "" {
 		t.Fatalf("native sandbox ID is empty")
 	}
@@ -155,7 +152,7 @@ func TestAdapterDeployGatedByProbe(t *testing.T) {
 // _ = lines force a type-check if any adapter drifts.
 func TestAdapterImplementsInterface(t *testing.T) {
 	for _, c := range allAdapterCases() {
-		var _ Adapter = c.make()
+		_ = c.make()
 	}
 }
 

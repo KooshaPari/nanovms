@@ -11,9 +11,6 @@ import (
 
 func TestNewAdapter(t *testing.T) {
 	a := NewAdapter()
-	if a == nil {
-		t.Fatal("NewAdapter returned nil")
-	}
 	if a.sandboxes == nil {
 		t.Fatal("sandboxes map is nil")
 	}
@@ -56,7 +53,7 @@ func TestStart(t *testing.T) {
 	if err := a.Start(context.Background(), sb.ID); err != nil {
 		t.Fatalf("Start failed: %v", err)
 	}
-	defer a.Stop(context.Background(), sb.ID, true)
+	defer func() { _ = a.Stop(context.Background(), sb.ID, true) }()
 	if sb.Status != domain.SandboxStatusRunning {
 		t.Fatalf("expected running, got %s", sb.Status)
 	}

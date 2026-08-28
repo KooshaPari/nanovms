@@ -17,9 +17,6 @@ import (
 // cryptoRandReader is the global random reader used for ID generation.
 var cryptoRandReader io.Reader = rand.Reader
 
-// runscPath is the path to the runsc binary (gVisor runtime).
-var runscPath = "/usr/local/bin/runsc"
-
 // Adapter implements the SandboxPort interface for sandbox isolation technologies.
 // It provides a unified interface for gVisor, landlock, seccomp, and wasmtime sandboxes.
 

@@ -180,12 +180,12 @@ func (a *Adapter) createWSLSandbox(ctx context.Context, name string, config *Con
 		"curl -fsSL https://gvisor.dev/archive.key | sudo apt-key add - && "+
 			"sudo add-apt-repository deb https://packages.cloud.google.com/apt gvisor-$(uname -m) main && "+
 			"sudo apt-get update && sudo apt-get install -y runsc")
-	gvisorInstall.Run() // Best effort - gVisor may already be installed
+	_ = gvisorInstall.Run() // Best effort - gVisor may already be installed
 
 	// Set up gVisor as the default runtime
 	setRuntime := exec.CommandContext(ctx, a.wslPath, "-d", wslName, "--", "bash", "-c",
 		"echo 'export GRICD_OPTS=--gvisor-default' >> ~/.bashrc")
-	setRuntime.Run() // Best effort - runtime defaults can be configured later.
+	_ = setRuntime.Run() // Best effort - runtime defaults can be configured later.
 
 	return wslName, nil
 }

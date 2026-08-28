@@ -77,7 +77,7 @@ func NewTCP(ctx context.Context, addr string, tlsCfg *tls.Config) (*Listener, er
 		return nil, fmt.Errorf("listen: tcp bind %q failed: %w", addr, err)
 	}
 
-	var tlsLn net.Listener = ln
+	var tlsLn = ln
 	if tlsCfg != nil {
 		tlsLn = tls.NewListener(ln, tlsCfg)
 	}

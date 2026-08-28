@@ -71,7 +71,7 @@ func (a *WolfiAdapter) Probe(_ context.Context) error {
 	if err != nil {
 		return fmt.Errorf("wolfi: %s not readable: %w", a.osRelease, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	buf := make([]byte, 4096)
 	n, _ := f.Read(buf)
 	contents := string(buf[:n])
