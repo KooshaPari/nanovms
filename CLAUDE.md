@@ -1,7 +1,13 @@
 # CLAUDE.md — nanovms
+# CLAUDE.md
 
-Extends parent governance. See:
-- Global baseline: `~/.claude/CLAUDE.md`
+This file provides guidance to Claude Code when working with the nanovms codebase.
+
+## Project Overview
+
+NanoVMS is a multi-tier sandbox and virtual machine orchestration engine written in Go. It provides a unified API for creating, managing, and deploying workloads across 30 isolation tiers — from lightweight process isolation (WASM, native) through container runtimes (gVisor, Podman, LXC) to full virtualization (Firecracker, QEMU/KVM).
+
+## Build Commands
 - Phenotype root: `/Users/kooshapari/CodeProjects/Phenotype/repos/CLAUDE.md`
 - AgilePlus mandate: `/Users/kooshapari/CodeProjects/Phenotype/repos/AgilePlus`
 - Local agent guidance: `AGENTS.md`
