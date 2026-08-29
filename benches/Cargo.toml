@@ -10,5 +10,22 @@ name = "ffi_throughput"
 path = "ffi_throughput.rs"
 harness = false
 
+[[bench]]
+name = "tier_selection"
+path = "tier_selection.rs"
+harness = false
+
+[[bench]]
+name = "adapter_registry"
+path = "adapter_registry.rs"
+harness = false
+
 [dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+async-trait = "0.1"
+uuid = { version = "1", features = ["v4"] }
+
+# Workspace crate dependencies for benchmarking
+ffi_utils = { path = "../crates/ffi_utils" }
+phenotype-port-adapter-shim = { path = "../crates/phenotype-port-adapter-shim" }
