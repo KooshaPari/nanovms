@@ -1,0 +1,78 @@
+name: Integration E2E
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration-e2e:
+    runs-on: ubuntu-24.04
+
+    # Docker-in-Docker service for the Docker adapter E2E tests.
+    services:
+      docker:
+        image: docker:dind
+        options: --privileged
+        ports:
+          - 2375:2375
+        env:
+          DOCKER_HOST: tcp://localhost:2375
+          DOCKER_TLS_CERTDIR: ""
+
+    env:
+      DOCKER_HOST: tcp://localhost:2375
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 50
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: "1.25"
+          cache: true
+
+      # Ensure Docker daemon is ready before running tests.
+      - name: Wait for Docker daemon
+        run: |
+          for i in $(seq 1 30); do
+            if docker info > /dev/null 2>&1; then
+              echo "Docker daemon ready"
+              exit 0
+            fi
+            echo "Waiting for Docker daemon... ($i/30)"
+            sleep 2
+          done
+          echo "Docker daemon did not become ready"
+          exit 1
+
+      - name: Verify bwrap availability
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq bubblewrap
+          which bwrap && bwrap --version
+
+      - name: Build all packages
+        run: go build ./...
+
+      - name: Run sandbox E2E tests (integration tag)
+        run: |
+          go test -v -count=1 -timeout=120s \
+            -tags=integration \
+            ./internal/adapters/sandbox/... \
+            2>&1 | tee /tmp/e2e-output.log
+        env:
+          CGO_ENABLED: "0"
+
+      - name: Upload E2E logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-integration-logs
+          path: /tmp/e2e-output.log
+          retention-days: 7
