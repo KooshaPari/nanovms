@@ -25,6 +25,7 @@ import (
 	"github.com/kooshapari/nanovms/internal/listen"
 	"github.com/kooshapari/nanovms/internal/ports"
 	"github.com/kooshapari/nanovms/internal/token"
+	"github.com/kooshapari/nanovms/pkg/metrics"
 )
 
 // Handlers bundles the port implementations and auth manager.
@@ -33,6 +34,7 @@ type Handlers struct {
 	Token       *token.Manager
 	JWTVerifier *token.JWTVerifier
 	AuditLog    *AuditLogger
+	Metrics     *metrics.MetricsCollector
 }
 
 // NewRouter builds the daemon's HTTP handler.
@@ -348,8 +350,16 @@ func (h Handlers) handlePortForward(w http.ResponseWriter, r *http.Request, id s
 }
 
 func (h Handlers) handleMetrics(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
-	_, _ = w.Write([]byte("# HELP nvms_up NVMS daemon is up\nnvms_up 1\n"))
+	if h.Metrics != nil {
+		_, _ = w.Write([]byte(h.Metrics.ToPrometheus()))
+	} else {
+		_, _ = w.Write([]byte("# HELP nvms_up NVMS daemon is up\nnvms_up 1\n"))
+	}
 }
 
 // handleAudit returns filtered audit-log entries.
