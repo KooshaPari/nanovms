@@ -3,6 +3,8 @@
 
 NanoVMS is a multi-tier sandbox and virtual machine orchestration engine written in Go. It provides a unified API for creating, managing, and deploying workloads across 30 isolation tiers — from lightweight process isolation (WASM, native) through container runtimes (gVisor, Podman, LXC) to full virtualization (Firecracker, QEMU/KVM).
 
+[![AI slop inside](https://sladge.net/badge.svg)](https://sladge.net) [![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/KooshaPari/nanovms/total)](https://github.com/KooshaPari/nanovms/releases)
+
 ## Features
 
 - **30-tier isolation registry** — select the right isolation level for your workload
