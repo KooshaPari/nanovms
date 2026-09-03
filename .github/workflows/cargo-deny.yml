@@ -60,7 +60,7 @@ jobs:
             ${{ runner.os }}-cargo-deny-
 
       - name: Install cargo-deny
-        uses: taiki-e/install-action@b6b84cf49ebfe0176417bdce007c624f0db37f20 # v2
+        uses: taiki-e/install-action@1ed6d7be6168f6c9046541087ff549b6bc581fdf # v2
         with:
           tool: cargo-deny
 
