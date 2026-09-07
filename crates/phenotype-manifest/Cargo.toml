@@ -16,7 +16,7 @@ thiserror = "2.0"
 # `draft202012` feature is required because `schemars` emits
 # Draft 2020-12 by default — the test must validate against the same
 # dialect or we'd test a phantom spec.
-jsonschema = { version = "0.19", features = ["draft202012"] }
+jsonschema = { version = "0.24", features = ["draft202012"] }
 
 [[bin]]
 name = "dump-schema"
