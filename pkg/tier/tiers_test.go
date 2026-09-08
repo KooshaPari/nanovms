@@ -185,15 +185,15 @@ func TestAdapterInfoHasSecurity(t *testing.T) {
 // TestAdapterLifecycleReturnsImmediately ensures Start/Stop/Delete
 // return quickly on the no-op-lifecycle adapters. We deliberately
 // restrict this to adapters whose Start/Stop/Delete are in-process
-// no-ops (wasm, landlock, seccomp, native, kvm, applevz); adapters
+// no-ops (native, applevz); adapters
 // that exec external binaries (firecracker, docker, qemu, lima,
 // gvisor, etc.) are tested separately by Probe + Deploy, never by
 // actually invoking the Start path on a CI host.
 func TestAdapterLifecycleReturnsImmediately(t *testing.T) {
 	noopAdapters := map[string]bool{
-		"native":   true,
-		"kvm":      true,
-		"applevz":  true,
+		"native": true,
+		// KVM rejects its unimplemented lifecycle; see kvm_test.go.
+		"applevz": true,
 		// landlock and seccomp are NOT no-ops anymore:
 		// landlock returns an error on unsupported platforms (correct behavior)
 		// seccomp returns an error instead of silently disabling the tier (correct behavior)
