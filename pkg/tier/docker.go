@@ -52,6 +52,7 @@ func (a *DockerAdapter) Deploy(ctx context.Context, config domain.SandboxConfig)
 
 // Start launches the container via `docker start`.
 func (a *DockerAdapter) Start(ctx context.Context, id string) error {
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, a.binary, "start", id)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("docker start %s: %w: %s", id, err, string(out))
@@ -61,6 +62,7 @@ func (a *DockerAdapter) Start(ctx context.Context, id string) error {
 
 // Stop terminates the container via `docker stop`.
 func (a *DockerAdapter) Stop(ctx context.Context, id string) error {
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, a.binary, "stop", id)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("docker stop %s: %w: %s", id, err, string(out))
@@ -70,6 +72,7 @@ func (a *DockerAdapter) Stop(ctx context.Context, id string) error {
 
 // Delete removes the container via `docker rm -f`.
 func (a *DockerAdapter) Delete(ctx context.Context, id string) error {
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, a.binary, "rm", "-f", id)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("docker rm %s: %w: %s", id, err, string(out))
@@ -85,6 +88,7 @@ func (a *DockerAdapter) Probe(ctx context.Context) error {
 	if _, err := exec.LookPath(a.binary); err != nil {
 		return fmt.Errorf("docker: binary %q not found: %w", a.binary, err)
 	}
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, a.binary, "version", "--format", "{{.Server.Version}}")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("docker: daemon not reachable: %w (%s)", err, string(out))

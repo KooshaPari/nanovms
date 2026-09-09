@@ -50,6 +50,7 @@ func (a *CloudHypervisorAdapter) Deploy(ctx context.Context, config domain.Sandb
 
 // Start launches the Cloud Hypervisor VM in the background.
 func (a *CloudHypervisorAdapter) Start(ctx context.Context, id string) error {
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, a.binary, "--api-socket", "/tmp/"+id+".sock", "&")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("cloud-hypervisor start %s: %w: %s", id, err, string(out))
@@ -59,6 +60,7 @@ func (a *CloudHypervisorAdapter) Start(ctx context.Context, id string) error {
 
 // Stop terminates the Cloud Hypervisor VM via pkill.
 func (a *CloudHypervisorAdapter) Stop(ctx context.Context, id string) error {
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, "pkill", "-f", "cloud-hypervisor.*"+id)
 	return cmd.Run()
 }

@@ -50,6 +50,7 @@ func (a *SystemdNspawnAdapter) Deploy(ctx context.Context, config domain.Sandbox
 
 // Start boots the nspawn machine via `systemd-nspawn --boot`.
 func (a *SystemdNspawnAdapter) Start(ctx context.Context, id string) error {
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, a.binary, "--boot", "--machine", id, "--directory", "/var/lib/machines/"+id)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("systemd-nspawn start %s: %w: %s", id, err, string(out))

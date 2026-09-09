@@ -67,6 +67,7 @@ func (a *FirecrackerAdapter) Start(ctx context.Context, id string) error {
 		return fmt.Errorf("firecracker path not set")
 	}
 	// Firecracker starts via API socket after the binary is launched
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, a.path, "--api-sock", a.apiSocket, "--id", id)
 	return cmd.Start()
 }
@@ -74,6 +75,7 @@ func (a *FirecrackerAdapter) Start(ctx context.Context, id string) error {
 // Stop stops the Firecracker microVM.
 func (a *FirecrackerAdapter) Stop(ctx context.Context, id string) error {
 	// Send shutdown via API socket or kill the process
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, "pkill", "-f", "firecracker.*"+id)
 	return cmd.Run()
 }

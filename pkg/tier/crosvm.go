@@ -55,6 +55,7 @@ func (a *CrosvmAdapter) Start(ctx context.Context, id string) error {
 		"-s", "/tmp/" + id + ".serial",
 		"--rwdisk", "/tmp/" + id + ".img",
 	}
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, a.binary, args...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("crosvm start %s: %w: %s", id, err, string(out))
@@ -64,6 +65,7 @@ func (a *CrosvmAdapter) Start(ctx context.Context, id string) error {
 
 // Stop terminates the crosvm VM via pkill.
 func (a *CrosvmAdapter) Stop(ctx context.Context, id string) error {
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, "pkill", "-f", "crosvm.*"+id)
 	return cmd.Run()
 }

@@ -72,6 +72,7 @@ func (a *QEMUAdapter) Start(ctx context.Context, id string) error {
 		"-nographic",
 		"-m", "512",
 	}
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, bin, args...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("qemu start %s: %w: %s", id, err, string(out))
@@ -81,6 +82,7 @@ func (a *QEMUAdapter) Start(ctx context.Context, id string) error {
 
 // Stop terminates the QEMU VM via pkill.
 func (a *QEMUAdapter) Stop(ctx context.Context, id string) error {
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, "pkill", "-f", "qemu.*-name "+id)
 	return cmd.Run()
 }

@@ -53,6 +53,7 @@ func (a *YoukiAdapter) Deploy(ctx context.Context, config domain.SandboxConfig) 
 
 // Start launches the container via `youki run`.
 func (a *YoukiAdapter) Start(ctx context.Context, id string) error {
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, a.binary, "run", "--bundle", "/run/youki/"+id, id)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("youki start %s: %w: %s", id, err, string(out))
@@ -62,6 +63,7 @@ func (a *YoukiAdapter) Start(ctx context.Context, id string) error {
 
 // Stop sends the kill signal to the container via `youki kill`.
 func (a *YoukiAdapter) Stop(ctx context.Context, id string) error {
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, a.binary, "kill", id)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("youki kill %s: %w: %s", id, err, string(out))
@@ -71,6 +73,7 @@ func (a *YoukiAdapter) Stop(ctx context.Context, id string) error {
 
 // Delete removes the container via `youki delete`.
 func (a *YoukiAdapter) Delete(ctx context.Context, id string) error {
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, a.binary, "delete", id)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("youki delete %s: %w: %s", id, err, string(out))
