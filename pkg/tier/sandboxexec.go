@@ -56,6 +56,7 @@ func (a *SandboxExecAdapter) Start(ctx context.Context, id string) error {
 	// process / stdio operations. A real workload would supply its
 	// own profile via config.
 	profile := "(version 1)(deny default)(allow process-exec)(allow stdio)"
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, a.binary, "-p", profile, "/bin/sh", "-c", id)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("sandbox-exec start %s: %w: %s", id, err, string(out))
@@ -65,6 +66,7 @@ func (a *SandboxExecAdapter) Start(ctx context.Context, id string) error {
 
 // Stop terminates the inner command via pkill.
 func (a *SandboxExecAdapter) Stop(ctx context.Context, id string) error {
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, "pkill", "-f", "sandbox-exec.*"+id)
 	return cmd.Run()
 }

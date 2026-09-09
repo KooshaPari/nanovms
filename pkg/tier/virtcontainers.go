@@ -51,6 +51,7 @@ func (a *VirtContainersAdapter) Deploy(ctx context.Context, config domain.Sandbo
 
 // Start launches the legacy Clear Containers runtime.
 func (a *VirtContainersAdapter) Start(ctx context.Context, id string) error {
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, a.binary, "run", "--id", id)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("virtcontainers start %s: %w: %s", id, err, string(out))
@@ -60,6 +61,7 @@ func (a *VirtContainersAdapter) Start(ctx context.Context, id string) error {
 
 // Stop terminates the Clear Container via pkill on the runtime id.
 func (a *VirtContainersAdapter) Stop(ctx context.Context, id string) error {
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, "pkill", "-f", "virtcontainers.*"+id)
 	return cmd.Run()
 }

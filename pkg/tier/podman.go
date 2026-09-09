@@ -51,6 +51,7 @@ func (a *PodmanAdapter) Deploy(ctx context.Context, config domain.SandboxConfig)
 
 // Start launches the container via `podman start`.
 func (a *PodmanAdapter) Start(ctx context.Context, id string) error {
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, a.binary, "start", id)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("podman start %s: %w: %s", id, err, string(out))
@@ -60,6 +61,7 @@ func (a *PodmanAdapter) Start(ctx context.Context, id string) error {
 
 // Stop terminates the container via `podman stop`.
 func (a *PodmanAdapter) Stop(ctx context.Context, id string) error {
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, a.binary, "stop", id)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("podman stop %s: %w: %s", id, err, string(out))
@@ -69,6 +71,7 @@ func (a *PodmanAdapter) Stop(ctx context.Context, id string) error {
 
 // Delete removes the container via `podman rm -f`.
 func (a *PodmanAdapter) Delete(ctx context.Context, id string) error {
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, a.binary, "rm", "-f", id)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("podman rm %s: %w: %s", id, err, string(out))
@@ -88,6 +91,7 @@ func (a *PodmanAdapter) Probe(ctx context.Context) error {
 	}
 	probeCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(probeCtx, a.binary, "ps", "--all", "--noheading")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		if probeCtx.Err() != nil {

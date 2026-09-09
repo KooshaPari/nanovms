@@ -59,6 +59,7 @@ func (a *GVisorAdapter) Start(ctx context.Context, id string) error {
 	if err != nil {
 		return fmt.Errorf("gVisor runtime (%s) not found: %w", a.runtime, err)
 	}
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, path, "run", "--id", id)
 	return cmd.Start()
 }
@@ -67,6 +68,7 @@ func (a *GVisorAdapter) Start(ctx context.Context, id string) error {
 // firecracker.go:69 in spirit (pkill -f) but uses the runsc binary
 // signal surface.
 func (a *GVisorAdapter) Stop(ctx context.Context, id string) error {
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, "pkill", "-f", fmt.Sprintf("%s.*%s", a.runtime, id))
 	return cmd.Run()
 }

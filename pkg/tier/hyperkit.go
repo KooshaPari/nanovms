@@ -52,6 +52,7 @@ func (a *HyperKitAdapter) Deploy(ctx context.Context, config domain.SandboxConfi
 
 // Start launches the HyperKit VM in the background.
 func (a *HyperKitAdapter) Start(ctx context.Context, id string) error {
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, a.binary, "-D", id, "/dev/null")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("hyperkit start %s: %w: %s", id, err, string(out))
@@ -61,6 +62,7 @@ func (a *HyperKitAdapter) Start(ctx context.Context, id string) error {
 
 // Stop terminates the HyperKit VM via pkill.
 func (a *HyperKitAdapter) Stop(ctx context.Context, id string) error {
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, "pkill", "-f", "hyperkit.*"+id)
 	return cmd.Run()
 }

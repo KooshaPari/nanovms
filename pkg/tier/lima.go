@@ -64,6 +64,7 @@ func (a *LimaAdapter) Start(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, bin, "start", id)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("lima start %s: %w: %s", id, err, string(out))
@@ -77,6 +78,7 @@ func (a *LimaAdapter) Stop(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, bin, "stop", id)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("lima stop %s: %w: %s", id, err, string(out))
@@ -90,6 +92,7 @@ func (a *LimaAdapter) Delete(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
+	//#nosec G204 -- path from exec.LookPath
 	cmd := exec.CommandContext(ctx, bin, "delete", "-f", id)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("lima delete %s: %w: %s", id, err, string(out))
