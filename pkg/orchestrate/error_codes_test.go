@@ -38,6 +38,12 @@ func TestEvaluationErrorCodeCatalogComplete(t *testing.T) {
 	}
 	dir := filepath.Dir(thisFile)
 	fset := token.NewFileSet()
+	// parser.ParseDir is deprecated as of Go 1.25 (SA1019). The stdlib
+	// replacement (parser.ParseFS) is not available until Go 1.26, and
+	// this repo pins Go 1.25 in CI. Suppress the deprecation warning
+	// locally rather than add a heavy x/tools dependency to one test
+	// file.
+	//nolint:staticcheck // SA1019: parser.ParseDir deprecated in Go 1.25; no stdlib replacement until Go 1.26
 	pkgs, err := parser.ParseDir(fset, dir, func(info os.FileInfo) bool {
 		name := info.Name()
 		return strings.HasSuffix(name, ".go") && !strings.HasSuffix(name, "_test.go")
