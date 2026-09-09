@@ -190,7 +190,7 @@ func TestToPrometheusDeterministicOrder(t *testing.T) {
 	idxA := strings.Index(out1, "sandbox=\"a\"")
 	idxM := strings.Index(out1, "sandbox=\"m\"")
 	idxZ := strings.Index(out1, "sandbox=\"z\"")
-	if !(idxA < idxM && idxM < idxZ) {
+	if idxA >= idxM || idxM >= idxZ {
 		t.Error("expected alphabetical ordering by sandbox id")
 	}
 }

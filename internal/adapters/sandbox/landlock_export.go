@@ -20,6 +20,9 @@ func BuildLandlockRulesetDefault() (int, error) {
 // LandlockRestrictSelf applies the given Landlock ruleset fd to the calling
 // thread via PR_SET_NO_NEW_PRIVS + LANDLOCK_RESTRICT_SELF, then closes the fd.
 func LandlockRestrictSelf(rulesetFd int) error {
-	defer unix.Close(rulesetFd)
+	defer func() { _ = unix.Close(rulesetFd) }()
+	if err := unix.Prctl(unix.PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0); err != nil {
+		return err
+	}
 	return landlockRestrictSelfStub(rulesetFd)
 }
