@@ -712,6 +712,7 @@ func validateNewJob(request EvaluationRequest, before, after map[string]struct{}
 		return "", candidates, evaluationError(CodeAmbiguousJobOutput, "expected exactly one new job directory, found %d", len(added))
 	}
 	jobDirectory := candidates[0]
+	//#nosec G304 -- jobDirectory from validated candidate lookup; JobLockFilename is a constant
 	data, err := os.ReadFile(filepath.Join(jobDirectory, JobLockFilename))
 	if err != nil {
 		return jobDirectory, candidates, evaluationError(CodeJobLockMismatch, "read job lock: %v", err)

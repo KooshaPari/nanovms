@@ -45,6 +45,7 @@ func (osEvaluationFilesystem) MkdirAll(path string, mode os.FileMode) error {
 }
 
 func (osEvaluationFilesystem) OpenFile(path string, flag int, mode os.FileMode) (*os.File, error) {
+	//#nosec G304 -- intentional filesystem wrapper (path is caller-supplied by design)
 	return os.OpenFile(path, flag, mode)
 }
 
@@ -53,6 +54,7 @@ func (osEvaluationFilesystem) ReadDir(path string) ([]os.DirEntry, error) {
 }
 
 func (osEvaluationFilesystem) ReadFile(path string) ([]byte, error) {
+	//#nosec G304 -- intentional filesystem wrapper (path is caller-supplied by design)
 	return os.ReadFile(path)
 }
 
