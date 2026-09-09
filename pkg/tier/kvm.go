@@ -5,6 +5,7 @@ package tier
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"runtime"
@@ -38,17 +39,16 @@ func NewKVMAdapter() *KVMAdapter {
 	}
 }
 
-// Deploy creates a KVM-backed VM descriptor.
-func (a *KVMAdapter) Deploy(ctx context.Context, config domain.SandboxConfig) (*domain.Sandbox, error) {
-	if err := a.Probe(ctx); err != nil {
-		return nil, err
-	}
-	return newSandbox("kvm", config.Name, domain.SandboxTypeVM, domain.VMFlavorNative, &config), nil
+// Deploy rejects guest creation until a KVM VM implementation is connected.
+// Access to /dev/kvm alone does not create a guest or establish isolation.
+func (a *KVMAdapter) Deploy(_ context.Context, _ domain.SandboxConfig) (*domain.Sandbox, error) {
+	return nil, fmt.Errorf("kvm: guest deployment is not implemented: %w", errors.ErrUnsupported)
 }
 
-// Start opens /dev/kvm and triggers the guest boot via a downstream
-// hypervisor (e.g. QEMU); the integration is left to the caller.
-func (a *KVMAdapter) Start(_ context.Context, _ string) error { return nil }
+// Start must not acknowledge a guest boot that this adapter cannot perform.
+func (a *KVMAdapter) Start(_ context.Context, _ string) error {
+	return fmt.Errorf("kvm: guest startup is not implemented: %w", errors.ErrUnsupported)
+}
 
 // Stop tears the KVM guest down. The actual signalling is hypervisor-
 // specific; we expose a no-op stub that downstream code overrides.

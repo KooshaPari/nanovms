@@ -73,6 +73,48 @@ func TestPolicy_DefaultWindowsMedium(t *testing.T) {
 	}
 }
 
+// TestPolicy_DefaultNeverSelectsKVM asserts that the default policy
+// never surfaces the `kvm` tier, which is registered for Probe /
+// list-info but whose Deploy/Start return errors.ErrUnsupported. The
+// policy must only suggest tiers whose lifecycle is implemented.
+//
+// This guards the regression flagged by codeant-ai on PR #196:
+// removing `kvm` from defaultCandidates ensures that callers following
+// the default policy never see the fail-closed error path.
+func TestPolicy_DefaultNeverSelectsKVM(t *testing.T) {
+	cases := []struct {
+		name string
+		cfg  SelectionConfig
+	}{
+		{"linux-low", SelectionConfig{Security: SecurityLow, Platform: PlatformLinux}},
+		{"linux-medium", SelectionConfig{Security: SecurityMedium, Platform: PlatformLinux}},
+		{"linux-high", SelectionConfig{Security: SecurityHigh, Platform: PlatformLinux}},
+		{"linux-untrusted", SelectionConfig{Security: SecurityUntrusted, Platform: PlatformLinux}},
+		{"linux-high-trusted-tool", SelectionConfig{Security: SecurityHigh, Platform: PlatformLinux, Workload: WorkloadTool, TrustedCode: true}},
+		{"macos-low", SelectionConfig{Security: SecurityLow, Platform: PlatformMacOS}},
+		{"macos-medium", SelectionConfig{Security: SecurityMedium, Platform: PlatformMacOS}},
+		{"macos-high", SelectionConfig{Security: SecurityHigh, Platform: PlatformMacOS}},
+		{"macos-untrusted", SelectionConfig{Security: SecurityUntrusted, Platform: PlatformMacOS}},
+		{"windows-low", SelectionConfig{Security: SecurityLow, Platform: PlatformWindows}},
+		{"windows-medium", SelectionConfig{Security: SecurityMedium, Platform: PlatformWindows}},
+		{"windows-high", SelectionConfig{Security: SecurityHigh, Platform: PlatformWindows}},
+		{"windows-untrusted", SelectionConfig{Security: SecurityUntrusted, Platform: PlatformWindows}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := DefaultPolicy{}.Select(tc.cfg, DefaultRegistry())
+			if err != nil {
+				// An empty result (no candidate fits) is fine; it
+				// still does not surface `kvm`.
+				return
+			}
+			if got == "kvm" {
+				t.Fatalf("default policy selected %q for %+v; kvm.Deploy returns errors.ErrUnsupported", got, tc.cfg)
+			}
+		})
+	}
+}
+
 // TestPolicy_StartupBudget_FailsWhenUnsatisfiable verifies that a
 // tight budget that excludes every candidate returns a clear error
 // mentioning the budget value. Note: with the new tiers the linux+high

@@ -74,7 +74,7 @@ type SelectionPolicy interface {
 //
 //	security=low       : native, landlock, seccomp
 //	security=medium    : gvisor, seccomp
-//	security=high      : firecracker, kvm, applevz
+//	security=high      : firecracker, applevz (Linux: + cloudhv, crosvm, qemu, distroless)
 //	security=untrusted : firecracker, qemu, cloudhv
 //
 // Platform fallbacks:
@@ -88,6 +88,12 @@ type SelectionPolicy interface {
 // Workload hint narrows the candidate set: a "browser" workload with
 // security=high prefers gvisor (full syscall mediation) over firecracker
 // (faster) when the budget allows it.
+//
+// Note: the `kvm` tier is registered for Probe / list-info but is
+// deliberately excluded from defaultCandidates because its Deploy/Start
+// return errors.ErrUnsupported. Selecting a tier that the adapter cannot
+// honor would surface an unhelpful error to the caller; the policy must
+// only suggest tiers whose lifecycle is implemented.
 type DefaultPolicy struct{}
 
 // Select implements SelectionPolicy.
@@ -212,9 +218,9 @@ func defaultCandidates(security SecurityLevel, platform Platform, workload Workl
 		case SecurityMedium:
 			order = []string{"landlock", "seccomp", "userns", "gvisor", "youki", "systemdnspawn", "wolfi", "wasm", "docker", "podman", "gvisordocker"}
 		case SecurityHigh:
-			order = []string{"firecracker", "kvm", "cloudhv", "crosvm", "qemu", "kata", "kubevirt", "distroless", "virtcontainers"}
+			order = []string{"firecracker", "cloudhv", "crosvm", "qemu", "kata", "kubevirt", "distroless", "virtcontainers"}
 		case SecurityUntrusted:
-			order = []string{"firecracker", "qemu", "kvm", "cloudhv", "sev", "tdx", "nitrorekf", "kubevirt"}
+			order = []string{"firecracker", "qemu", "cloudhv", "sev", "tdx", "nitrorekf", "kubevirt"}
 		}
 	}
 
