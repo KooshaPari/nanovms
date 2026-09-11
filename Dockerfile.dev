@@ -2,7 +2,7 @@
 # Go 1.25 + Rust stable, with dev tools, linters, and test runners.
 # Usage: docker compose -f docker-compose.dev.yml up --build
 
-FROM golang:1.25-bookworm AS base
+FROM golang:1.27-bookworm AS base
 
 # ── System dependencies ───────────────────────────────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
