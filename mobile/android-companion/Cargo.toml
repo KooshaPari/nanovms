@@ -18,8 +18,8 @@ default = []
 jni-bridge = ["dep:ndk", "dep:jni"]
 
 [dependencies]
-ndk = { version = "0.8", optional = true, default-features = false }
-jni = { version = "0.21", optional = true }
+ndk = { version = "0.9", optional = true, default-features = false }
+jni = { version = "0.22", optional = true }
 
 [lib]
 crate-type = ["staticlib", "cdylib", "lib"]

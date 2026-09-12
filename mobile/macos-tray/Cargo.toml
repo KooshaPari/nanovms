@@ -17,7 +17,7 @@ default = []
 native-bridge = ["swift-rs"]
 
 [dependencies]
-swift-rs = { version = "0.1", optional = true }
+swift-rs = { version = "1.0", optional = true }
 
 [build-dependencies]
 # swift-rs requires a `build.rs` that runs `swiftc` and emits a static lib.

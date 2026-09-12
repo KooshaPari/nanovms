@@ -26,7 +26,7 @@ service = ["dep:windows", "dep:windows-sys"]
 # service-mode event log writer.
 # `Win32_Foundation` for the basic Win32 types (HRESULT, LRESULT, etc.).
 # `Win32_Security` reserved for follow-up ACL wiring on the SCM handle.
-windows = { version = "0.58", features = [
+windows = { version = "0.62", features = [
     "Win32_System_Services",
     "Win32_System_EventLog",
     "Win32_Foundation",
@@ -36,7 +36,7 @@ windows = { version = "0.58", features = [
 # `windows-sys` is the lower-level raw FFI mirror of `windows`. Included so
 # follow-up PRs that need direct FFI (e.g. some SCM callbacks) have it
 # available without re-declaring the dep.
-windows-sys = { version = "0.59", features = [
+windows-sys = { version = "0.61", features = [
     "Win32_System_Services",
     "Win32_Foundation",
 ], optional = true }
